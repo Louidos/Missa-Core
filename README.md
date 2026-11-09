@@ -10,6 +10,7 @@ Jede App verbindet sich nur mit der API von Missa-Core.
 - Version: noch keine veröffentlicht
 - Fertig: OpenAI-kompatible API (`/v1/chat/completions`, `/v1/models`, `/health`)
   mit Charakter, Werkzeug-Schleife und Gesprächsverlauf
+- Fertig: Nextcloud-Kalender (Termine anzeigen, eintragen, nach Bestätigung löschen)
 - Weitere Funktionen folgen schrittweise (siehe [CHANGELOG.md](CHANGELOG.md)).
 
 ## Voraussetzungen
