@@ -12,6 +12,8 @@ Jede App verbindet sich nur mit der API von Missa-Core.
   mit Charakter, Werkzeug-Schleife und Gesprächsverlauf
 - Fertig: Nextcloud-Kalender (Termine anzeigen, eintragen, nach Bestätigung löschen)
 - Fertig: Nextcloud-Aufgaben (anzeigen, erstellen, abhaken, nach Bestätigung löschen)
+- Fertig: Gedächtnis (merken, erinnern, vergessen; passende Fakten automatisch im Kontext;
+  Übersicht unter `GET /api/gedaechtnis`)
 - Weitere Funktionen folgen schrittweise (siehe [CHANGELOG.md](CHANGELOG.md)).
 
 ## Voraussetzungen

@@ -21,3 +21,7 @@ die Versionsnummern folgen [Semantic Versioning](https://semver.org/lang/de/).
   anzeigen, neue Aufgaben mit Fälligkeit, Priorität und Notiz anlegen, Aufgaben
   abhaken und – nach deinem Ja – löschen; alles erscheint direkt in der
   Nextcloud-App „Aufgaben“ (#4)
+- Missa merkt sich Wichtiges über dich: Auf „Merk dir …“ speichert sie den Fakt
+  dauerhaft, findet passende Fakten bei jeder Frage von selbst wieder (auch in
+  neuen Gesprächen), vergisst etwas erst nach deinem Ja, und unter
+  `GET /api/gedaechtnis` kannst du alles Gespeicherte prüfen (#5)

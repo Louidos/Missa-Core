@@ -81,3 +81,12 @@ def test_aufgaben_liste_aus_umgebung():
         ).nextcloud_aufgaben_liste
         == "Aufgaben"
     )
+
+
+def test_gedaechtnis_werkzeuge_wenn_uebergeben(tmp_path):
+    from missa.tools.gedaechtnis import Gedaechtnis
+
+    e = Einstellungen(daten=tmp_path)
+    assert "merken" not in namen(e)
+    geladen = [w.name for w in werkzeuge_laden(e, Gedaechtnis(e.datenbank, e.zone))]
+    assert {"merken", "erinnern", "vergessen"} <= set(geladen)
