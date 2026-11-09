@@ -1,0 +1,33 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+build/
+dist/
+.pytest_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+# Virtuelle Umgebungen
+.venv/
+venv/
+
+# Geheimnisse und lokale Konfiguration – nie committen
+.env
+*.env
+!config/*.env.example
+*.key
+
+# Laufzeitdaten
+data/
+*.db
+*.db-journal
+*.db-wal
+*.db-shm
+
+# Editoren und Betriebssystem
+.idea/
+.vscode/
+*.swp
+.DS_Store
