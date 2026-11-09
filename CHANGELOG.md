@@ -7,6 +7,10 @@ die Versionsnummern folgen [Semantic Versioning](https://semver.org/lang/de/).
 
 ## Unveröffentlicht
 
+## 0.1.0 – 2026-11-09
+
+Erste Version von Missa-Core.
+
 ### Hinzugefügt
 
 - Missa antwortet über eine eigene API mit ihrem Charakter: OpenAI-kompatible
