@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import logging
 from collections.abc import Iterable
-from datetime import datetime, timedelta
+from datetime import date, datetime, timedelta
 from pathlib import Path
 
 log = logging.getLogger(__name__)
@@ -45,7 +45,7 @@ def charakter_lesen(pfad: Path) -> str:
     return text
 
 
-def datum_lang(tag: datetime) -> str:
+def datum_lang(tag: date) -> str:
     """z. B. ``Montag, 9. November 2026``."""
     return f"{WOCHENTAGE[tag.weekday()]}, {tag.day}. {MONATE[tag.month - 1]} {tag.year}"
 

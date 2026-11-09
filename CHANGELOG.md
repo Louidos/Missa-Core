@@ -14,3 +14,6 @@ die Versionsnummern folgen [Semantic Versioning](https://semver.org/lang/de/).
   geschützt per Bearer-Token; der Charakter wird bei jeder Anfrage frisch aus
   der Charakterdatei gelesen, Gespräche mit Sitzungs-ID werden gemerkt, und
   `/health` zeigt, ob llama-server erreichbar ist (#2)
+- Missa liest und schreibt Termine im Nextcloud-Kalender: Termine eines Tages
+  oder Zeitraums anzeigen (auch wiederkehrende), neue Termine eintragen und
+  Termine löschen – gelöscht wird erst, nachdem Louis ausdrücklich Ja gesagt hat (#3)

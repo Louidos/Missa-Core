@@ -33,6 +33,15 @@ class Einstellungen:
     llama_api_key_file: Path = Path("/etc/missa/llama.key")
     llama_timeout: float = 600.0
     timezone: str = "Europe/Zurich"
+    nextcloud_url: str = ""
+    nextcloud_user: str = ""
+    nextcloud_app_password: str = ""
+    nextcloud_kalender: str = ""
+
+    @property
+    def nextcloud_konfiguriert(self) -> bool:
+        """``True``, wenn Adresse, Benutzer und App-Passwort für Nextcloud gesetzt sind."""
+        return bool(self.nextcloud_url and self.nextcloud_user and self.nextcloud_app_password)
 
     @property
     def datenbank(self) -> Path:
@@ -71,6 +80,10 @@ class Einstellungen:
             llama_api_key_file=Path(wert("LLAMA_API_KEY_FILE", str(cls.llama_api_key_file))),
             llama_timeout=llama_timeout,
             timezone=wert("TIMEZONE", cls.timezone),
+            nextcloud_url=env.get("NEXTCLOUD_URL", "").strip().rstrip("/"),
+            nextcloud_user=env.get("NEXTCLOUD_USER", "").strip(),
+            nextcloud_app_password=env.get("NEXTCLOUD_APP_PASSWORD", "").strip(),
+            nextcloud_kalender=env.get("NEXTCLOUD_KALENDER", "").strip(),
         )
 
     def pruefen(self) -> None:
