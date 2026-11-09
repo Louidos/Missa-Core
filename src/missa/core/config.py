@@ -37,6 +37,7 @@ class Einstellungen:
     nextcloud_user: str = ""
     nextcloud_app_password: str = ""
     nextcloud_kalender: str = ""
+    nextcloud_aufgaben_liste: str = ""
 
     @property
     def nextcloud_konfiguriert(self) -> bool:
@@ -84,6 +85,7 @@ class Einstellungen:
             nextcloud_user=env.get("NEXTCLOUD_USER", "").strip(),
             nextcloud_app_password=env.get("NEXTCLOUD_APP_PASSWORD", "").strip(),
             nextcloud_kalender=env.get("NEXTCLOUD_KALENDER", "").strip(),
+            nextcloud_aufgaben_liste=env.get("NEXTCLOUD_AUFGABEN_LISTE", "").strip(),
         )
 
     def pruefen(self) -> None:

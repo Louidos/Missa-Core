@@ -53,3 +53,31 @@ def test_nextcloud_variablen_aus_umgebung():
     assert e.nextcloud_url == "https://cloud.example.ch"
     assert e.nextcloud_konfiguriert
     assert e.nextcloud_kalender == "Persönlich"
+
+
+def test_aufgaben_werkzeuge_mit_liste():
+    geladen = namen(
+        Einstellungen(**NEXTCLOUD, nextcloud_kalender="K", nextcloud_aufgaben_liste="Aufgaben")
+    )
+    assert {
+        "aufgaben_anzeigen",
+        "aufgabe_erstellen",
+        "aufgabe_erledigt",
+        "aufgabe_loeschen",
+    } <= set(geladen)
+
+
+def test_ohne_listenname_keine_aufgaben_werkzeuge(caplog):
+    with caplog.at_level(logging.WARNING):
+        geladen = namen(Einstellungen(**NEXTCLOUD, nextcloud_kalender="K"))
+    assert "aufgaben_anzeigen" not in geladen
+    assert "NEXTCLOUD_AUFGABEN_LISTE" in caplog.text
+
+
+def test_aufgaben_liste_aus_umgebung():
+    assert (
+        Einstellungen.aus_umgebung(
+            {"NEXTCLOUD_AUFGABEN_LISTE": " Aufgaben "}
+        ).nextcloud_aufgaben_liste
+        == "Aufgaben"
+    )
