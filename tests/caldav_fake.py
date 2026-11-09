@@ -32,7 +32,7 @@ class FakeObjekt:
     def delete(self) -> None:
         self.sammlung.objekte.remove(self)
 
-    def complete(self) -> None:
+    def complete(self, **_: Any) -> None:
         self.erledigt_aufgerufen = True
         komponente = self.icalendar_component
         komponente["status"] = "COMPLETED"

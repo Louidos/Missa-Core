@@ -17,3 +17,7 @@ die Versionsnummern folgen [Semantic Versioning](https://semver.org/lang/de/).
 - Missa liest und schreibt Termine im Nextcloud-Kalender: Termine eines Tages
   oder Zeitraums anzeigen (auch wiederkehrende), neue Termine eintragen und
   Termine löschen – gelöscht wird erst, nachdem Louis ausdrücklich Ja gesagt hat (#3)
+- Missa verwaltet deine Aufgaben in Nextcloud: offene (oder alle) Aufgaben
+  anzeigen, neue Aufgaben mit Fälligkeit, Priorität und Notiz anlegen, Aufgaben
+  abhaken und – nach deinem Ja – löschen; alles erscheint direkt in der
+  Nextcloud-App „Aufgaben“ (#4)

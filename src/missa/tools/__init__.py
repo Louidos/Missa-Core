@@ -21,6 +21,7 @@ def werkzeuge_laden(einstellungen: Einstellungen) -> Werkzeugkasten:
     bestaetigungen = Bestaetigungen()
 
     if einstellungen.nextcloud_konfiguriert:
+        from missa.tools.aufgaben import aufgaben_werkzeuge
         from missa.tools.kalender import kalender_werkzeuge
         from missa.tools.nextcloud import NextcloudVerbindung
 
@@ -36,6 +37,16 @@ def werkzeuge_laden(einstellungen: Einstellungen) -> Werkzeugkasten:
                 kasten.hinzufuegen(werkzeug)
         else:
             log.warning("NEXTCLOUD_KALENDER ist leer – Kalender-Werkzeuge sind aus")
+        if einstellungen.nextcloud_aufgaben_liste:
+            for werkzeug in aufgaben_werkzeuge(
+                verbindung,
+                einstellungen.nextcloud_aufgaben_liste,
+                einstellungen.zone,
+                bestaetigungen,
+            ):
+                kasten.hinzufuegen(werkzeug)
+        else:
+            log.warning("NEXTCLOUD_AUFGABEN_LISTE ist leer – Aufgaben-Werkzeuge sind aus")
     elif einstellungen.nextcloud_url or einstellungen.nextcloud_user:
         log.warning(
             "Nextcloud ist unvollständig konfiguriert (NEXTCLOUD_URL, NEXTCLOUD_USER und "
