@@ -65,11 +65,13 @@ def create_app(
     uhr: Callable[[], datetime] | None = None,
 ) -> FastAPI:
     """Baut die App. Parameter außer ``einstellungen`` sind vor allem für Tests da."""
-    einstellungen = einstellungen or Einstellungen.aus_umgebung()
-    if werkzeuge is None:
-        from missa.tools import werkzeuge_laden
+    from missa.tools import werkzeuge_laden
+    from missa.tools.gedaechtnis import KATEGORIEN, Gedaechtnis
 
-        werkzeuge = werkzeuge_laden(einstellungen)
+    einstellungen = einstellungen or Einstellungen.aus_umgebung()
+    gedaechtnis = Gedaechtnis(einstellungen.datenbank, einstellungen.zone)
+    if werkzeuge is None:
+        werkzeuge = werkzeuge_laden(einstellungen, gedaechtnis)
 
     llama = LlamaClient(
         einstellungen.llama_url,
@@ -78,7 +80,9 @@ def create_app(
         transport=llama_transport,
     )
     verlauf = Verlauf(einstellungen.datenbank)
-    dienst = ChatDienst(einstellungen, llama, werkzeuge, verlauf, uhr=uhr)
+    dienst = ChatDienst(
+        einstellungen, llama, werkzeuge, verlauf, uhr=uhr, kontext_quellen=[gedaechtnis.kontext]
+    )
     gestartet = int(time.time())
 
     @asynccontextmanager
@@ -100,6 +104,7 @@ def create_app(
     )
     app.state.einstellungen = einstellungen
     app.state.dienst = dienst
+    app.state.gedaechtnis = gedaechtnis
 
     # -------------------------------------------------------------- Fehlerformat
 
@@ -175,6 +180,17 @@ def create_app(
         if modell != MODELL:
             raise HTTPException(status_code=404, detail=f"Unbekanntes Modell: {modell}")
         return modell_info()
+
+    @app.get("/api/gedaechtnis", dependencies=geschuetzt, tags=["Missa"])
+    async def gedaechtnis_anzeigen(kategorie: str | None = None) -> dict[str, Any]:
+        """Alle gespeicherten Fakten (optional nur eine Kategorie), damit Louis sie prüfen kann."""
+        if kategorie is not None and kategorie not in KATEGORIEN:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Unbekannte Kategorie: {kategorie}. Erlaubt: {', '.join(KATEGORIEN)}",
+            )
+        fakten = gedaechtnis.alle(kategorie)
+        return {"anzahl": len(fakten), "fakten": [f.als_dict() for f in fakten]}
 
     @app.post("/v1/chat/completions", dependencies=geschuetzt, tags=["OpenAI"])
     async def chat_completions(
