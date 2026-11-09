@@ -14,26 +14,49 @@ Jede App verbindet sich nur mit der API von Missa-Core.
 - Fertig: Nextcloud-Aufgaben (anzeigen, erstellen, abhaken, nach Bestätigung löschen)
 - Fertig: Gedächtnis (merken, erinnern, vergessen; passende Fakten automatisch im Kontext;
   Übersicht unter `GET /api/gedaechtnis`)
-- Weitere Funktionen folgen schrittweise (siehe [CHANGELOG.md](CHANGELOG.md)).
+- Fertig: systemd-Dienst, Installationsanleitung und API-Doku
+- Später als eigene Aufträge: Telefon, Push, Smart Home
+- Änderungen im Detail: [CHANGELOG.md](CHANGELOG.md)
 
-## Voraussetzungen
+## Dokumentation
 
-- Linux
-- Python 3.13
+- **[docs/installation.md](docs/installation.md)** – Installation auf ai01 als systemd-Dienst
+  unter dem Benutzer `missa`, alle Variablen erklärt
+- **[docs/api.md](docs/api.md)** – alle Endpunkte mit curl-Beispielen und wie sich eine App
+  verbindet (Basis-URL, Bearer-Token, Modell `missa`, Header `X-Missa-Session`)
 
-## Installation (Entwicklung)
+## Installation
+
+Für den Betrieb auf ai01: siehe [docs/installation.md](docs/installation.md). Kurz:
+Code nach `/opt/missa/app`, Python-Umgebung `/opt/missa/venv`, Konfiguration in
+`/etc/missa/missa.env`, Charakter in `/etc/missa/charakter.md`, Dienst aus
+[deploy/missa-core.service](deploy/missa-core.service).
+
+Für die Entwicklung (Python 3.13, Linux):
 
 ```bash
 python3.13 -m venv .venv
+```
+
+```bash
 . .venv/bin/activate
+```
+
+```bash
 pip install -e ".[dev]"
 ```
 
 ## Start
 
-Missa-Core liest seine Einstellungen aus Umgebungsvariablen. Beim Start von Hand
-wird zusätzlich `/etc/missa/missa.env` gelesen (anderer Ort: `MISSA_ENV_DATEI`);
-schon gesetzte Variablen haben Vorrang. Vorlage: [config/missa.env.example](config/missa.env.example),
+Im Betrieb startet systemd den Dienst:
+
+```bash
+sudo systemctl enable --now missa-core
+```
+
+Von Hand liest `missa-core` seine Einstellungen aus Umgebungsvariablen und zusätzlich aus
+`/etc/missa/missa.env` (anderer Ort: `MISSA_ENV_DATEI`; schon gesetzte Variablen haben
+Vorrang). Vorlage: [config/missa.env.example](config/missa.env.example),
 Beispiel-Charakter: [config/charakter.example.md](config/charakter.example.md).
 
 ```bash

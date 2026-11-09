@@ -25,3 +25,6 @@ die Versionsnummern folgen [Semantic Versioning](https://semver.org/lang/de/).
   dauerhaft, findet passende Fakten bei jeder Frage von selbst wieder (auch in
   neuen Gesprächen), vergisst etwas erst nach deinem Ja, und unter
   `GET /api/gedaechtnis` kannst du alles Gespeicherte prüfen (#5)
+- Installationsanleitung, API-Doku und systemd-Dienst: Missa-Core läuft auf ai01
+  als Dienst unter dem Benutzer `missa`, startet nach einem Neustart von selbst,
+  und `docs/api.md` erklärt, wie sich eine App verbindet (#6)

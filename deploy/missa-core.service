@@ -1,0 +1,36 @@
+# systemd-Unit für Missa-Core.
+# Installation: siehe docs/installation.md
+#   sudo install -m 644 deploy/missa-core.service /etc/systemd/system/missa-core.service
+#   sudo systemctl daemon-reload && sudo systemctl enable --now missa-core
+
+[Unit]
+Description=Missa-Core (OpenAI-kompatible API von Missa)
+Documentation=https://github.com/Louidos/Missa-Core/blob/main/docs/installation.md
+# Nur Reihenfolge: llama-server wird nicht mitgestartet oder verändert.
+After=network-online.target llama-server.service
+Wants=network-online.target
+
+[Service]
+Type=exec
+User=missa
+Group=missa
+EnvironmentFile=/etc/missa/missa.env
+WorkingDirectory=/opt/missa/app
+ExecStart=/opt/missa/venv/bin/missa-core
+Restart=on-failure
+RestartSec=5
+
+# Absicherung: Missa-Core darf nur in seinen Datenordner schreiben.
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/opt/missa/data
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+RestrictSUIDSGID=true
+LockPersonality=true
+
+[Install]
+WantedBy=multi-user.target
