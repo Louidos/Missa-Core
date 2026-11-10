@@ -10,7 +10,9 @@ from caldav.lib import error as caldav_fehler
 
 from missa.core.werkzeuge import WerkzeugFehler, aktuelle_anfrage
 from missa.tools.bestaetigung import Bestaetigungen
+from missa.tools.farben import Farbsystem
 from missa.tools.kalender import Kalender, kalender_werkzeuge
+from missa.tools.kalender_protokoll import KalenderProtokoll
 from missa.tools.nextcloud import NextcloudFehler, NextcloudVerbindung, kurz_id
 from tests.caldav_fake import FakeDAV, FakeSammlung, ereignis
 
@@ -33,8 +35,15 @@ def verbindung(dav: FakeDAV) -> NextcloudVerbindung:
 
 
 @pytest.fixture
-def kalender(verbindung: NextcloudVerbindung) -> Kalender:
-    return Kalender(verbindung, "persönlich", ZONE, Bestaetigungen())
+def kalender(verbindung: NextcloudVerbindung, tmp_path) -> Kalender:
+    return Kalender(
+        verbindung,
+        "persönlich",
+        ZONE,
+        Bestaetigungen(),
+        KalenderProtokoll(tmp_path / "missa.db", ZONE),
+        Farbsystem(tmp_path / "missa.db"),
+    )
 
 
 @pytest.fixture(autouse=True)
@@ -256,61 +265,35 @@ def zahnarzt(sammlung) -> str:
     return kurz_id("uid-zahnarzt")
 
 
-def test_loeschen_ohne_bestaetigung_loescht_nicht(kalender, sammlung, zahnarzt):
+@pytest.fixture
+def meeting(sammlung) -> str:
+    """Termin mit einer anderen Person – Änderungen schicken ihr E-Mails."""
+    sammlung.hinzufuegen(
+        ereignis(
+            "uid-meeting",
+            "Meeting",
+            datetime(2026, 11, 13, 10, 0, tzinfo=ZONE),
+            datetime(2026, 11, 13, 11, 0, tzinfo=ZONE),
+            attendee="mailto:chef@example.ch",
+        )
+    )
+    return kurz_id("uid-meeting")
+
+
+def test_loeschen_ohne_rueckfrage(kalender, sammlung, zahnarzt):
     text = kalender.termin_loeschen(zahnarzt)
-    assert text.startswith("NOCH NICHT GELÖSCHT. Frag Louis zuerst")
-    assert "Zahnarzt" in text
-    assert f"termin_id={zahnarzt} und bestaetigt=true" in text
-    assert len(sammlung.objekte) == 1
-
-
-def test_bestaetigung_in_derselben_anfrage_reicht_nicht(kalender, sammlung, zahnarzt):
-    kalender.termin_loeschen(zahnarzt)
-    text = kalender.termin_loeschen(zahnarzt, bestaetigt=True)
-    assert text.startswith("NICHT GELÖSCHT, Louis hat noch nicht zugestimmt.")
-    assert len(sammlung.objekte) == 1
-
-
-def test_bestaetigt_ohne_vorherige_rueckfrage_loescht_nicht(kalender, sammlung, zahnarzt):
-    text = kalender.termin_loeschen(zahnarzt, bestaetigt=True)
-    assert text.startswith("NICHT GELÖSCHT")
-    assert len(sammlung.objekte) == 1
-
-
-def test_loeschen_nach_ja_von_louis(kalender, sammlung, zahnarzt):
-    kalender.termin_loeschen(zahnarzt)
-    neue_anfrage("anfrage-2")  # Louis hat geantwortet: "Ja"
-    text = kalender.termin_loeschen(zahnarzt, bestaetigt=True)
     assert text.startswith("Gelöscht aus dem Kalender „persönlich“:")
+    assert "Zahnarzt" in text
+    assert "rückgängig" in text
     assert sammlung.objekte == []
-
-
-def test_vorschau_in_der_ja_anfrage_bricht_bestaetigung_nicht(kalender, sammlung, zahnarzt):
-    kalender.termin_loeschen(zahnarzt)
-    neue_anfrage("anfrage-2")
-    kalender.termin_loeschen(zahnarzt)  # Modell fragt sicherheitshalber nochmal nach
-    kalender.termin_loeschen(zahnarzt, bestaetigt=True)
-    assert sammlung.objekte == []
-
-
-def test_rueckfrage_laeuft_ab(verbindung, sammlung, zahnarzt):
-    uhr = [0.0]
-    kalender = Kalender(verbindung, "Persönlich", ZONE, Bestaetigungen(60, lambda: uhr[0]))
-    kalender.termin_loeschen(zahnarzt)
-    uhr[0] = 61
-    neue_anfrage("anfrage-2")
-    assert kalender.termin_loeschen(zahnarzt, bestaetigt=True).startswith("NICHT GELÖSCHT")
-    assert len(sammlung.objekte) == 1
 
 
 def test_loeschen_ueber_volle_uid(kalender, sammlung, zahnarzt):
     kalender.termin_loeschen("uid-zahnarzt")
-    neue_anfrage("anfrage-2")
-    kalender.termin_loeschen("uid-zahnarzt", bestaetigt=True)
     assert sammlung.objekte == []
 
 
-def test_wiederkehrender_termin_warnt_vor_serie(kalender, sammlung):
+def test_wiederkehrender_termin_meldet_serie(kalender, sammlung):
     sammlung.hinzufuegen(
         ereignis(
             "serie",
@@ -327,6 +310,83 @@ def test_unbekannte_id(kalender):
         kalender.termin_loeschen("abc12345")
 
 
+# ---------------------------------------------------------------------- Teilnehmer: nur nach Ja
+
+
+def test_loeschen_mit_teilnehmer_fragt_zuerst(kalender, sammlung, meeting):
+    text = kalender.termin_loeschen(meeting)
+    assert text.startswith("NOCH NICHT AUSGEFÜHRT.")
+    assert "chef@example.ch" in text
+    assert len(sammlung.objekte) == 1
+
+
+def test_bestaetigung_in_derselben_anfrage_reicht_nicht(kalender, sammlung, meeting):
+    kalender.termin_loeschen(meeting)
+    text = kalender.termin_loeschen(meeting, bestaetigt=True)
+    assert text.startswith("NICHT AUSGEFÜHRT, Louis hat noch nicht zugestimmt.")
+    assert len(sammlung.objekte) == 1
+
+
+def test_bestaetigt_ohne_vorherige_rueckfrage_reicht_nicht(kalender, sammlung, meeting):
+    assert kalender.termin_loeschen(meeting, bestaetigt=True).startswith("NICHT AUSGEFÜHRT")
+    assert len(sammlung.objekte) == 1
+
+
+def test_loeschen_mit_teilnehmer_nach_ja(kalender, sammlung, meeting):
+    kalender.termin_loeschen(meeting)
+    neue_anfrage("anfrage-2")  # Louis hat geantwortet: "Ja"
+    assert kalender.termin_loeschen(meeting, bestaetigt=True).startswith("Gelöscht")
+    assert sammlung.objekte == []
+
+
+def test_rueckfrage_laeuft_ab(verbindung, sammlung, meeting):
+    uhr = [0.0]
+    kalender = Kalender(verbindung, "Persönlich", ZONE, Bestaetigungen(60, lambda: uhr[0]))
+    kalender.termin_loeschen(meeting)
+    uhr[0] = 61
+    neue_anfrage("anfrage-2")
+    assert kalender.termin_loeschen(meeting, bestaetigt=True).startswith("NICHT AUSGEFÜHRT")
+    assert len(sammlung.objekte) == 1
+
+
+def test_einladung_beim_eintragen_nur_nach_ja(kalender, sammlung):
+    argumente = {
+        "titel": "Projektbesprechung",
+        "start": "2026-11-16T10:00",
+        "teilnehmer": ["Kollegin@Example.ch"],
+    }
+    text = kalender.termin_eintragen(**argumente)
+    assert text.startswith("NOCH NICHT AUSGEFÜHRT.")
+    assert "kollegin@example.ch" in text
+    assert sammlung.objekte == []
+
+    neue_anfrage("anfrage-2")
+    text = kalender.termin_eintragen(**argumente, bestaetigt=True)
+    assert text.startswith("Eingetragen")
+    [objekt] = sammlung.objekte
+    komponente = objekt.icalendar_component
+    assert str(komponente["attendee"]) == "mailto:kollegin@example.ch"
+    assert str(komponente["organizer"]) == "mailto:louis@example.ch"
+
+
+def test_farbe_bei_termin_mit_teilnehmer_ohne_rueckfrage(kalender, sammlung, meeting):
+    """Nur Farbe/Kategorie/Erinnerung ändern schickt niemandem eine Mail."""
+    text = kalender.termin_aendern(meeting, farbe="rot")
+    assert text.startswith("Geändert")
+    assert str(sammlung.objekte[0].icalendar_component["color"]) == "red"
+
+
+def test_verschieben_mit_teilnehmer_fragt(kalender, sammlung, meeting):
+    text = kalender.termin_aendern(meeting, start="2026-11-13T15:00")
+    assert text.startswith("NOCH NICHT AUSGEFÜHRT.")
+    assert sammlung.objekte[0].icalendar_component["dtstart"].dt.hour == 10
+
+
+def test_ungueltige_teilnehmer_adresse(kalender):
+    with pytest.raises(WerkzeugFehler, match="keine E-Mail-Adresse"):
+        kalender.termin_eintragen("X", "2026-11-16T10:00", teilnehmer=["der Chef"])
+
+
 # ---------------------------------------------------------------------- Werkzeug-Schemas
 
 
@@ -335,7 +395,14 @@ def test_werkzeuge_und_schemas(verbindung):
     assert [w.name for w in werkzeuge] == [
         "termine_anzeigen",
         "termin_eintragen",
+        "termin_aendern",
         "termin_loeschen",
+        "kalender_anzeigen",
+        "kalender_anlegen",
+        "kalender_aendern",
+        "farbsystem_festlegen",
+        "kalender_rueckgaengig",
+        "kalender_protokoll",
     ]
     for werkzeug in werkzeuge:
         schema = werkzeug.schema()
@@ -346,7 +413,7 @@ def test_werkzeuge_und_schemas(verbindung):
 # ---------------------------------------------------------------------- über die API
 
 
-def test_loeschen_ueber_die_api_erst_nach_ja(einstellungen, llama, verbindung, sammlung, zahnarzt):
+def test_einladung_ueber_die_api_erst_nach_ja(einstellungen, llama, verbindung, sammlung, meeting):
     from fastapi.testclient import TestClient
 
     from missa.core.app import create_app
@@ -358,22 +425,22 @@ def test_loeschen_ueber_die_api_erst_nach_ja(einstellungen, llama, verbindung, s
     kopf = {"Authorization": f"Bearer {API_KEY}", "X-Missa-Session": "loeschen"}
     llama.antworten = [
         # Anfrage 1: Das Modell versucht, sofort zu löschen.
-        werkzeug_aufruf("termin_loeschen", {"termin_id": zahnarzt}),
-        werkzeug_aufruf("termin_loeschen", {"termin_id": zahnarzt, "bestaetigt": True}, "c2"),
-        text("Soll ich den Zahnarzt-Termin wirklich löschen?"),
+        werkzeug_aufruf("termin_loeschen", {"termin_id": meeting}),
+        werkzeug_aufruf("termin_loeschen", {"termin_id": meeting, "bestaetigt": True}, "c2"),
+        text("Dein Chef bekommt dann eine Absage – soll ich das Meeting wirklich löschen?"),
         # Anfrage 2: Louis hat Ja gesagt.
-        werkzeug_aufruf("termin_loeschen", {"termin_id": zahnarzt, "bestaetigt": True}, "c3"),
-        text("Erledigt, der Termin ist gelöscht."),
+        werkzeug_aufruf("termin_loeschen", {"termin_id": meeting, "bestaetigt": True}, "c3"),
+        text("Erledigt, das Meeting ist gelöscht."),
     ]
     with TestClient(app) as client:
-        frage = {"messages": [{"role": "user", "content": "Lösch den Zahnarzt-Termin"}]}
+        frage = {"messages": [{"role": "user", "content": "Lösch das Meeting"}]}
         client.post("/v1/chat/completions", headers=kopf, json=frage)
         assert len(sammlung.objekte) == 1
-        assert llama.anfragen[2]["messages"][-1]["content"].startswith("NICHT GELÖSCHT")
+        assert llama.anfragen[2]["messages"][-1]["content"].startswith("NICHT AUSGEFÜHRT")
 
         ja = {"messages": [{"role": "user", "content": "Ja"}]}
         antwort = client.post("/v1/chat/completions", headers=kopf, json=ja)
     assert sammlung.objekte == []
     assert (
-        antwort.json()["choices"][0]["message"]["content"] == "Erledigt, der Termin ist gelöscht."
+        antwort.json()["choices"][0]["message"]["content"] == "Erledigt, das Meeting ist gelöscht."
     )

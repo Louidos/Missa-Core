@@ -18,6 +18,7 @@ from zoneinfo import ZoneInfo
 
 import caldav
 import icalendar
+from caldav.elements import dav, ical
 from caldav.lib import error as caldav_fehler
 
 from missa.core.werkzeuge import WerkzeugFehler
@@ -108,6 +109,77 @@ class NextcloudVerbindung:
                 f"In Nextcloud gibt es keinen Kalender bzw. keine Liste „{anzeigename}“. "
                 f"Vorhanden: {', '.join(n for n in namen if n) or 'keine'}"
             )
+
+    # -------------------------------------------------------------- mehrere Kalender
+
+    def alle_sammlungen(self) -> list[tuple[str, Any]]:
+        """Alle Kalender und Listen als (Anzeigename, Sammlung) – frisch von Nextcloud."""
+        with self._sperre, self.fehler_abfangen("Kalender auflisten"):
+            ergebnis = []
+            for kalender in self._verbinden().principal().calendars():
+                name = (kalender.get_display_name() or "").strip()
+                if name:
+                    self._sammlungen[name.casefold()] = kalender
+                    ergebnis.append((name, kalender))
+            return ergebnis
+
+    def kalender_anlegen(self, name: str, farbe_hex: str | None = None) -> Any:
+        """Legt einen neuen Kalender (nur Termine) an."""
+        with self._sperre, self.fehler_abfangen(f"Kalender „{name}“ anlegen"):
+            kalender = (
+                self._verbinden()
+                .principal()
+                .make_calendar(name=name, supported_calendar_component_set=["VEVENT"])
+            )
+            if farbe_hex:
+                kalender.set_properties([ical.CalendarColor(farbe_hex)])
+            self._sammlungen[name.strip().casefold()] = kalender
+            return kalender
+
+    def kalender_aendern(
+        self, kalender: Any, neuer_name: str | None = None, farbe_hex: str | None = None
+    ) -> None:
+        eigenschaften: list[Any] = []
+        if neuer_name:
+            eigenschaften.append(dav.DisplayName(neuer_name))
+        if farbe_hex:
+            eigenschaften.append(ical.CalendarColor(farbe_hex))
+        if not eigenschaften:
+            return
+        with self._sperre, self.fehler_abfangen("Kalender ändern"):
+            kalender.set_properties(eigenschaften)
+            if neuer_name:
+                self._sammlungen.clear()
+
+    def kalender_loeschen(self, kalender: Any) -> None:
+        with self._sperre, self.fehler_abfangen("Kalender löschen"):
+            kalender.delete()
+            self._sammlungen.clear()
+
+    def kalender_farbe(self, kalender: Any) -> str | None:
+        """Farbe eines Kalenders als ``#RRGGBB`` (oder ``None``)."""
+        try:
+            wert = kalender.get_property(ical.CalendarColor())
+        except Exception:
+            log.debug("Kalenderfarbe nicht lesbar", exc_info=True)
+            return None
+        if not wert:
+            return None
+        wert = str(wert).strip()
+        return wert[:7].upper() if wert.startswith("#") else wert
+
+    def eigene_adresse(self) -> str | None:
+        """E-Mail-Adresse von Louis laut Nextcloud (für ORGANIZER bei Einladungen)."""
+        try:
+            with self._sperre:
+                adressen = self._verbinden().principal().calendar_user_address_set()
+        except Exception:
+            log.debug("Kalender-Adresse nicht lesbar", exc_info=True)
+            return None
+        for adresse in adressen or []:
+            if str(adresse).lower().startswith("mailto:"):
+                return str(adresse)[7:]
+        return None
 
 
 # ---------------------------------------------------------------------- Hilfen

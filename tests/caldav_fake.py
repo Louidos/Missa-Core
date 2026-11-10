@@ -6,6 +6,7 @@ from datetime import date, datetime
 from typing import Any
 
 import icalendar
+import recurring_ical_events
 from caldav.lib import error as caldav_fehler
 
 
@@ -29,7 +30,16 @@ class FakeObjekt:
     def uid(self) -> str:
         return str(self.icalendar_component["uid"])
 
+    @property
+    def data(self) -> str:
+        return self.icalendar_instance.to_ical().decode("utf-8")
+
+    @data.setter
+    def data(self, text: str) -> None:
+        self.icalendar_instance = icalendar.Calendar.from_ical(text)
+
     def delete(self) -> None:
+        self.sammlung._pruefen()
         self.sammlung.objekte.remove(self)
 
     def complete(self, **_: Any) -> None:
@@ -38,15 +48,21 @@ class FakeObjekt:
         komponente["status"] = "COMPLETED"
         komponente.add("completed", datetime(2026, 11, 9, 12, 0))
 
-    def save(self) -> None:
-        pass
+    def save(self, **argumente: Any) -> None:
+        self.sammlung._pruefen()
+        self.gespeichert = getattr(self, "gespeichert", 0) + 1
+        self.save_argumente = argumente
 
 
 class FakeSammlung:
     """Ein Kalender oder eine Aufgabenliste."""
 
-    def __init__(self, name: str) -> None:
+    def __init__(self, name: str, farbe: str | None = None, art: str = "VEVENT") -> None:
         self.name = name
+        self.farbe = farbe
+        self.art = art
+        self.geloescht = False
+        self.principal: FakePrincipal | None = None
         self.objekte: list[FakeObjekt] = []
         self.suchen: list[dict[str, Any]] = []
         #: Wenn gesetzt, liefert search() genau diese Objekte (z. B. aufgelöste Serien).
@@ -55,6 +71,26 @@ class FakeSammlung:
 
     def get_display_name(self) -> str:
         return self.name
+
+    def get_supported_components(self) -> list[str]:
+        return [self.art]
+
+    def get_property(self, eigenschaft: Any) -> str | None:
+        return self.farbe
+
+    def set_properties(self, eigenschaften: list[Any]) -> None:
+        self._pruefen()
+        for eigenschaft in eigenschaften:
+            if eigenschaft.tag.endswith("calendar-color"):
+                self.farbe = eigenschaft.value
+            elif eigenschaft.tag.endswith("displayname"):
+                self.name = eigenschaft.value
+
+    def delete(self) -> None:
+        self._pruefen()
+        self.geloescht = True
+        if self.principal is not None:
+            self.principal.sammlungen.remove(self)
 
     def _pruefen(self) -> None:
         if self.fehler:
@@ -85,6 +121,21 @@ class FakeSammlung:
         for objekt in self.objekte:
             komponente = objekt.icalendar_component
             if komponente.name != "VEVENT":
+                continue
+            if start is None or ende is None:
+                treffer.append(objekt)
+                continue
+            if komponente.get("rrule") is not None:
+                vorkommen = recurring_ical_events.of(objekt.icalendar_instance).between(start, ende)
+                if argumente.get("expand"):
+                    for einzeln in vorkommen:
+                        kopie = icalendar.Calendar()
+                        kopie.add("prodid", "-//Test//DE")
+                        kopie.add("version", "2.0")
+                        kopie.add_component(einzeln)
+                        treffer.append(FakeObjekt(kopie, self))
+                elif vorkommen:
+                    treffer.append(objekt)
                 continue
             beginn = komponente["dtstart"].dt
             if not isinstance(beginn, datetime):
@@ -119,10 +170,21 @@ class FakeSammlung:
 
 class FakePrincipal:
     def __init__(self, sammlungen: list[FakeSammlung]) -> None:
-        self._sammlungen = sammlungen
+        self.sammlungen = sammlungen
+        for sammlung in sammlungen:
+            sammlung.principal = self
 
     def calendars(self) -> list[FakeSammlung]:
-        return list(self._sammlungen)
+        return list(self.sammlungen)
+
+    def make_calendar(self, name: str, **_: Any) -> FakeSammlung:
+        neu = FakeSammlung(name)
+        neu.principal = self
+        self.sammlungen.append(neu)
+        return neu
+
+    def calendar_user_address_set(self) -> list[str]:
+        return ["mailto:louis@example.ch", "/remote.php/dav/principals/users/louis/"]
 
 
 class FakeDAV:

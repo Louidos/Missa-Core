@@ -58,8 +58,16 @@ def werkzeuge_laden(
             einstellungen.nextcloud_app_password,
         )
         if einstellungen.nextcloud_kalender:
+            from missa.tools.farben import Farbsystem
+            from missa.tools.kalender_protokoll import KalenderProtokoll
+
             for werkzeug in kalender_werkzeuge(
-                verbindung, einstellungen.nextcloud_kalender, einstellungen.zone, bestaetigungen
+                verbindung,
+                einstellungen.nextcloud_kalender,
+                einstellungen.zone,
+                bestaetigungen,
+                KalenderProtokoll(einstellungen.datenbank, einstellungen.zone),
+                Farbsystem(einstellungen.datenbank),
             ):
                 kasten.hinzufuegen(werkzeug)
         else:
