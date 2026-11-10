@@ -7,6 +7,8 @@ die Versionsnummern folgen [Semantic Versioning](https://semver.org/lang/de/).
 
 ## Unveröffentlicht
 
+## 0.2.0 – 2026-11-10
+
 ### Hinzugefügt
 
 - Update auf ai01 mit einem Befehl: `sudo ./scripts/update.sh` holt die neueste Version,
