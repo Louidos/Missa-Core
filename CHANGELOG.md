@@ -31,6 +31,13 @@ die Versionsnummern folgen [Semantic Versioning](https://semver.org/lang/de/).
   lässt sich im Chat anpassen („schreib förmlicher an Lehrer“). Einrichtung über die neuen
   `MAIL_*`-Einstellungen (#28)
 
+- Missa erinnert an Geburtstage und daran, dich bei wichtigen Menschen zu melden:
+  Geburtstage aus Nextcloud-Kontakte bekommen eine Erinnerung einige Tage vorher und am Tag
+  selbst (29. Februar in Nicht-Schaltjahren am 28.); „Oma mindestens alle 3 Wochen“ markiert
+  wichtige Kontakte, der letzte Kontakt kommt aus deinen Mails oder aus dem Chat („hab gerade
+  mit Oma telefoniert“), und ist der Abstand überschritten, erinnert Missa freundlich und
+  schlägt einen freien Zeitpunkt im Kalender vor (#29)
+
 ### Geändert
 
 - Termine löscht Missa jetzt ohne Rückfrage – dafür lässt sich jede Löschung rückgängig

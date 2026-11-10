@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
 from missa.core.config import Einstellungen
@@ -13,10 +14,54 @@ from missa.tools.gedaechtnis import Gedaechtnis, gedaechtnis_werkzeuge
 if TYPE_CHECKING:
     from missa.channels.nextcloud_talk import TalkClient
     from missa.core.zeitplaner import Zeitplaner
+    from missa.tools.kalender import Kalender
+    from missa.tools.kontakte import Adressbuch, Kontaktpflege
     from missa.tools.mail import MailDienst
+    from missa.tools.nextcloud import NextcloudVerbindung
     from missa.tools.talk import TalkMelder
 
 log = logging.getLogger(__name__)
+
+
+@dataclass
+class NextcloudDienste:
+    """Gemeinsame Nextcloud-Objekte für Werkzeuge und Hintergrund-Aufträge."""
+
+    verbindung: NextcloudVerbindung
+    kalender: Kalender | None = None
+    adressbuch: Adressbuch | None = None
+
+
+def nextcloud_dienste_bauen(einstellungen: Einstellungen) -> NextcloudDienste:
+    """Verbindung, Standardkalender (mit Protokoll und Farbsystem) und Adressbuch."""
+    from missa.tools.farben import Farbsystem
+    from missa.tools.kalender import Kalender
+    from missa.tools.kalender_protokoll import KalenderProtokoll
+    from missa.tools.kontakte import Adressbuch
+    from missa.tools.nextcloud import NextcloudVerbindung
+
+    verbindung = NextcloudVerbindung(
+        einstellungen.nextcloud_url,
+        einstellungen.nextcloud_user,
+        einstellungen.nextcloud_app_password,
+    )
+    kalender = None
+    if einstellungen.nextcloud_kalender:
+        kalender = Kalender(
+            verbindung,
+            einstellungen.nextcloud_kalender,
+            einstellungen.zone,
+            Bestaetigungen(),
+            KalenderProtokoll(einstellungen.datenbank, einstellungen.zone),
+            Farbsystem(einstellungen.datenbank),
+        )
+    adressbuch = Adressbuch(
+        einstellungen.nextcloud_url,
+        einstellungen.nextcloud_user,
+        einstellungen.nextcloud_app_password,
+        einstellungen.nextcloud_adressbuch,
+    )
+    return NextcloudDienste(verbindung, kalender, adressbuch)
 
 
 def werkzeuge_laden(
@@ -27,6 +72,8 @@ def werkzeuge_laden(
     zeitplaner: Zeitplaner | None = None,
     talk_melder: TalkMelder | None = None,
     mail_dienst: MailDienst | None = None,
+    nextcloud: NextcloudDienste | None = None,
+    kontaktpflege: Kontaktpflege | None = None,
 ) -> Werkzeugkasten:
     """Stellt alle Werkzeuge zusammen, die mit dieser Konfiguration nutzbar sind.
 
@@ -49,6 +96,12 @@ def werkzeuge_laden(
         for werkzeug in erinnerungs_werkzeuge(zeitplaner):
             kasten.hinzufuegen(werkzeug)
 
+    if kontaktpflege is not None:
+        from missa.tools.kontakte import kontakt_werkzeuge
+
+        for werkzeug in kontakt_werkzeuge(kontaktpflege):
+            kasten.hinzufuegen(werkzeug)
+
     if mail_dienst is not None:
         from missa.tools.mail import mail_werkzeuge
 
@@ -58,24 +111,17 @@ def werkzeuge_laden(
     if einstellungen.nextcloud_konfiguriert:
         from missa.tools.aufgaben import aufgaben_werkzeuge
         from missa.tools.kalender import kalender_werkzeuge
-        from missa.tools.nextcloud import NextcloudVerbindung
 
-        verbindung = NextcloudVerbindung(
-            einstellungen.nextcloud_url,
-            einstellungen.nextcloud_user,
-            einstellungen.nextcloud_app_password,
-        )
-        if einstellungen.nextcloud_kalender:
-            from missa.tools.farben import Farbsystem
-            from missa.tools.kalender_protokoll import KalenderProtokoll
-
+        if nextcloud is None:
+            nextcloud = nextcloud_dienste_bauen(einstellungen)
+        verbindung = nextcloud.verbindung
+        if nextcloud.kalender is not None:
             for werkzeug in kalender_werkzeuge(
                 verbindung,
                 einstellungen.nextcloud_kalender,
                 einstellungen.zone,
                 bestaetigungen,
-                KalenderProtokoll(einstellungen.datenbank, einstellungen.zone),
-                Farbsystem(einstellungen.datenbank),
+                kalender=nextcloud.kalender,
             ):
                 kasten.hinzufuegen(werkzeug)
         else:
@@ -144,4 +190,21 @@ def mail_dienst_bauen(einstellungen: Einstellungen, gedaechtnis: Gedaechtnis | N
         Schreibstil(einstellungen.stil_datei),
         einstellungen.zone,
         adressquellen=[gedaechtnis_adressen(gedaechtnis)] if gedaechtnis is not None else [],
+    )
+
+
+def kontaktpflege_bauen(
+    einstellungen: Einstellungen, zeitplaner: Zeitplaner, nextcloud: NextcloudDienste
+) -> Kontaktpflege:
+    """Geburtstage und Kontaktpflege (braucht Nextcloud-Kontakte und den Zeitplaner)."""
+    from missa.tools.kontakte import Kontaktpflege
+
+    return Kontaktpflege(
+        einstellungen.datenbank,
+        einstellungen.zone,
+        zeitplaner,
+        adressbuch=nextcloud.adressbuch,
+        kalender=nextcloud.kalender,
+        vorlauf_tage=einstellungen.kontakte_geburtstag_vorlauf,
+        pruefzeit=einstellungen.kontakte_pruefzeit,
     )

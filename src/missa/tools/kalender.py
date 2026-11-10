@@ -19,6 +19,7 @@ from __future__ import annotations
 import hashlib
 import re
 from collections.abc import Callable
+from dataclasses import dataclass
 from datetime import date, datetime, timedelta
 from typing import Any
 from zoneinfo import ZoneInfo
@@ -63,6 +64,39 @@ KOSMETISCH = frozenset({"farbe", "kategorien", "erinnerungen"})
 
 #: Wird nach jeder Terminänderung mit dem betroffenen Tag aufgerufen (z. B. Pausen-Prüfung).
 NachPruefung = Callable[[date], str | None]
+
+
+@dataclass(frozen=True)
+class Belegung:
+    """Ein Termin als Zeitblock (für freie Zeiten, Puffer und Pausen)."""
+
+    start: datetime
+    ende: datetime
+    titel: str
+    ort: str
+    kalender: str
+    uid: str
+    ganztaegig: bool
+    frei: bool  # TRANSP:TRANSPARENT – blockiert keine Zeit
+    art: str  # X-MISSA-ART bei Blöcken, die Missa selbst eingetragen hat
+
+
+def freie_luecke(
+    belegt: list[Belegung], von: datetime, bis: datetime, dauer: timedelta
+) -> datetime | None:
+    """Beginn der ersten freien Lücke von mindestens ``dauer`` zwischen ``von`` und ``bis``."""
+    zeiger = von
+    for block in sorted(
+        (b for b in belegt if not b.frei and not b.ganztaegig), key=lambda b: b.start
+    ):
+        if block.ende <= zeiger:
+            continue
+        if block.start >= bis:
+            break
+        if block.start - zeiger >= dauer:
+            return zeiger
+        zeiger = max(zeiger, block.ende)
+    return zeiger if bis - zeiger >= dauer else None
 
 
 def zeitraum_text(start: date | datetime, ende: date | datetime) -> str:
@@ -379,6 +413,37 @@ class Kalender:
         eintraege.sort(key=lambda eintrag: eintrag[0])
         zeilen = "\n".join(zeile for _, zeile in eintraege)
         return f"Termine {namen} für {zeitraum}:\n{zeilen}"
+
+    def belegungen(
+        self, start: datetime, ende: datetime, kalender: list[str] | None = None
+    ) -> list[Belegung]:
+        """Alle Termine aus allen (oder den genannten) Kalendern als Zeitblöcke."""
+        gesucht = {k.casefold() for k in kalender} if kalender else None
+        ergebnis = []
+        with self.verbindung.fehler_abfangen("Termine lesen"):
+            for name, sammlung in self.verbindung.alle_sammlungen():
+                if not _hat_termine(sammlung) or (gesucht and name.casefold() not in gesucht):
+                    continue
+                for objekt in sammlung.search(start=start, end=ende, event=True, expand=True):
+                    for komponente in komponenten(objekt, "VEVENT"):
+                        if komponente.get("dtstart") is None:
+                            continue
+                        roh = komponente["dtstart"].dt
+                        ergebnis.append(
+                            Belegung(
+                                start=als_zeitpunkt(roh, self.zone),
+                                ende=als_zeitpunkt(ende_berechnen(komponente, roh), self.zone),
+                                titel=text_feld(komponente, "summary"),
+                                ort=text_feld(komponente, "location"),
+                                kalender=name,
+                                uid=text_feld(komponente, "uid"),
+                                ganztaegig=not isinstance(roh, datetime),
+                                frei=text_feld(komponente, "transp").upper() == "TRANSPARENT",
+                                art=text_feld(komponente, "x-missa-art"),
+                            )
+                        )
+        ergebnis.sort(key=lambda b: (b.start, b.ende))
+        return ergebnis
 
     # -------------------------------------------------------------- Eigenschaften setzen
 

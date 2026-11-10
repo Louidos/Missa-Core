@@ -21,7 +21,7 @@ from missa.core.app import create_app
 from missa.core.werkzeuge import WerkzeugFehler, Werkzeugkasten
 from missa.tools.gedaechtnis import Gedaechtnis
 from missa.tools.mail import MailDienst, gedaechtnis_adressen, mail_werkzeuge, sende_absicht
-from missa.tools.mail_konto import MailFehler, MailKonto, MailKopf, text_aus_mail
+from missa.tools.mail_konto import MailFehler, MailKonto, MailKopf, _datum, text_aus_mail
 from missa.tools.schreibstil import Schreibstil, stil_ableiten
 from tests.conftest import API_KEY, JETZT, sse_lesen, text, werkzeug_aufruf
 
@@ -62,7 +62,7 @@ class FakeKonto:
                 str(m["From"]),
                 str(m["To"]),
                 str(m["Subject"]),
-                "10.11.2026 08:00",
+                _datum(m["Date"]),
                 str(m["Message-ID"]),
             )
             for i, m in reversed(list(enumerate(liste)))

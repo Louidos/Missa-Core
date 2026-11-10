@@ -131,6 +131,9 @@ und das App-Passwort lässt sich jederzeit einzeln widerrufen.
 | `NEXTCLOUD_APP_PASSWORD` | – | für Kalender/Aufgaben | App-Passwort (siehe oben). |
 | `NEXTCLOUD_KALENDER` | – | für Kalender | Anzeigename des Kalenders, so wie er in Nextcloud heißt (Groß/Klein egal). |
 | `NEXTCLOUD_AUFGABEN_LISTE` | – | für Aufgaben | Anzeigename der Liste in der App „Aufgaben“. |
+| `NEXTCLOUD_ADRESSBUCH` | – (alle) | nein | Adressbuch für Geburtstage und Kontaktpflege (Anzeigename, z. B. `Kontakte`). |
+| `KONTAKTE_GEBURTSTAG_VORLAUF` | `3` | nein | So viele Tage vor einem Geburtstag erinnert Missa (zusätzlich am Tag selbst); `0` = nur am Tag. |
+| `KONTAKTE_PRUEFZEIT` | `08:00` | nein | Uhrzeit der täglichen Prüfung von Geburtstagen und Kontaktpflege. |
 | `NC_TALK_ENABLED` | `false` | für Talk | Missa in Nextcloud Talk einschalten. |
 | `NC_TALK_BASE_URL` | – | für Talk | Nextcloud-Adresse wie `overwrite.cli.url` (Prüfung des Absenders). |
 | `NC_TALK_API_URL` | = `NC_TALK_BASE_URL` | nein | Adresse für Antworten an Nextcloud, falls ai01 sie intern anders erreicht. |
