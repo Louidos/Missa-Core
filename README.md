@@ -3,7 +3,8 @@
 Missa ist eine persönliche KI-Assistentin. Missa-Core ist der zentrale Dienst:
 Er spricht als Missa, führt Werkzeuge aus (z. B. Kalender, Aufgaben, Gedächtnis)
 und leitet Anfragen an ein lokal laufendes Sprachmodell (llama-server) weiter.
-Jede App verbindet sich nur mit der API von Missa-Core.
+Jede App verbindet sich nur mit der API von Missa-Core; weitere Kanäle wie Nextcloud
+Talk nutzen dieselbe Logik.
 
 ## Projektstand
 
@@ -16,6 +17,7 @@ Jede App verbindet sich nur mit der API von Missa-Core.
   Übersicht unter `GET /api/gedaechtnis`)
 - Fertig: systemd-Dienst, Installationsanleitung und API-Doku
 - Fertig: Update mit einem Befehl (`sudo ./scripts/update.sh`, mit automatischem Rücksprung)
+- Fertig: Nextcloud Talk als Kanal (nur für erlaubte Accounts, siehe docs/nextcloud-talk.md)
 - Später als eigene Aufträge: Telefon, Push, Smart Home
 - Änderungen im Detail: [CHANGELOG.md](CHANGELOG.md)
 
@@ -27,6 +29,8 @@ Jede App verbindet sich nur mit der API von Missa-Core.
   verbindet (Basis-URL, Bearer-Token, Modell `missa`, Header `X-Missa-Session`)
 - **[docs/update.md](docs/update.md)** – Update auf ai01 mit `sudo ./scripts/update.sh`,
   einmalige Ersteinrichtung, Rücksprung bei Fehlern
+- **[docs/nextcloud-talk.md](docs/nextcloud-talk.md)** – Missa in Nextcloud Talk: Einrichtung,
+  erlaubte Accounts, occ-Befehle, Firewall
 
 ## Installation
 
