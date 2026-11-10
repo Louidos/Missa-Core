@@ -7,6 +7,8 @@ die Versionsnummern folgen [Semantic Versioning](https://semver.org/lang/de/).
 
 ## Unveröffentlicht
 
+## 0.3.0 – 2026-11-10
+
 ### Hinzugefügt
 
 - Missa erinnert dich auf die Minute genau, auch wiederkehrend und nach einem Neustart:
