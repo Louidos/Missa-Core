@@ -14,6 +14,7 @@ from pathlib import Path
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 STANDARD_ENV_DATEI = Path("/etc/missa/missa.env")
+WAHR = frozenset({"1", "true", "ja", "yes", "on", "an"})
 
 
 class KonfigurationsFehler(ValueError):
@@ -38,6 +39,22 @@ class Einstellungen:
     nextcloud_app_password: str = ""
     nextcloud_kalender: str = ""
     nextcloud_aufgaben_liste: str = ""
+    nc_talk_enabled: bool = False
+    nc_talk_base_url: str = ""
+    nc_talk_api_url: str = ""
+    nc_talk_bot_secret: str = ""
+    nc_talk_allowed_users: tuple[str, ...] = ()
+    nc_talk_timeout: float = 300.0
+
+    @property
+    def talk_aktiv(self) -> bool:
+        """Talk ist nur an, wenn eingeschaltet und Adresse und Bot-Secret gesetzt sind."""
+        return bool(self.nc_talk_enabled and self.nc_talk_base_url and self.nc_talk_bot_secret)
+
+    @property
+    def talk_api_url(self) -> str:
+        """Adresse, über die Missa-Core Antworten an Nextcloud schickt."""
+        return self.nc_talk_api_url or self.nc_talk_base_url
 
     @property
     def nextcloud_konfiguriert(self) -> bool:
@@ -70,6 +87,10 @@ class Einstellungen:
             llama_timeout = float(wert("LLAMA_TIMEOUT", "600"))
         except ValueError as fehler:
             raise KonfigurationsFehler("LLAMA_TIMEOUT muss eine Zahl (Sekunden) sein") from fehler
+        try:
+            talk_timeout = float(wert("NC_TALK_TIMEOUT", "300"))
+        except ValueError as fehler:
+            raise KonfigurationsFehler("NC_TALK_TIMEOUT muss eine Zahl (Sekunden) sein") from fehler
 
         return cls(
             host=wert("MISSA_HOST", cls.host),
@@ -86,6 +107,18 @@ class Einstellungen:
             nextcloud_app_password=env.get("NEXTCLOUD_APP_PASSWORD", "").strip(),
             nextcloud_kalender=env.get("NEXTCLOUD_KALENDER", "").strip(),
             nextcloud_aufgaben_liste=env.get("NEXTCLOUD_AUFGABEN_LISTE", "").strip(),
+            nc_talk_enabled=env.get("NC_TALK_ENABLED", "").strip().casefold() in WAHR,
+            nc_talk_base_url=env.get("NC_TALK_BASE_URL", "").strip().rstrip("/"),
+            nc_talk_api_url=env.get("NC_TALK_API_URL", "").strip().rstrip("/"),
+            nc_talk_bot_secret=env.get("NC_TALK_BOT_SECRET", "").strip(),
+            nc_talk_allowed_users=tuple(
+                dict.fromkeys(
+                    teil.strip()
+                    for teil in env.get("NC_TALK_ALLOWED_USERS", "").split(",")
+                    if teil.strip()
+                )
+            ),
+            nc_talk_timeout=talk_timeout if talk_timeout > 0 else 300.0,
         )
 
     def pruefen(self) -> None:

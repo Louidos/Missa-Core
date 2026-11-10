@@ -202,6 +202,13 @@ curl $MISSA/api/gedaechtnis -H "Authorization: Bearer $KEY"
 Fakten löscht man, indem man Missa im Chat bittet, etwas zu vergessen („Vergiss das mit
 dem Kaffee“) und dann bestätigt.
 
+### `POST /channels/nextcloud-talk/webhook` – nur für Nextcloud Talk
+
+Kein Endpunkt für Apps: Hier liefert Nextcloud Talk Nachrichten an Missa (Bot-Webhook).
+Er existiert nur, wenn Talk eingeschaltet ist, und ist nicht per Bearer-Token, sondern per
+HMAC-Signatur mit dem Bot-Secret geschützt. Einrichtung und Ablauf:
+[nextcloud-talk.md](nextcloud-talk.md).
+
 ## Fehler
 
 Alle Fehler kommen im OpenAI-Format `{"error": {"message": "...", "type": "...", "code": ...}}`.

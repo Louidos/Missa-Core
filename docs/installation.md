@@ -131,9 +131,17 @@ und das App-Passwort lässt sich jederzeit einzeln widerrufen.
 | `NEXTCLOUD_APP_PASSWORD` | – | für Kalender/Aufgaben | App-Passwort (siehe oben). |
 | `NEXTCLOUD_KALENDER` | – | für Kalender | Anzeigename des Kalenders, so wie er in Nextcloud heißt (Groß/Klein egal). |
 | `NEXTCLOUD_AUFGABEN_LISTE` | – | für Aufgaben | Anzeigename der Liste in der App „Aufgaben“. |
+| `NC_TALK_ENABLED` | `false` | für Talk | Missa in Nextcloud Talk einschalten. |
+| `NC_TALK_BASE_URL` | – | für Talk | Nextcloud-Adresse wie `overwrite.cli.url` (Prüfung des Absenders). |
+| `NC_TALK_API_URL` | = `NC_TALK_BASE_URL` | nein | Adresse für Antworten an Nextcloud, falls ai01 sie intern anders erreicht. |
+| `NC_TALK_BOT_SECRET` | – | für Talk | Gemeinsames Bot-Secret (40–128 Zeichen). |
+| `NC_TALK_ALLOWED_USERS` | – | für Talk | Nur diese Nextcloud-Benutzer-IDs dürfen mit Missa sprechen (z. B. `louis,admin`); leer = alles ignorieren. |
+| `NC_TALK_TIMEOUT` | `300` | nein | Höchstdauer einer Talk-Antwort in Sekunden. |
 
 Fehlen `NEXTCLOUD_URL`, `NEXTCLOUD_USER` oder `NEXTCLOUD_APP_PASSWORD`, bietet Missa
-keine Kalender- und Aufgaben-Werkzeuge an. Das Gedächtnis ist immer da.
+keine Kalender- und Aufgaben-Werkzeuge an. Das Gedächtnis ist immer da. Nextcloud Talk ist
+nur an, wenn `NC_TALK_ENABLED=true` und Adresse und Secret gesetzt sind – Einrichtung:
+[nextcloud-talk.md](nextcloud-talk.md).
 
 Beim Start von Hand (ohne systemd) liest `missa-core` die Datei `/etc/missa/missa.env`
 selbst; ein anderer Ort geht mit `MISSA_ENV_DATEI=/pfad/zur/datei`. Schon gesetzte

@@ -62,9 +62,11 @@ def create_app(
     *,
     werkzeuge: Werkzeugkasten | None = None,
     llama_transport: httpx.AsyncBaseTransport | None = None,
+    talk_transport: httpx.AsyncBaseTransport | None = None,
     uhr: Callable[[], datetime] | None = None,
 ) -> FastAPI:
     """Baut die App. Parameter außer ``einstellungen`` sind vor allem für Tests da."""
+    from missa.channels.nextcloud_talk import TalkClient, talk_einrichten
     from missa.tools import werkzeuge_laden
     from missa.tools.gedaechtnis import KATEGORIEN, Gedaechtnis
 
@@ -84,6 +86,13 @@ def create_app(
         einstellungen, llama, werkzeuge, verlauf, uhr=uhr, kontext_quellen=[gedaechtnis.kontext]
     )
     gestartet = int(time.time())
+    talk_client = (
+        TalkClient(
+            einstellungen.talk_api_url, einstellungen.nc_talk_bot_secret, transport=talk_transport
+        )
+        if einstellungen.talk_aktiv
+        else None
+    )
 
     @asynccontextmanager
     async def lebenszyklus(_app: FastAPI):
@@ -95,6 +104,8 @@ def create_app(
         )
         yield
         await llama.schliessen()
+        if talk_client is not None:
+            await talk_client.schliessen()
 
     app = FastAPI(
         title="Missa-Core",
@@ -209,5 +220,9 @@ def create_app(
                 headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
             )
         return await dienst.antworten(vorbereitet)
+
+    # -------------------------------------------------------------- Kanäle
+
+    app.state.talk = talk_einrichten(app, einstellungen, dienst, talk_client)
 
     return app
