@@ -107,7 +107,9 @@ Schlüssel, hängt es ihn unten an – mit dem Kommentar aus der Vorlage, dem Be
 
 - Schlüssel, die in der Datei schon stehen – auch auskommentiert (`#NAME=…`) – fasst es nicht an.
 - Am Ende listet es alle ergänzten Schlüssel auf und hebt die leeren hervor:
-  **„Bitte noch ausfüllen“**. Nach dem Ausfüllen: `sudo systemctl restart missa-core`.
+  **„Bitte noch ausfüllen“**. Leere Werte, die in der Vorlage mit `# Optional:` markiert sind,
+  stehen getrennt unter „Optional (darf leer bleiben)“. Nach dem Ausfüllen:
+  `sudo systemctl restart missa-core`.
 - Neue Funktionen sind so gebaut, dass sie mit leeren Werten ausgeschaltet bleiben und den
   Start nicht verhindern (z. B. Nextcloud Talk mit `NC_TALK_ENABLED=false`).
 

@@ -10,8 +10,9 @@ die Versionsnummern folgen [Semantic Versioning](https://semver.org/lang/de/).
 ### Hinzugefügt
 
 - Update auf ai01 mit einem Befehl: `sudo ./scripts/update.sh` holt die neueste Version,
-  zeigt, was neu ist, ergänzt neue Einstellungen (ohne bestehende zu ändern) und springt
-  bei Fehlern automatisch auf die vorherige Version zurück; `--dry-run` zeigt nur an (#16)
+  zeigt, was neu ist, ergänzt neue Einstellungen (ohne bestehende zu ändern), listet auf,
+  was du noch ausfüllen musst und was optional ist, und springt bei Fehlern automatisch auf
+  die vorherige Version zurück; `--dry-run` zeigt nur an (#16)
 - Missa ist per Nextcloud Talk erreichbar, nur für deinen Account und den Admin-Account;
   alle anderen werden still ignoriert. Missa zeigt mit 👀, dass sie arbeitet, antwortet
   als Zitat-Antwort mit ihrem gewohnten Charakter, Gedächtnis und Werkzeugen und teilt
