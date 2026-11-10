@@ -15,6 +15,7 @@ Jede App verbindet sich nur mit der API von Missa-Core.
 - Fertig: Gedächtnis (merken, erinnern, vergessen; passende Fakten automatisch im Kontext;
   Übersicht unter `GET /api/gedaechtnis`)
 - Fertig: systemd-Dienst, Installationsanleitung und API-Doku
+- Fertig: Update mit einem Befehl (`sudo ./scripts/update.sh`, mit automatischem Rücksprung)
 - Später als eigene Aufträge: Telefon, Push, Smart Home
 - Änderungen im Detail: [CHANGELOG.md](CHANGELOG.md)
 
@@ -24,6 +25,8 @@ Jede App verbindet sich nur mit der API von Missa-Core.
   unter dem Benutzer `missa`, alle Variablen erklärt
 - **[docs/api.md](docs/api.md)** – alle Endpunkte mit curl-Beispielen und wie sich eine App
   verbindet (Basis-URL, Bearer-Token, Modell `missa`, Header `X-Missa-Session`)
+- **[docs/update.md](docs/update.md)** – Update auf ai01 mit `sudo ./scripts/update.sh`,
+  einmalige Ersteinrichtung, Rücksprung bei Fehlern
 
 ## Installation
 
@@ -45,6 +48,16 @@ python3.13 -m venv .venv
 ```bash
 pip install -e ".[dev]"
 ```
+
+## Update
+
+Auf ai01 (Einzelheiten und einmalige Ersteinrichtung: [docs/update.md](docs/update.md)):
+
+```bash
+sudo /opt/missa/app/scripts/update.sh
+```
+
+Nur anschauen, was passieren würde: `./scripts/update.sh --dry-run`.
 
 ## Start
 

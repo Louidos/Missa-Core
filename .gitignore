@@ -19,8 +19,9 @@ venv/
 !config/*.env.example
 *.key
 
-# Laufzeitdaten
+# Laufzeitdaten und Logs
 data/
+logs/
 *.db
 *.db-journal
 *.db-wal
