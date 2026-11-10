@@ -76,6 +76,8 @@ NC_TALK_ENABLED=false
 NC_TALK_BOT_SECRET=
 # Nur diese Accounts dürfen mit Missa sprechen.
 NC_TALK_ALLOWED_USERS=
+# Optional: andere Adresse für Antworten.
+NC_TALK_API_URL=
 NC_TALK_TIMEOUT=300
 """
 )
@@ -283,9 +285,11 @@ def test_neue_einstellungen_werden_ergaenzt_ohne_bestehende_zu_aendern(welt: Wel
     for schon_da in ("MISSA_API_KEY", "MISSA_PORT", "NEXTCLOUD_URL"):
         assert f"{schon_da}=" not in neu
     # Liste am Ende: was noch auszufüllen ist
-    rest = ergebnis.stdout.split("Bitte noch ausfüllen")[1]
-    assert "NC_TALK_BOT_SECRET" in rest and "NC_TALK_ALLOWED_USERS" in rest
-    assert "NC_TALK_ENABLED" not in rest
+    pflicht, optional = ergebnis.stdout.split("Bitte noch ausfüllen")[1].split("Optional (darf")
+    assert "NC_TALK_BOT_SECRET" in pflicht and "NC_TALK_ALLOWED_USERS" in pflicht
+    assert "NC_TALK_API_URL" not in pflicht
+    assert "NC_TALK_API_URL" in optional
+    assert "NC_TALK_ENABLED" not in pflicht + optional  # hat einen Wert (false)
     # Sicherungskopie der alten Datei
     assert list(welt.env_datei.parent.glob("missa.env.vor-update-*"))
 

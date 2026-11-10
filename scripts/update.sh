@@ -45,6 +45,7 @@ ZIEL_VERSION=""
 IN_ARBEIT=0       # 1, sobald etwas verändert wurde (dann ist ein Rücksprung möglich)
 NEUE_SCHLUESSEL=()
 LEERE_SCHLUESSEL=()
+OPTIONALE_SCHLUESSEL=()
 
 # ----------------------------------------------------------------------------- Ausgabe
 farben_setzen() {
@@ -350,6 +351,15 @@ fehlende_schluessel() {
     done < <(sed -n 's/^\([A-Z_][A-Z0-9_]*\)=.*/\1/p' "$VORLAGE")
 }
 
+# Kommentarzeilen direkt über einem Schlüssel in der Vorlage.
+vorlage_kommentar() {
+    awk -v k="$1" '
+        /^#/ { block = block $0 "\n"; next }
+        index($0, k "=") == 1 { printf "%s", block; exit }
+        { block = "" }
+    ' "$VORLAGE"
+}
+
 env_ergaenzen() {
     local schluessel fehlend kommentar zeile wert
     fehlend="$(fehlende_schluessel)"
@@ -367,11 +377,7 @@ env_ergaenzen() {
         printf '\n# --- neu in %s (ergänzt von scripts/update.sh am %s) ---\n' "$ZIEL_NAME" "$(date +%Y-%m-%d)"
         while IFS= read -r schluessel; do
             # Kommentarzeilen direkt über dem Schlüssel aus der Vorlage mitnehmen.
-            kommentar="$(awk -v k="$schluessel" '
-                /^#/ { block = block $0 "\n"; next }
-                index($0, k "=") == 1 { printf "%s", block; exit }
-                { block = "" }
-            ' "$VORLAGE")"
+            kommentar="$(vorlage_kommentar "$schluessel")"
             zeile="$(grep -E "^${schluessel}=" "$VORLAGE" | head -n 1)"
             # $(…) entfernt den letzten Zeilenumbruch – darum hier wieder einfügen.
             [[ -n "$kommentar" ]] && kommentar="$kommentar"$'\n'
@@ -382,7 +388,13 @@ env_ergaenzen() {
     while IFS= read -r schluessel; do
         NEUE_SCHLUESSEL+=("$schluessel")
         wert="$(env_wert "$ENV_DATEI" "$schluessel")"
-        [[ -n "$wert" ]] || LEERE_SCHLUESSEL+=("$schluessel")
+        [[ -z "$wert" ]] || continue
+        # Steht in der Vorlage „# Optional: …“, darf der Wert leer bleiben.
+        if vorlage_kommentar "$schluessel" | grep -Eqi '^#[[:space:]]*optional'; then
+            OPTIONALE_SCHLUESSEL+=("$schluessel")
+        else
+            LEERE_SCHLUESSEL+=("$schluessel")
+        fi
     done <<<"$fehlend"
     ok "Neue Einstellungen in $ENV_DATEI ergänzt: ${NEUE_SCHLUESSEL[*]}"
 }
@@ -500,8 +512,16 @@ zusammenfassung() {
         for schluessel in "${LEERE_SCHLUESSEL[@]}"; do
             printf '    %s\n' "${GELB}$schluessel${NORMAL}"
         done
-        printf '%s\n' "Danach: sudo systemctl restart $DIENST"
         ins_log "Noch auszufüllen: ${LEERE_SCHLUESSEL[*]}"
+    fi
+    if [[ ${#OPTIONALE_SCHLUESSEL[@]} -gt 0 ]]; then
+        printf '\n%s\n' "Optional (darf leer bleiben):"
+        for schluessel in "${OPTIONALE_SCHLUESSEL[@]}"; do
+            printf '    %s\n' "$schluessel"
+        done
+    fi
+    if [[ ${#LEERE_SCHLUESSEL[@]} -gt 0 || ${#OPTIONALE_SCHLUESSEL[@]} -gt 0 ]]; then
+        printf '\n%s\n' "Nach dem Ausfüllen: sudo systemctl restart $DIENST"
     fi
 }
 
