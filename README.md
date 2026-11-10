@@ -26,6 +26,8 @@ Talk nutzen dieselbe Logik.
   mit Nachholen nach einem Neustart (siehe docs/erinnerungen.md)
 - Fertig: E-Mail-Entwürfe im eigenen Schreibstil (IMAP/SMTP), gesendet wird nur nach
   ausdrücklichem Ja – die Senden-Sperre steckt im Code (siehe docs/email.md)
+- Fertig: Geburtstage aus Nextcloud-Kontakte (vorher und am Tag) und Kontaktpflege für
+  wichtige Personen mit Vorschlag eines freien Zeitpunkts (siehe docs/kontakte.md)
 - Später als eigene Aufträge: Telefon, Push, Smart Home
 - Änderungen im Detail: [CHANGELOG.md](CHANGELOG.md)
 
@@ -43,6 +45,7 @@ Talk nutzen dieselbe Logik.
   Kalender, Protokoll und Rückgängig, Einladungen
 - **[docs/email.md](docs/email.md)** – E-Mail-Entwürfe im eigenen Stil: Einrichtung
   (`MAIL_*`), Senden-Sperre, Schreibstil-Profil
+- **[docs/kontakte.md](docs/kontakte.md)** – Geburtstage und Kontaktpflege
 - **[docs/erinnerungen.md](docs/erinnerungen.md)** – Erinnerungen: was Missa versteht,
   Wiederholungen, Nachholen nach einem Neustart
 

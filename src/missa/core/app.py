@@ -68,10 +68,17 @@ def create_app(
     uhr: Callable[[], datetime] | None = None,
     zustellung: Zustellung | None = None,
     mail_dienst: Any = None,
+    kontaktpflege: Any = None,
 ) -> FastAPI:
     """Baut die App. Parameter außer ``einstellungen`` sind vor allem für Tests da."""
     from missa.channels.nextcloud_talk import TalkClient, talk_einrichten
-    from missa.tools import mail_dienst_bauen, talk_melder_bauen, werkzeuge_laden
+    from missa.tools import (
+        kontaktpflege_bauen,
+        mail_dienst_bauen,
+        nextcloud_dienste_bauen,
+        talk_melder_bauen,
+        werkzeuge_laden,
+    )
     from missa.tools.erinnerungen import ErinnerungsWerkzeuge
     from missa.tools.gedaechtnis import KATEGORIEN, Gedaechtnis
     from missa.tools.talk import TalkZustellkanal
@@ -93,6 +100,19 @@ def create_app(
     zeitplaner = Zeitplaner(einstellungen.datenbank, einstellungen.zone, zustellung)
     if mail_dienst is None and einstellungen.mail_konfiguriert:
         mail_dienst = mail_dienst_bauen(einstellungen, gedaechtnis)
+    nextcloud = (
+        nextcloud_dienste_bauen(einstellungen) if einstellungen.nextcloud_konfiguriert else None
+    )
+    if kontaktpflege is None and nextcloud is not None:
+        kontaktpflege = kontaktpflege_bauen(einstellungen, zeitplaner, nextcloud)
+    if kontaktpflege is not None:
+        zeitplaner.taeglich(
+            "kontaktpflege", einstellungen.kontakte_pruefzeit, kontaktpflege.taeglich_pruefen
+        )
+        if mail_dienst is not None:
+            kontaktpflege.mail_konto = mail_dienst.konto
+            mail_dienst.adressquellen.insert(0, kontaktpflege.adressen)
+            mail_dienst.nach_senden.append(kontaktpflege.mail_gesendet)
     if werkzeuge is None:
         werkzeuge = werkzeuge_laden(
             einstellungen,
@@ -100,6 +120,8 @@ def create_app(
             zeitplaner=zeitplaner,
             talk_melder=talk_melder,
             mail_dienst=mail_dienst,
+            nextcloud=nextcloud,
+            kontaktpflege=kontaktpflege,
         )
     kontext_quellen = [gedaechtnis.kontext, ErinnerungsWerkzeuge(zeitplaner).kontext]
     eingangs_pruefer = []
@@ -127,6 +149,9 @@ def create_app(
         eingangs_pruefer=eingangs_pruefer,
         nachbearbeiter=nachbearbeiter,
     )
+    if kontaktpflege is not None:
+        # Erinnerungen an wichtige Menschen formuliert Missa in ihrem Charakter.
+        kontaktpflege.formulierer = dienst.formulieren
     gestartet = int(time.time())
 
     @asynccontextmanager
@@ -160,6 +185,7 @@ def create_app(
     app.state.gedaechtnis = gedaechtnis
     app.state.zeitplaner = zeitplaner
     app.state.mail = mail_dienst
+    app.state.kontaktpflege = kontaktpflege
 
     # -------------------------------------------------------------- Fehlerformat
 

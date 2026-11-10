@@ -20,11 +20,12 @@ from __future__ import annotations
 
 import asyncio
 import contextlib
+import inspect
 import logging
 import sqlite3
 import threading
 from collections.abc import Callable
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import UTC, datetime, time, timedelta
 from pathlib import Path
 from typing import Any
@@ -33,7 +34,7 @@ from zoneinfo import ZoneInfo
 from missa.core.datenbank import verbinden
 from missa.core.prompt import datum_lang
 from missa.core.werkzeuge import WerkzeugFehler
-from missa.core.zeitangaben import Wiederholung
+from missa.core.zeitangaben import Wiederholung, wandzeit
 from missa.core.zustellung import ZustellFehler, Zustellung
 
 log = logging.getLogger(__name__)
@@ -57,7 +58,14 @@ CREATE TABLE IF NOT EXISTS erinnerungen (
     herkunft TEXT NOT NULL DEFAULT 'chat'
 );
 CREATE INDEX IF NOT EXISTS erinnerungen_faellig ON erinnerungen (status, faellig);
+CREATE TABLE IF NOT EXISTS zeitplaner_auftraege (
+    name TEXT PRIMARY KEY,
+    letzter_lauf TEXT NOT NULL
+);
 """
+
+#: Ein täglicher Auftrag (z. B. Geburtstage prüfen); darf async sein.
+Auftrag = Callable[[], Any]
 
 #: Ab so viel Verspätung bekommt die Nachricht einen Hinweis.
 TOLERANZ = timedelta(seconds=60)
@@ -143,6 +151,16 @@ class Erinnerung:
         }
 
 
+@dataclass
+class TaeglicherAuftrag:
+    """Läuft einmal am Tag ab ``uhrzeit`` – auch nachgeholt, wenn der Dienst da aus war."""
+
+    name: str
+    uhrzeit: time
+    funktion: Auftrag
+    laeuft: asyncio.Task[Any] | None = field(default=None, repr=False)
+
+
 class Zeitplaner:
     """Speichert Erinnerungen und stellt sie pünktlich zu."""
 
@@ -161,6 +179,7 @@ class Zeitplaner:
         self._loop: asyncio.AbstractEventLoop | None = None
         self._wecker: asyncio.Event | None = None
         self._sperre = threading.Lock()
+        self._auftraege: dict[str, TaeglicherAuftrag] = {}
         with verbinden(datei) as db:
             db.executescript(SCHEMA)
 
@@ -434,6 +453,69 @@ class Zeitplaner:
                     (_utc_text(jetzt), erinnerung.id),
                 )
 
+    # -------------------------------------------------------------- tägliche Aufträge
+
+    def taeglich(self, name: str, uhrzeit: time, funktion: Auftrag) -> None:
+        """Registriert einen Auftrag, der jeden Tag ab ``uhrzeit`` einmal läuft."""
+        self._auftraege[name] = TaeglicherAuftrag(name, uhrzeit, funktion)
+        self.wecken()
+
+    def _letzter_lauf(self, name: str) -> str | None:
+        with verbinden(self.datei) as db:
+            zeile = db.execute(
+                "SELECT letzter_lauf FROM zeitplaner_auftraege WHERE name = ?", (name,)
+            ).fetchone()
+        return zeile["letzter_lauf"] if zeile else None
+
+    def _auftrag_faellig(self, auftrag: TaeglicherAuftrag, jetzt: datetime) -> bool:
+        if jetzt.time() < auftrag.uhrzeit:
+            return False
+        letzter = self._letzter_lauf(auftrag.name)
+        return letzter is None or letzter < jetzt.date().isoformat()
+
+    async def auftraege_ausfuehren(self, warten: bool = False) -> list[str]:
+        """Startet fällige tägliche Aufträge (je Tag einmal). Gibt ihre Namen zurück."""
+        jetzt = self.jetzt()
+        gestartet = []
+        for auftrag in self._auftraege.values():
+            if auftrag.laeuft is not None and not auftrag.laeuft.done():
+                continue
+            if not self._auftrag_faellig(auftrag, jetzt):
+                continue
+            # Erst vermerken, dann laufen: ein fehlerhafter Auftrag läuft nicht in Schleife.
+            with verbinden(self.datei) as db:
+                db.execute(
+                    "INSERT INTO zeitplaner_auftraege (name, letzter_lauf) VALUES (?, ?) "
+                    "ON CONFLICT (name) DO UPDATE SET letzter_lauf = excluded.letzter_lauf",
+                    (auftrag.name, jetzt.date().isoformat()),
+                )
+            auftrag.laeuft = asyncio.create_task(self._auftrag(auftrag), name=auftrag.name)
+            gestartet.append(auftrag.name)
+        if warten:
+            await asyncio.gather(
+                *(a.laeuft for a in self._auftraege.values() if a.laeuft is not None)
+            )
+        return gestartet
+
+    async def _auftrag(self, auftrag: TaeglicherAuftrag) -> None:
+        log.info("Täglicher Auftrag „%s“ startet", auftrag.name)
+        try:
+            if inspect.iscoroutinefunction(auftrag.funktion):
+                await auftrag.funktion()
+            else:
+                await asyncio.to_thread(auftrag.funktion)
+        except Exception:
+            log.exception("Täglicher Auftrag „%s“ ist fehlgeschlagen", auftrag.name)
+        self.wecken()  # er hat vielleicht neue Erinnerungen angelegt
+
+    def _naechster_auftrag(self) -> datetime | None:
+        jetzt = self.jetzt()
+        zeiten = []
+        for auftrag in self._auftraege.values():
+            heute = wandzeit(jetzt.date(), auftrag.uhrzeit, self.zone)
+            zeiten.append(heute if heute > jetzt else heute + timedelta(days=1))
+        return min(zeiten) if zeiten else None
+
     # -------------------------------------------------------------- Hintergrund-Task
 
     def wecken(self) -> None:
@@ -444,7 +526,8 @@ class Zeitplaner:
             self._loop.call_soon_threadsafe(self._wecker.set)
 
     def _schlafzeit(self) -> float:
-        naechste = self.naechste_faelligkeit()
+        kandidaten = [z for z in (self.naechste_faelligkeit(), self._naechster_auftrag()) if z]
+        naechste = min(kandidaten) if kandidaten else None
         if naechste is None:
             return MAX_SCHLAF
         return max(0.0, min(MAX_SCHLAF, (naechste - self.jetzt()).total_seconds()))
@@ -455,6 +538,7 @@ class Zeitplaner:
             self._wecker.clear()
             try:
                 await self.faellige_zustellen()
+                await self.auftraege_ausfuehren()
                 schlaf = self._schlafzeit()
             except Exception:
                 log.exception("Zeitplaner: Fehler in der Schleife")
@@ -478,6 +562,9 @@ class Zeitplaner:
         self._task = asyncio.create_task(self._schleife(), name="missa-zeitplaner")
 
     async def stoppen(self) -> None:
+        for auftrag in self._auftraege.values():
+            if auftrag.laeuft is not None and not auftrag.laeuft.done():
+                auftrag.laeuft.cancel()
         if self._task is None:
             return
         self._task.cancel()

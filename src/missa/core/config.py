@@ -10,6 +10,7 @@ from __future__ import annotations
 import os
 from collections.abc import Mapping, MutableMapping
 from dataclasses import dataclass
+from datetime import time
 from pathlib import Path
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
@@ -57,6 +58,9 @@ class Einstellungen:
     mail_ordner_entwuerfe: str = "Drafts"
     mail_ordner_gesendet: str = "Sent"
     mail_stil_datei: Path | None = None
+    nextcloud_adressbuch: str = ""
+    kontakte_geburtstag_vorlauf: int = 3
+    kontakte_pruefzeit: time = time(8, 0)
 
     @property
     def talk_aktiv(self) -> bool:
@@ -130,6 +134,14 @@ class Einstellungen:
 
         stil = env.get("MAIL_STIL_DATEI", "").strip()
 
+        def uhrzeit(name: str, standard: str) -> time:
+            text = wert(name, standard)
+            try:
+                stunde, _, minute = text.partition(":")
+                return time(int(stunde), int(minute or 0))
+            except ValueError as fehler:
+                raise KonfigurationsFehler(f"{name} muss eine Uhrzeit wie 08:00 sein") from fehler
+
         return cls(
             host=wert("MISSA_HOST", cls.host),
             port=port,
@@ -169,6 +181,9 @@ class Einstellungen:
             mail_ordner_entwuerfe=wert("MAIL_ORDNER_ENTWUERFE", cls.mail_ordner_entwuerfe),
             mail_ordner_gesendet=wert("MAIL_ORDNER_GESENDET", cls.mail_ordner_gesendet),
             mail_stil_datei=Path(stil) if stil else None,
+            nextcloud_adressbuch=env.get("NEXTCLOUD_ADRESSBUCH", "").strip(),
+            kontakte_geburtstag_vorlauf=max(0, zahl("KONTAKTE_GEBURTSTAG_VORLAUF", 3)),
+            kontakte_pruefzeit=uhrzeit("KONTAKTE_PRUEFZEIT", "08:00"),
         )
 
     def pruefen(self) -> None:

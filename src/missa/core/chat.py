@@ -248,6 +248,36 @@ class ChatDienst:
         if vorbereitet.sitzung and vorbereitet.frage and antwort:
             self.verlauf.austausch_speichern(vorbereitet.sitzung, vorbereitet.frage, antwort)
 
+    async def formulieren(self, auftrag: str, ersatz: str) -> str:
+        """Lässt Missa eine Nachricht in ihrem Charakter formulieren (ohne Werkzeuge).
+
+        Für Nachrichten, die Missa von sich aus schickt. Klappt es nicht, kommt ``ersatz``.
+        """
+        system = systemprompt_bauen(
+            charakter=charakter_lesen(self.einstellungen.charakter_datei),
+            jetzt=self._uhr(),
+            werkzeuge="",
+        )
+        nutzlast = {
+            "model": MODELL,
+            "messages": [
+                {"role": "system", "content": system},
+                {
+                    "role": "user",
+                    "content": "(Interner Auftrag des Systems, nicht von Louis.) "
+                    f"{auftrag}\nAntworte nur mit der fertigen Nachricht an Louis.",
+                },
+            ],
+            "max_tokens": 400,
+        }
+        try:
+            antwort = await self.llama.chat(nutzlast)
+            text = text_aus_inhalt(antwort["choices"][0]["message"].get("content")).strip()
+        except (LlamaFehler, KeyError, IndexError, TypeError) as fehler:
+            log.warning("Formulieren fehlgeschlagen, nutze Ersatztext: %s", fehler)
+            return ersatz
+        return text or ersatz
+
     # ------------------------------------------------------------------ ohne Streaming
 
     async def antworten(self, vorbereitet: Vorbereitet) -> dict[str, Any]:
