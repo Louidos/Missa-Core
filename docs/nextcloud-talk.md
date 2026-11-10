@@ -86,6 +86,9 @@ NC_TALK_BOT_SECRET=<der Wert aus Schritt 3>
 # nur diese Accounts dürfen mit Missa sprechen – echte IDs aus Schritt 2:
 NC_TALK_ALLOWED_USERS=louis,admin
 NC_TALK_TIMEOUT=300
+# Token der Unterhaltung „Missa“ (Schritt 6), damit Missa auch von sich aus schreiben kann:
+NC_TALK_NOTIFY_CONVERSATION=
+NC_TALK_NOTIFY_RATE=10
 ```
 
 | Variable | Bedeutung |
@@ -96,6 +99,8 @@ NC_TALK_TIMEOUT=300
 | `NC_TALK_BOT_SECRET` | Gemeinsames Geheimnis des Bots (40–128 Zeichen). Ohne Secret bleibt Talk aus. |
 | `NC_TALK_ALLOWED_USERS` | Kommagetrennte Nextcloud-**Benutzer-IDs**, die mit Missa sprechen dürfen, z. B. `louis,admin`. Exakter Vergleich (Groß/Klein zählt). **Leer = Missa ignoriert alles** (Warnung beim Start). |
 | `NC_TALK_TIMEOUT` | Höchstdauer einer Antwort in Sekunden (Standard 300). |
+| `NC_TALK_NOTIFY_CONVERSATION` | Token der Unterhaltung, in die Missa **von sich aus** schreiben darf (siehe unten). Leer = Missa schreibt nicht von sich aus. |
+| `NC_TALK_NOTIFY_RATE` | Höchstens so viele eigene Nachrichten pro Minute (Standard 10). |
 
 Danach neu starten und im Log prüfen:
 
@@ -154,10 +159,44 @@ sudo -u www-data php /var/www/nextcloud/occ talk:bot:list
 > Darum keine weiteren Personen in die Unterhaltung „Missa“ aufnehmen und sie nicht
 > öffentlich (per Link) teilen.
 
+4. Damit Missa auch von sich aus schreiben kann, denselben Token in `/etc/missa/missa.env`
+   bei `NC_TALK_NOTIFY_CONVERSATION` eintragen und `sudo systemctl restart missa-core`.
+
 ### 7. Ausprobieren
 
 In der Unterhaltung „Missa“ schreiben: „Hallo Missa, was habe ich morgen?“ – nach kurzer Zeit
 erscheint 👀 an der Nachricht, dann die Antwort als Zitat-Antwort, und das 👀 verschwindet.
+
+## Missa schreibt von sich aus
+
+Missa kann auch **ohne vorherige Nachricht** in Talk schreiben – z. B. eine Erinnerung, einen
+Alarm oder eine Zusammenfassung. Dafür hat sie das Werkzeug `talk_nachricht_senden`.
+
+- Sie schreibt **nur** in die Unterhaltung `NC_TALK_NOTIFY_CONVERSATION` (Token aus der
+  Adresse `…/call/<token>`, sinnvollerweise die Unterhaltung „Missa“). Eine andere
+  Unterhaltung kann sie nicht wählen. Der Bot muss dort mit `talk:bot:setup` aktiv sein.
+- Ist kein Token eingetragen, schickt Missa nichts und sagt ehrlich, dass sie nicht von
+  sich aus schreiben kann (Hinweis auch im Log beim Start).
+- **Rate-Limit:** höchstens `NC_TALK_NOTIFY_RATE` Nachrichten pro Minute (Standard 10). Jeder
+  Teil einer sehr langen Nachricht zählt mit. Darüber lehnt das Werkzeug ab, und Missa meldet,
+  wann es wieder geht.
+
+```ini
+NC_TALK_NOTIFY_CONVERSATION=<token der Unterhaltung „Missa“>
+NC_TALK_NOTIFY_RATE=10
+```
+
+Das Werkzeug gibt es nur, wenn Talk eingeschaltet ist. Missa benutzt es, wenn man sie darum
+bittet („Schick mir das bitte per Talk“) oder wenn ein anderes System sie über die API
+anstößt. Beispiel: jeden Morgen um 7 Uhr eine Tagesübersicht (Cronjob auf ai01):
+
+```bash
+curl -s http://127.0.0.1:8000/v1/chat/completions \
+  -H "Authorization: Bearer $MISSA_API_KEY" -H "Content-Type: application/json" \
+  -d '{"model": "missa", "messages": [{"role": "user", "content": "Schau in meinen Kalender für heute und schick mir per Talk eine kurze Übersicht."}]}'
+```
+
+So kann z. B. auch ein Alarmsystem Missa bitten, Louis in Talk Bescheid zu geben.
 
 ## Netzwerk und Firewall (ZyWALL)
 

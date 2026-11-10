@@ -16,6 +16,8 @@ die Versionsnummern folgen [Semantic Versioning](https://semver.org/lang/de/).
   alle anderen werden still ignoriert. Missa zeigt mit 👀, dass sie arbeitet, antwortet
   als Zitat-Antwort mit ihrem gewohnten Charakter, Gedächtnis und Werkzeugen und teilt
   sehr lange Antworten auf (Einrichtung siehe docs/nextcloud-talk.md) (#17)
+- Missa kann dir von sich aus in Nextcloud Talk schreiben, z. B. bei Erinnerungen –
+  nur in die eingestellte Unterhaltung und höchstens 10 Nachrichten pro Minute (#18)
 
 ## 0.1.0 – 2026-11-09
 
