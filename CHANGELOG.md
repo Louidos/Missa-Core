@@ -15,6 +15,18 @@ die Versionsnummern folgen [Semantic Versioning](https://semver.org/lang/de/).
   nach, holt verpasste Erinnerungen nach einem Ausfall mit Hinweis nach, und du kannst
   Erinnerungen im Chat auflisten, ändern, löschen und schlummern („in 10 Minuten nochmal“);
   Zustellung über Nextcloud Talk, Übersicht unter `GET /api/erinnerungen` (#26)
+- Missa verwaltet deinen Kalender komplett selbst, inklusive Farben, eigener Kalender und
+  Rückgängig-Funktion: Termine ändern und verschieben („Verschieb das Meeting morgen auf
+  15 Uhr und mach es rot“), Kategorien mit eigenem Farbsystem, Erinnerungen, Serien samt
+  einzelner Ausnahmen, ganztägige Termine, Kalender anlegen, umbenennen und einfärben; jede
+  Änderung wird mit vorher/nachher protokolliert, lässt sich mit „mach das rückgängig“
+  zurücknehmen und steht unter `GET /api/kalender/protokoll`; Einladungen an andere
+  Personen verschickt sie nur nach deinem Ja (#27)
+
+### Geändert
+
+- Termine löscht Missa jetzt ohne Rückfrage – dafür lässt sich jede Löschung rückgängig
+  machen. Nur wenn andere Personen eine Absage-Mail bekämen, fragt sie weiterhin vorher (#27)
 
 ## 0.2.1 – 2026-11-10
 

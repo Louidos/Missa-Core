@@ -57,6 +57,34 @@ class Bestaetigungen:
             self._offen.pop(schluessel, None)
 
 
+def zustimmung_pruefen(
+    bestaetigungen: Bestaetigungen,
+    schluessel: str,
+    bestaetigt: bool,
+    beschreibung: str,
+    werkzeug: str,
+    parameter: str,
+    frage: str,
+) -> str | None:
+    """Wie :func:`loeschen_pruefen`, aber für beliebige Aktionen (z. B. Einladungen).
+
+    ``frage`` ist der Satz, mit dem Missa Louis fragen soll.
+    """
+    if bestaetigt and bestaetigungen.erlaubt(schluessel):
+        return None
+    bestaetigungen.vormerken(schluessel)
+    grund = (
+        "NICHT AUSGEFÜHRT, Louis hat noch nicht zugestimmt."
+        if bestaetigt
+        else "NOCH NICHT AUSGEFÜHRT."
+    )
+    return (
+        f"{grund} {frage}\n{beschreibung}\n"
+        f"Erst wenn er in seiner nächsten Nachricht ausdrücklich Ja sagt, rufe {werkzeug} "
+        f"mit denselben Angaben ({parameter}) und bestaetigt=true auf."
+    )
+
+
 def loeschen_pruefen(
     bestaetigungen: Bestaetigungen,
     schluessel: str,

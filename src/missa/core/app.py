@@ -239,6 +239,16 @@ def create_app(
             "erinnerungen": [e.als_dict() for e in offene],
         }
 
+    @app.get("/api/kalender/protokoll", dependencies=geschuetzt, tags=["Missa"])
+    async def kalender_protokoll(anzahl: int = 50) -> dict[str, Any]:
+        """Missas letzte Kalenderänderungen mit Zustand vorher/nachher (neueste zuerst)."""
+        from missa.tools.kalender_protokoll import KalenderProtokoll
+
+        liste = KalenderProtokoll(einstellungen.datenbank, einstellungen.zone).liste(
+            max(1, min(anzahl, 500))
+        )
+        return {"anzahl": len(liste), "aenderungen": [a.als_dict() for a in liste]}
+
     @app.post("/v1/chat/completions", dependencies=geschuetzt, tags=["OpenAI"])
     async def chat_completions(
         anfrage: ChatAnfrage,

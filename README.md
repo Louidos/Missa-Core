@@ -11,7 +11,10 @@ Talk nutzen dieselbe Logik.
 - Version: 0.2.1 (2026-11-10)
 - Fertig: OpenAI-kompatible API (`/v1/chat/completions`, `/v1/models`, `/health`)
   mit Charakter, Werkzeug-Schleife und Gesprächsverlauf
-- Fertig: Nextcloud-Kalender (Termine anzeigen, eintragen, nach Bestätigung löschen)
+- Fertig: Nextcloud-Kalender mit voller Kontrolle: Termine anlegen, ändern, verschieben,
+  löschen, Farben, Kategorien, Erinnerungen, Serien mit Ausnahmen, eigene Kalender –
+  alles protokolliert und rückgängig machbar; Einladungen nur nach Rückfrage
+  (siehe docs/kalender.md)
 - Fertig: Nextcloud-Aufgaben (anzeigen, erstellen, abhaken, nach Bestätigung löschen)
 - Fertig: Gedächtnis (merken, erinnern, vergessen; passende Fakten automatisch im Kontext;
   Übersicht unter `GET /api/gedaechtnis`)
@@ -34,6 +37,8 @@ Talk nutzen dieselbe Logik.
   einmalige Ersteinrichtung, Rücksprung bei Fehlern
 - **[docs/nextcloud-talk.md](docs/nextcloud-talk.md)** – Missa in Nextcloud Talk: Einrichtung,
   erlaubte Accounts, occ-Befehle, Firewall
+- **[docs/kalender.md](docs/kalender.md)** – Kalender: ändern, Farben, Serien, eigene
+  Kalender, Protokoll und Rückgängig, Einladungen
 - **[docs/erinnerungen.md](docs/erinnerungen.md)** – Erinnerungen: was Missa versteht,
   Wiederholungen, Nachholen nach einem Neustart
 

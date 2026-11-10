@@ -18,6 +18,7 @@ dependencies = [
     "tzdata>=2024.1",
     "caldav>=3.0,<4",
     "icalendar>=6.1",
+    "recurring-ical-events>=3.3",
 ]
 
 [project.scripts]

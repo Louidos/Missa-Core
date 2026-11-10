@@ -145,10 +145,12 @@ Gut zu wissen:
   Charakter aber nie.
 - **Eigene `tools` der App** werden ignoriert. Missa benutzt nur ihre eigenen Werkzeuge,
   und die führt der Server aus – die App bekommt immer eine fertige Textantwort.
-- **Löschen braucht ein Ja:** Bittet man Missa, einen Termin, eine Aufgabe oder einen Fakt
-  zu löschen, fragt sie zuerst nach. Gelöscht wird erst, wenn in einer *nächsten* Nachricht
-  ein Ja kommt. Dafür muss die App die Sitzung beibehalten (gleiche `X-Missa-Session`) oder
-  den Verlauf mitschicken.
+- **Manches braucht ein Ja:** Bittet man Missa, eine Aufgabe oder einen Fakt zu löschen
+  oder einen Termin zu ändern, bei dem andere Personen eine E-Mail bekämen (Einladung,
+  Änderung, Absage), fragt sie zuerst nach. Ausgeführt wird erst, wenn in einer *nächsten*
+  Nachricht ein Ja kommt. Dafür muss die App die Sitzung beibehalten (gleiche
+  `X-Missa-Session`) oder den Verlauf mitschicken. Eigene Termine ändert und löscht Missa
+  ohne Rückfrage – protokolliert und rückgängig machbar.
 - **Geduld:** Das Modell läuft auf der CPU. Eine Antwort kann einige Sekunden bis Minuten
   dauern, besonders wenn Missa Werkzeuge benutzt. Den Timeout der App (und von Caddy)
   großzügig setzen, z. B. 10 Minuten, oder Streaming verwenden.
@@ -226,6 +228,30 @@ curl $MISSA/api/erinnerungen -H "Authorization: Bearer $KEY"
 
 Anlegen, ändern und löschen geht im Chat („Erinnere mich um 6:30 an Training“), siehe
 [erinnerungen.md](erinnerungen.md).
+
+### `GET /api/kalender/protokoll` – was hat Missa am Kalender geändert?
+
+Alle Kalenderänderungen von Missa, die neueste zuerst (höchstens `?anzahl=50`, bis 500), mit
+dem Zustand vorher und nachher (iCalendar-Text bei Terminen, JSON bei Kalendern). Rückgängig
+machen geht im Chat („mach das rückgängig“), siehe [kalender.md](kalender.md).
+
+```bash
+curl "$MISSA/api/kalender/protokoll?anzahl=10" -H "Authorization: Bearer $KEY"
+```
+
+```json
+{
+  "anzahl": 1,
+  "aenderungen": [
+    {"id": 1, "zeit": "2026-11-10T19:02:11+01:00", "aktion": "termin_geaendert",
+     "kalender": "Persönlich", "uid": "4F2C…", "beschreibung": "Mi 11.11.2026 10:00–11:00: Meeting … → Mi 11.11.2026 15:00–16:00: Meeting | Farbe: rot …",
+     "vorher": "BEGIN:VCALENDAR…", "nachher": "BEGIN:VCALENDAR…", "rueckgaengig": false}
+  ]
+}
+```
+
+`aktion` ist `termin_neu`, `termin_geaendert`, `termin_geloescht`, `kalender_neu` oder
+`kalender_geaendert`.
 
 ### `POST /channels/nextcloud-talk/webhook` – nur für Nextcloud Talk
 
@@ -319,7 +345,7 @@ kennen – man fragt einfach in normaler Sprache.
 
 | Bereich | Beispiel-Fragen | Werkzeuge |
 |---------|-----------------|-----------|
-| Kalender (Nextcloud) | „Was habe ich morgen?“, „Trag mir Freitag 14 Uhr Zahnarzt ein“, „Lösch den Termin“ | `termine_anzeigen`, `termin_eintragen`, `termin_loeschen` |
+| Kalender (Nextcloud) | „Was habe ich morgen?“, „Trag mir Freitag 14 Uhr Zahnarzt ein“, „Verschieb das Meeting auf 15 Uhr und mach es rot“, „Leg einen Kalender Lehre in Grün an“, „Mach das rückgängig“ | `termine_anzeigen`, `termin_eintragen`, `termin_aendern`, `termin_loeschen`, `kalender_anzeigen`, `kalender_anlegen`, `kalender_aendern`, `farbsystem_festlegen`, `kalender_rueckgaengig`, `kalender_protokoll` |
 | Aufgaben (Nextcloud) | „Was steht auf meiner Liste?“, „Schreib auf: Milch kaufen“, „Hab ich erledigt“ | `aufgaben_anzeigen`, `aufgabe_erstellen`, `aufgabe_erledigt`, `aufgabe_loeschen` |
 | Gedächtnis | „Merk dir, dass ich Kaffee ohne Zucker trinke“, „Was weißt du über meine Schwester?“, „Vergiss das“ | `merken`, `erinnern`, `vergessen` |
 | Erinnerungen | „Erinnere mich um 6:30 an Training“, „Jeden Montag um 7 an die Wochenplanung“, „In 10 Minuten nochmal“ | `erinnerung_anlegen`, `erinnerungen_anzeigen`, `erinnerung_aendern`, `erinnerung_loeschen`, `erinnerung_schlummern` |

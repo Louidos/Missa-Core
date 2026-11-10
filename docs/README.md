@@ -5,3 +5,4 @@
 - [update.md](update.md) – Update auf ai01 mit einem Befehl, Ersteinrichtung, Rücksprung
 - [nextcloud-talk.md](nextcloud-talk.md) – Missa in Nextcloud Talk: Einrichtung, Zugriff, Firewall
 - [erinnerungen.md](erinnerungen.md) – Erinnerungen: was Missa versteht, Nachholen nach Neustart, Zustellung
+- [kalender.md](kalender.md) – Kalender: ändern, Farben, Serien, eigene Kalender, Rückgängig, Einladungen
