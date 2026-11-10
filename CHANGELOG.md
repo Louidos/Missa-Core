@@ -7,6 +7,12 @@ die Versionsnummern folgen [Semantic Versioning](https://semver.org/lang/de/).
 
 ## Unveröffentlicht
 
+### Behoben
+
+- Update-Script: Wurde der neue Code von Hand ausgecheckt und gab es zur installierten
+  Version keinen Tag, meldete das Script fälschlich „schon aktuell“ und installierte
+  nichts. Jetzt erkennt es die Ersteinrichtung auch in diesem Fall (#16)
+
 ## 0.2.0 – 2026-11-10
 
 ### Hinzugefügt

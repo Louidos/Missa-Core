@@ -43,6 +43,7 @@ ZIEL_COMMIT=""
 ZIEL_NAME=""
 ZIEL_VERSION=""
 IN_ARBEIT=0       # 1, sobald etwas verändert wurde (dann ist ein Rücksprung möglich)
+NICHT_INSTALLIERT=0  # 1, wenn der ausgecheckte Code nachweislich noch nicht installiert ist
 NEUE_SCHLUESSEL=()
 LEERE_SCHLUESSEL=()
 OPTIONALE_SCHLUESSEL=()
@@ -273,6 +274,7 @@ alt_merken() {
             info "Der ausgecheckte Code ($kopf_version) ist noch nicht installiert; installiert ist $installiert."
         else
             ALT_COMMIT="$KOPF_COMMIT"
+            NICHT_INSTALLIERT=1
             warnung "Installiert ist $installiert, dazu gibt es aber keinen Tag v$installiert – ein Rücksprung ginge nur auf den ausgecheckten Stand."
         fi
     fi
@@ -550,7 +552,9 @@ main() {
     ziel_bestimmen
     info "Ziel:    $ZIEL_NAME (Version ${ZIEL_VERSION:-?})"
 
-    if [[ "$ZIEL_COMMIT" == "$ALT_COMMIT" && "$KOPF_COMMIT" == "$ALT_COMMIT" ]]; then
+    if [[ "$ZIEL_COMMIT" == "$ALT_COMMIT" && "$KOPF_COMMIT" == "$ALT_COMMIT" && "$NICHT_INSTALLIERT" -eq 1 ]]; then
+        info "Der Code ist schon auf $ZIEL_NAME, aber noch nicht installiert – installiere jetzt."
+    elif [[ "$ZIEL_COMMIT" == "$ALT_COMMIT" && "$KOPF_COMMIT" == "$ALT_COMMIT" ]]; then
         if [[ "$ERZWINGEN" -eq 0 ]]; then
             [[ "$DRY_RUN" -eq 1 ]] || installiert_merken "$ALT_COMMIT"
             ok "Missa-Core ist schon aktuell ($ALT_NAME). Kein Neustart nötig."
