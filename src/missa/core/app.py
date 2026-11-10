@@ -25,6 +25,8 @@ from missa.core.config import Einstellungen
 from missa.core.llama import LlamaClient, LlamaFehler
 from missa.core.verlauf import Verlauf
 from missa.core.werkzeuge import Werkzeugkasten
+from missa.core.zeitplaner import Zeitplaner
+from missa.core.zustellung import Zustellung
 
 log = logging.getLogger(__name__)
 
@@ -64,11 +66,14 @@ def create_app(
     llama_transport: httpx.AsyncBaseTransport | None = None,
     talk_transport: httpx.AsyncBaseTransport | None = None,
     uhr: Callable[[], datetime] | None = None,
+    zustellung: Zustellung | None = None,
 ) -> FastAPI:
     """Baut die App. Parameter außer ``einstellungen`` sind vor allem für Tests da."""
     from missa.channels.nextcloud_talk import TalkClient, talk_einrichten
-    from missa.tools import werkzeuge_laden
+    from missa.tools import talk_melder_bauen, werkzeuge_laden
+    from missa.tools.erinnerungen import ErinnerungsWerkzeuge
     from missa.tools.gedaechtnis import KATEGORIEN, Gedaechtnis
+    from missa.tools.talk import TalkZustellkanal
 
     einstellungen = einstellungen or Einstellungen.aus_umgebung()
     gedaechtnis = Gedaechtnis(einstellungen.datenbank, einstellungen.zone)
@@ -79,8 +84,16 @@ def create_app(
         if einstellungen.talk_aktiv
         else None
     )
+    talk_melder = talk_melder_bauen(einstellungen, talk_client) if talk_client is not None else None
+    if zustellung is None:
+        zustellung = Zustellung()
+        if talk_melder is not None and einstellungen.nc_talk_notify_conversation:
+            zustellung.hinzufuegen(TalkZustellkanal(talk_melder))
+    zeitplaner = Zeitplaner(einstellungen.datenbank, einstellungen.zone, zustellung)
     if werkzeuge is None:
-        werkzeuge = werkzeuge_laden(einstellungen, gedaechtnis, talk_client)
+        werkzeuge = werkzeuge_laden(
+            einstellungen, gedaechtnis, zeitplaner=zeitplaner, talk_melder=talk_melder
+        )
 
     llama = LlamaClient(
         einstellungen.llama_url,
@@ -90,7 +103,12 @@ def create_app(
     )
     verlauf = Verlauf(einstellungen.datenbank)
     dienst = ChatDienst(
-        einstellungen, llama, werkzeuge, verlauf, uhr=uhr, kontext_quellen=[gedaechtnis.kontext]
+        einstellungen,
+        llama,
+        werkzeuge,
+        verlauf,
+        uhr=uhr,
+        kontext_quellen=[gedaechtnis.kontext, ErinnerungsWerkzeuge(zeitplaner).kontext],
     )
     gestartet = int(time.time())
 
@@ -102,7 +120,14 @@ def create_app(
             einstellungen.llama_url,
             ", ".join(w.name for w in werkzeuge) or "keine",
         )
+        if not zustellung.verfuegbar:
+            log.warning(
+                "Kein Kanal für Erinnerungen eingerichtet (NC_TALK_NOTIFY_CONVERSATION) – "
+                "Erinnerungen werden gespeichert, aber erst zugestellt, wenn ein Kanal da ist"
+            )
+        zeitplaner.starten()
         yield
+        await zeitplaner.stoppen()
         await llama.schliessen()
         if talk_client is not None:
             await talk_client.schliessen()
@@ -116,6 +141,7 @@ def create_app(
     app.state.einstellungen = einstellungen
     app.state.dienst = dienst
     app.state.gedaechtnis = gedaechtnis
+    app.state.zeitplaner = zeitplaner
 
     # -------------------------------------------------------------- Fehlerformat
 
@@ -202,6 +228,16 @@ def create_app(
             )
         fakten = gedaechtnis.alle(kategorie)
         return {"anzahl": len(fakten), "fakten": [f.als_dict() for f in fakten]}
+
+    @app.get("/api/erinnerungen", dependencies=geschuetzt, tags=["Missa"])
+    async def erinnerungen_anzeigen() -> dict[str, Any]:
+        """Alle geplanten Erinnerungen (nächste zuerst)."""
+        offene = zeitplaner.offene()
+        return {
+            "anzahl": len(offene),
+            "kanaele": zustellung.namen,
+            "erinnerungen": [e.als_dict() for e in offene],
+        }
 
     @app.post("/v1/chat/completions", dependencies=geschuetzt, tags=["OpenAI"])
     async def chat_completions(

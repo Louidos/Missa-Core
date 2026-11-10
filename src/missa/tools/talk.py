@@ -14,6 +14,7 @@ from collections.abc import Callable
 
 from missa.channels.nextcloud_talk import TalkClient, TalkFehler, aufteilen
 from missa.core.werkzeuge import Werkzeug, WerkzeugFehler
+from missa.core.zustellung import ZustellFehler
 
 #: Standard: höchstens so viele Nachrichten pro Minute.
 STANDARD_RATE = 10
@@ -92,6 +93,21 @@ class TalkMelder:
             if len(teile) == 1
             else f"Nachricht in Talk gesendet ({len(teile)} Teile)."
         )
+
+
+class TalkZustellkanal:
+    """Kanal für den Zeitplaner: Erinnerungen gehen in die eingestellte Talk-Unterhaltung."""
+
+    name = "nextcloud-talk"
+
+    def __init__(self, melder: TalkMelder) -> None:
+        self.melder = melder
+
+    async def senden(self, text: str) -> None:
+        try:
+            await self.melder.senden(text)
+        except WerkzeugFehler as fehler:
+            raise ZustellFehler(str(fehler)) from fehler
 
 
 def talk_werkzeuge(melder: TalkMelder) -> list[Werkzeug]:

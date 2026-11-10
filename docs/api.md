@@ -202,6 +202,31 @@ curl $MISSA/api/gedaechtnis -H "Authorization: Bearer $KEY"
 Fakten löscht man, indem man Missa im Chat bittet, etwas zu vergessen („Vergiss das mit
 dem Kaffee“) und dann bestätigt.
 
+### `GET /api/erinnerungen` – welche Erinnerungen sind geplant?
+
+Listet alle offenen Erinnerungen, die nächste zuerst, dazu die Kanäle, über die Missa
+zustellen kann (leer = kein Kanal eingerichtet). Zeiten in `TIMEZONE`.
+
+```bash
+curl $MISSA/api/erinnerungen -H "Authorization: Bearer $KEY"
+```
+
+```json
+{
+  "anzahl": 1,
+  "kanaele": ["nextcloud-talk"],
+  "erinnerungen": [
+    {"id": 1, "text": "Training", "nachricht": null, "faellig": "2026-11-11T06:30:00+01:00",
+     "wiederholung": "woechentlich:2", "wiederholung_text": "jeden Mittwoch", "status": "offen",
+     "erstellt": "2026-11-10T19:00:12+01:00", "zugestellt": null, "fehlversuche": 0,
+     "kanal": null, "herkunft": "chat"}
+  ]
+}
+```
+
+Anlegen, ändern und löschen geht im Chat („Erinnere mich um 6:30 an Training“), siehe
+[erinnerungen.md](erinnerungen.md).
+
 ### `POST /channels/nextcloud-talk/webhook` – nur für Nextcloud Talk
 
 Kein Endpunkt für Apps: Hier liefert Nextcloud Talk Nachrichten an Missa (Bot-Webhook).
@@ -297,4 +322,5 @@ kennen – man fragt einfach in normaler Sprache.
 | Kalender (Nextcloud) | „Was habe ich morgen?“, „Trag mir Freitag 14 Uhr Zahnarzt ein“, „Lösch den Termin“ | `termine_anzeigen`, `termin_eintragen`, `termin_loeschen` |
 | Aufgaben (Nextcloud) | „Was steht auf meiner Liste?“, „Schreib auf: Milch kaufen“, „Hab ich erledigt“ | `aufgaben_anzeigen`, `aufgabe_erstellen`, `aufgabe_erledigt`, `aufgabe_loeschen` |
 | Gedächtnis | „Merk dir, dass ich Kaffee ohne Zucker trinke“, „Was weißt du über meine Schwester?“, „Vergiss das“ | `merken`, `erinnern`, `vergessen` |
+| Erinnerungen | „Erinnere mich um 6:30 an Training“, „Jeden Montag um 7 an die Wochenplanung“, „In 10 Minuten nochmal“ | `erinnerung_anlegen`, `erinnerungen_anzeigen`, `erinnerung_aendern`, `erinnerung_loeschen`, `erinnerung_schlummern` |
 | Nextcloud Talk (nur wenn eingerichtet) | „Schick mir die Übersicht per Talk“, „Erinnere mich per Talk an …“ | `talk_nachricht_senden` |
