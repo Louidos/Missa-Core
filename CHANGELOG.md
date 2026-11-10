@@ -23,6 +23,14 @@ die Versionsnummern folgen [Semantic Versioning](https://semver.org/lang/de/).
   zurücknehmen und steht unter `GET /api/kalender/protokoll`; Einladungen an andere
   Personen verschickt sie nur nach deinem Ja (#27)
 
+- Missa schreibt E-Mails in deinem Stil vor und schickt sie nur ab, wenn du zustimmst:
+  „Schreib dem Chef, dass ich morgen später komme“ ergibt einen Entwurf im Entwürfe-Ordner,
+  den Missa dir mit Empfänger, Betreff und Text zeigt und mit „Soll ich das abschicken?“
+  abschliesst; erst dein „Ja, abschicken“ verschickt ihn, jede Änderung braucht ein neues Ja.
+  Dein Schreibstil wird aus gesendeten Mails gelernt, liegt als bearbeitbare Datei vor und
+  lässt sich im Chat anpassen („schreib förmlicher an Lehrer“). Einrichtung über die neuen
+  `MAIL_*`-Einstellungen (#28)
+
 ### Geändert
 
 - Termine löscht Missa jetzt ohne Rückfrage – dafür lässt sich jede Löschung rückgängig

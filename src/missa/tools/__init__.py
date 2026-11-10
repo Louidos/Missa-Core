@@ -13,6 +13,7 @@ from missa.tools.gedaechtnis import Gedaechtnis, gedaechtnis_werkzeuge
 if TYPE_CHECKING:
     from missa.channels.nextcloud_talk import TalkClient
     from missa.core.zeitplaner import Zeitplaner
+    from missa.tools.mail import MailDienst
     from missa.tools.talk import TalkMelder
 
 log = logging.getLogger(__name__)
@@ -25,6 +26,7 @@ def werkzeuge_laden(
     *,
     zeitplaner: Zeitplaner | None = None,
     talk_melder: TalkMelder | None = None,
+    mail_dienst: MailDienst | None = None,
 ) -> Werkzeugkasten:
     """Stellt alle Werkzeuge zusammen, die mit dieser Konfiguration nutzbar sind.
 
@@ -45,6 +47,12 @@ def werkzeuge_laden(
         from missa.tools.erinnerungen import erinnerungs_werkzeuge
 
         for werkzeug in erinnerungs_werkzeuge(zeitplaner):
+            kasten.hinzufuegen(werkzeug)
+
+    if mail_dienst is not None:
+        from missa.tools.mail import mail_werkzeuge
+
+        for werkzeug in mail_werkzeuge(mail_dienst):
             kasten.hinzufuegen(werkzeug)
 
     if einstellungen.nextcloud_konfiguriert:
@@ -110,4 +118,30 @@ def talk_melder_bauen(einstellungen: Einstellungen, talk_client: TalkClient) -> 
         talk_client,
         einstellungen.nc_talk_notify_conversation,
         Ratenbegrenzer(einstellungen.nc_talk_notify_rate),
+    )
+
+
+def mail_dienst_bauen(einstellungen: Einstellungen, gedaechtnis: Gedaechtnis | None) -> MailDienst:
+    """E-Mail-Entwürfe mit Senden-Sperre für das eigene Mailkonto (IMAP/SMTP)."""
+    from missa.tools.mail import MailDienst, gedaechtnis_adressen
+    from missa.tools.mail_konto import MailKonto
+    from missa.tools.schreibstil import Schreibstil
+
+    konto = MailKonto(
+        einstellungen.mail_imap_host,
+        einstellungen.mail_imap_port,
+        einstellungen.mail_smtp_host,
+        einstellungen.mail_smtp_port,
+        einstellungen.mail_user,
+        einstellungen.mail_password,
+        einstellungen.mail_absender,
+        einstellungen.mail_ordner_entwuerfe,
+        einstellungen.mail_ordner_gesendet,
+    )
+    return MailDienst(
+        konto,
+        einstellungen.datenbank,
+        Schreibstil(einstellungen.stil_datei),
+        einstellungen.zone,
+        adressquellen=[gedaechtnis_adressen(gedaechtnis)] if gedaechtnis is not None else [],
     )

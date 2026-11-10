@@ -139,11 +139,20 @@ und das App-Passwort lässt sich jederzeit einzeln widerrufen.
 | `NC_TALK_TIMEOUT` | `300` | nein | Höchstdauer einer Talk-Antwort in Sekunden. |
 | `NC_TALK_NOTIFY_CONVERSATION` | – | nein | Talk-Unterhaltung (Token), in die Missa von sich aus schreiben darf. |
 | `NC_TALK_NOTIFY_RATE` | `10` | nein | Höchstens so viele eigene Talk-Nachrichten pro Minute. |
+| `MAIL_IMAP_HOST` | – | für E-Mail | IMAP-Server des eigenen Mailkontos (TLS, Port `MAIL_IMAP_PORT`, Standard `993`). |
+| `MAIL_SMTP_HOST` | – | für E-Mail | SMTP-Server zum Senden. Port `MAIL_SMTP_PORT`: `465` = TLS (Standard), sonst STARTTLS (z. B. `587`). |
+| `MAIL_USER` | – | für E-Mail | Benutzername des Mailkontos (meist die Adresse). |
+| `MAIL_PASSWORD` | – | für E-Mail | Passwort bzw. App-Passwort des Mailkontos – nur hier, nie im Repo. |
+| `MAIL_ABSENDER` | = `MAIL_USER` | nein | Absender, z. B. `Louis Degiorgi <louis@example.ch>`. |
+| `MAIL_ORDNER_ENTWUERFE` | `Drafts` | nein | IMAP-Ordner für Entwürfe (so wie er auf dem Server heißt). |
+| `MAIL_ORDNER_GESENDET` | `Sent` | nein | IMAP-Ordner für gesendete Mails (Quelle für das Stilprofil). |
+| `MAIL_STIL_DATEI` | `MISSA_DATEN/schreibstil.md` | nein | Bearbeitbare Datei mit deinem Schreibstil-Profil. |
 
 Fehlen `NEXTCLOUD_URL`, `NEXTCLOUD_USER` oder `NEXTCLOUD_APP_PASSWORD`, bietet Missa
 keine Kalender- und Aufgaben-Werkzeuge an. Das Gedächtnis ist immer da. Nextcloud Talk ist
 nur an, wenn `NC_TALK_ENABLED=true` und Adresse und Secret gesetzt sind – Einrichtung:
-[nextcloud-talk.md](nextcloud-talk.md).
+[nextcloud-talk.md](nextcloud-talk.md). E-Mail ist nur an, wenn `MAIL_IMAP_HOST`, `MAIL_SMTP_HOST`,
+`MAIL_USER` und `MAIL_PASSWORD` gesetzt sind – siehe [email.md](email.md).
 
 Beim Start von Hand (ohne systemd) liest `missa-core` die Datei `/etc/missa/missa.env`
 selbst; ein anderer Ort geht mit `MISSA_ENV_DATEI=/pfad/zur/datei`. Schon gesetzte

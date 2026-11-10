@@ -6,7 +6,7 @@ import json
 import logging
 import time
 import uuid
-from collections.abc import AsyncIterator, Callable, Iterable
+from collections.abc import AsyncIterator, Awaitable, Callable, Iterable
 from dataclasses import dataclass, field
 from datetime import datetime
 from typing import Any
@@ -78,6 +78,17 @@ class Vorbereitet:
     sitzung: str | None
     frage: str
     anfrage_id: str = field(default_factory=lambda: uuid.uuid4().hex)
+    #: Text der neuen Nachricht von Louis – nur, wenn die Anfrage mit einer
+    #: user-Nachricht endet (nie Text des Modells oder eines Werkzeugs).
+    neue_nachricht: str | None = None
+
+
+#: Läuft vor dem Modell mit der neuen Nachricht von Louis; ein zurückgegebener Text
+#: kommt als Hinweis in den Systemprompt (z. B. „Mail wurde gesendet“).
+EingangsPruefer = Callable[[Vorbereitet], Awaitable[str | None]]
+#: Läuft nach der fertigen Antwort; ein zurückgegebener Text wird unten angehängt
+#: (z. B. die genaue Anzeige eines E-Mail-Entwurfs).
+Nachbearbeiter = Callable[[Vorbereitet], str | None]
 
 
 def _nutzung_addieren(summe: dict[str, int], neu: dict[str, Any] | None) -> None:
@@ -98,6 +109,8 @@ class ChatDienst:
         verlauf: Verlauf,
         uhr: Callable[[], datetime] | None = None,
         kontext_quellen: Iterable[KontextQuelle] = (),
+        eingangs_pruefer: Iterable[EingangsPruefer] = (),
+        nachbearbeiter: Iterable[Nachbearbeiter] = (),
     ) -> None:
         self.einstellungen = einstellungen
         self.llama = llama
@@ -105,6 +118,8 @@ class ChatDienst:
         self.verlauf = verlauf
         self._uhr = uhr or (lambda: datetime.now(einstellungen.zone))
         self.kontext_quellen = list(kontext_quellen)
+        self.eingangs_pruefer = list(eingangs_pruefer)
+        self.nachbearbeiter = list(nachbearbeiter)
 
     # ------------------------------------------------------------------ Vorbereitung
 
@@ -162,12 +177,40 @@ class ChatDienst:
 
         system = self.systemprompt(frage, "\n\n".join(t for t in client_system if t) or None)
         parameter = {k: anfrage[k] for k in DURCHGEREICHT if anfrage.get(k) is not None}
+        letzte = gespraech[-1]
         return Vorbereitet(
             nachrichten=[{"role": "system", "content": system}, *frueher, *gespraech],
             parameter=parameter,
             sitzung=sitzung,
             frage=frage,
+            neue_nachricht=text_aus_inhalt(letzte.get("content"))
+            if letzte.get("role") == "user"
+            else None,
         )
+
+    async def _eingang(self, vorbereitet: Vorbereitet) -> None:
+        """Lässt die Eingangsprüfer laufen und hängt ihre Hinweise an den Systemprompt."""
+        hinweise = []
+        for pruefer in self.eingangs_pruefer:
+            try:
+                if hinweis := await pruefer(vorbereitet):
+                    hinweise.append(hinweis)
+            except Exception:
+                log.exception("Eingangsprüfer fehlgeschlagen")
+        if hinweise:
+            vorbereitet.nachrichten[0]["content"] += "\n\n## Gerade passiert\n" + "\n".join(
+                hinweise
+            )
+
+    def _nachgang(self, vorbereitet: Vorbereitet) -> str:
+        zusaetze = []
+        for bearbeiter in self.nachbearbeiter:
+            try:
+                if zusatz := bearbeiter(vorbereitet):
+                    zusaetze.append(zusatz.strip())
+            except Exception:
+                log.exception("Nachbearbeiter fehlgeschlagen")
+        return "\n\n".join(zusaetze)
 
     def _nutzlast(self, vorbereitet: Vorbereitet, mit_werkzeugen: bool) -> dict[str, Any]:
         nutzlast: dict[str, Any] = {
@@ -209,6 +252,7 @@ class ChatDienst:
 
     async def antworten(self, vorbereitet: Vorbereitet) -> dict[str, Any]:
         """Beantwortet die Anfrage vollständig und liefert eine OpenAI-Antwort."""
+        await self._eingang(vorbereitet)
         nutzung: dict[str, int] = {}
         text = ""
         for runde in range(MAX_RUNDEN + 1):
@@ -225,6 +269,8 @@ class ChatDienst:
                 break
             await self._werkzeuge_ausfuehren(vorbereitet, text, aufrufe)
         text = text.strip() or KEIN_ERGEBNIS
+        if zusatz := self._nachgang(vorbereitet):
+            text = f"{text}\n\n{zusatz}"
 
         self._merken(vorbereitet, text)
         return {
@@ -265,6 +311,7 @@ class ChatDienst:
             return f"data: {json.dumps(stueck, ensure_ascii=False)}\n\n"
 
         yield ereignis({"role": "assistant", "content": ""})
+        await self._eingang(vorbereitet)
         gesamt = ""
         try:
             for runde in range(MAX_RUNDEN + 1):
@@ -316,6 +363,10 @@ class ChatDienst:
         if not gesamt.strip():
             gesamt = KEIN_ERGEBNIS
             yield ereignis({"content": gesamt})
+        if zusatz := self._nachgang(vorbereitet):
+            zusatz = f"\n\n{zusatz}"
+            gesamt += zusatz
+            yield ereignis({"content": zusatz})
         # Vor dem Abschluss speichern, falls der Client direkt danach trennt.
         self._merken(vorbereitet, gesamt.strip())
         yield ereignis({}, ende="stop")
