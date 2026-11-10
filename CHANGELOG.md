@@ -7,6 +7,8 @@ die Versionsnummern folgen [Semantic Versioning](https://semver.org/lang/de/).
 
 ## Unveröffentlicht
 
+## 0.2.1 – 2026-11-10
+
 ### Behoben
 
 - Update-Script: Wurde der neue Code von Hand ausgecheckt und gab es zur installierten
