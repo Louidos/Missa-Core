@@ -134,6 +134,15 @@ und das App-Passwort lässt sich jederzeit einzeln widerrufen.
 | `NEXTCLOUD_ADRESSBUCH` | – (alle) | nein | Adressbuch für Geburtstage und Kontaktpflege (Anzeigename, z. B. `Kontakte`). |
 | `KONTAKTE_GEBURTSTAG_VORLAUF` | `3` | nein | So viele Tage vor einem Geburtstag erinnert Missa (zusätzlich am Tag selbst); `0` = nur am Tag. |
 | `KONTAKTE_PRUEFZEIT` | `08:00` | nein | Uhrzeit der täglichen Prüfung von Geburtstagen und Kontaktpflege. |
+| `PAUSEN_AKTIV` | `true` | nein | Pausen-Wächter ein/aus (braucht `NEXTCLOUD_KALENDER`). |
+| `PAUSEN_KALENDER` | `Pausen` | nein | Kalender für Missas Puffer- und Pausenblöcke (legt sie bei Bedarf an). |
+| `PAUSEN_FARBE` | `türkis` | nein | Farbe des Pausen-Kalenders und der Blöcke. |
+| `PAUSEN_PUFFER_MINUTEN` | `10` | nein | Mindest-Puffer zwischen zwei Terminen. |
+| `PAUSEN_MITTAG_MINUTEN` | `30` | nein | Länge der Mittagspause. |
+| `PAUSEN_MITTAG_VON` / `PAUSEN_MITTAG_BIS` | `11:30` / `14:00` | nein | Zeitfenster der Mittagspause. |
+| `PAUSEN_MAX_STUNDEN` | `8` | nein | Ab so vielen Stunden Terminen gilt ein Tag als zu voll. |
+| `PAUSEN_WEGZEIT_MINUTEN` | `30` | nein | Mindest-Wegzeit zwischen Terminen an verschiedenen Orten. |
+| `PAUSEN_PRUEFZEIT` | `19:00` | nein | Abendliche Prüfung des nächsten Tages. |
 | `NC_TALK_ENABLED` | `false` | für Talk | Missa in Nextcloud Talk einschalten. |
 | `NC_TALK_BASE_URL` | – | für Talk | Nextcloud-Adresse wie `overwrite.cli.url` (Prüfung des Absenders). |
 | `NC_TALK_API_URL` | = `NC_TALK_BASE_URL` | nein | Adresse für Antworten an Nextcloud, falls ai01 sie intern anders erreicht. |
