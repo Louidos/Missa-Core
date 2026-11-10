@@ -69,6 +69,7 @@ def create_app(
     zustellung: Zustellung | None = None,
     mail_dienst: Any = None,
     kontaktpflege: Any = None,
+    pausen: Any = None,
 ) -> FastAPI:
     """Baut die App. Parameter außer ``einstellungen`` sind vor allem für Tests da."""
     from missa.channels.nextcloud_talk import TalkClient, talk_einrichten
@@ -76,6 +77,7 @@ def create_app(
         kontaktpflege_bauen,
         mail_dienst_bauen,
         nextcloud_dienste_bauen,
+        pausen_waechter_bauen,
         talk_melder_bauen,
         werkzeuge_laden,
     )
@@ -113,6 +115,15 @@ def create_app(
             kontaktpflege.mail_konto = mail_dienst.konto
             mail_dienst.adressquellen.insert(0, kontaktpflege.adressen)
             mail_dienst.nach_senden.append(kontaktpflege.mail_gesendet)
+    if (
+        pausen is None
+        and einstellungen.pausen_aktiv
+        and nextcloud is not None
+        and nextcloud.kalender is not None
+    ):
+        pausen = pausen_waechter_bauen(einstellungen, zeitplaner, nextcloud.kalender)
+    if pausen is not None:
+        zeitplaner.taeglich("pausen", einstellungen.pausen_pruefzeit, pausen.abends_pruefen)
     if werkzeuge is None:
         werkzeuge = werkzeuge_laden(
             einstellungen,
@@ -122,6 +133,7 @@ def create_app(
             mail_dienst=mail_dienst,
             nextcloud=nextcloud,
             kontaktpflege=kontaktpflege,
+            pausen=pausen,
         )
     kontext_quellen = [gedaechtnis.kontext, ErinnerungsWerkzeuge(zeitplaner).kontext]
     eingangs_pruefer = []
@@ -152,6 +164,8 @@ def create_app(
     if kontaktpflege is not None:
         # Erinnerungen an wichtige Menschen formuliert Missa in ihrem Charakter.
         kontaktpflege.formulierer = dienst.formulieren
+    if pausen is not None:
+        pausen.formulierer = dienst.formulieren
     gestartet = int(time.time())
 
     @asynccontextmanager
@@ -186,6 +200,7 @@ def create_app(
     app.state.zeitplaner = zeitplaner
     app.state.mail = mail_dienst
     app.state.kontaktpflege = kontaktpflege
+    app.state.pausen = pausen
 
     # -------------------------------------------------------------- Fehlerformat
 

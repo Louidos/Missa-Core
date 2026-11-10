@@ -10,9 +10,13 @@ from __future__ import annotations
 import os
 from collections.abc import Mapping, MutableMapping
 from dataclasses import dataclass
-from datetime import time
+from datetime import time, timedelta
 from pathlib import Path
+from typing import TYPE_CHECKING
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
+
+if TYPE_CHECKING:
+    from missa.tools.pausen import PausenRegeln
 
 STANDARD_ENV_DATEI = Path("/etc/missa/missa.env")
 WAHR = frozenset({"1", "true", "ja", "yes", "on", "an"})
@@ -61,6 +65,16 @@ class Einstellungen:
     nextcloud_adressbuch: str = ""
     kontakte_geburtstag_vorlauf: int = 3
     kontakte_pruefzeit: time = time(8, 0)
+    pausen_aktiv: bool = True
+    pausen_kalender: str = "Pausen"
+    pausen_farbe: str = "türkis"
+    pausen_puffer_minuten: int = 10
+    pausen_mittag_minuten: int = 30
+    pausen_mittag_von: time = time(11, 30)
+    pausen_mittag_bis: time = time(14, 0)
+    pausen_max_stunden: float = 8.0
+    pausen_wegzeit_minuten: int = 30
+    pausen_pruefzeit: time = time(19, 0)
 
     @property
     def talk_aktiv(self) -> bool:
@@ -88,6 +102,21 @@ class Einstellungen:
     def stil_datei(self) -> Path:
         """Bearbeitbare Datei mit Louis' Schreibstil-Profil."""
         return self.mail_stil_datei or self.daten / "schreibstil.md"
+
+    def pausen_regeln(self) -> PausenRegeln:
+        """Grenzwerte für die Pausen- und Puffer-Prüfung."""
+        from missa.tools.pausen import PausenRegeln
+
+        return PausenRegeln(
+            puffer=timedelta(minutes=self.pausen_puffer_minuten),
+            mittag_dauer=timedelta(minutes=self.pausen_mittag_minuten),
+            mittag_von=self.pausen_mittag_von,
+            mittag_bis=self.pausen_mittag_bis,
+            max_stunden=self.pausen_max_stunden,
+            wegzeit=timedelta(minutes=self.pausen_wegzeit_minuten),
+            kalender=self.pausen_kalender,
+            farbe=self.pausen_farbe,
+        )
 
     @property
     def datenbank(self) -> Path:
@@ -133,6 +162,12 @@ class Einstellungen:
                 raise KonfigurationsFehler(f"{name} muss eine ganze Zahl sein") from fehler
 
         stil = env.get("MAIL_STIL_DATEI", "").strip()
+
+        def kommazahl(name: str, standard: float) -> float:
+            try:
+                return float(wert(name, str(standard)).replace(",", "."))
+            except ValueError as fehler:
+                raise KonfigurationsFehler(f"{name} muss eine Zahl sein") from fehler
 
         def uhrzeit(name: str, standard: str) -> time:
             text = wert(name, standard)
@@ -184,6 +219,16 @@ class Einstellungen:
             nextcloud_adressbuch=env.get("NEXTCLOUD_ADRESSBUCH", "").strip(),
             kontakte_geburtstag_vorlauf=max(0, zahl("KONTAKTE_GEBURTSTAG_VORLAUF", 3)),
             kontakte_pruefzeit=uhrzeit("KONTAKTE_PRUEFZEIT", "08:00"),
+            pausen_aktiv=wert("PAUSEN_AKTIV", "true").casefold() in WAHR,
+            pausen_kalender=wert("PAUSEN_KALENDER", cls.pausen_kalender),
+            pausen_farbe=wert("PAUSEN_FARBE", cls.pausen_farbe),
+            pausen_puffer_minuten=max(0, zahl("PAUSEN_PUFFER_MINUTEN", 10)),
+            pausen_mittag_minuten=max(0, zahl("PAUSEN_MITTAG_MINUTEN", 30)),
+            pausen_mittag_von=uhrzeit("PAUSEN_MITTAG_VON", "11:30"),
+            pausen_mittag_bis=uhrzeit("PAUSEN_MITTAG_BIS", "14:00"),
+            pausen_max_stunden=kommazahl("PAUSEN_MAX_STUNDEN", 8.0),
+            pausen_wegzeit_minuten=max(0, zahl("PAUSEN_WEGZEIT_MINUTEN", 30)),
+            pausen_pruefzeit=uhrzeit("PAUSEN_PRUEFZEIT", "19:00"),
         )
 
     def pruefen(self) -> None:

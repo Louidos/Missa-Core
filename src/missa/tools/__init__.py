@@ -18,6 +18,7 @@ if TYPE_CHECKING:
     from missa.tools.kontakte import Adressbuch, Kontaktpflege
     from missa.tools.mail import MailDienst
     from missa.tools.nextcloud import NextcloudVerbindung
+    from missa.tools.pausen import PausenWaechter
     from missa.tools.talk import TalkMelder
 
 log = logging.getLogger(__name__)
@@ -74,6 +75,7 @@ def werkzeuge_laden(
     mail_dienst: MailDienst | None = None,
     nextcloud: NextcloudDienste | None = None,
     kontaktpflege: Kontaktpflege | None = None,
+    pausen: PausenWaechter | None = None,
 ) -> Werkzeugkasten:
     """Stellt alle Werkzeuge zusammen, die mit dieser Konfiguration nutzbar sind.
 
@@ -94,6 +96,12 @@ def werkzeuge_laden(
         from missa.tools.erinnerungen import erinnerungs_werkzeuge
 
         for werkzeug in erinnerungs_werkzeuge(zeitplaner):
+            kasten.hinzufuegen(werkzeug)
+
+    if pausen is not None:
+        from missa.tools.pausen import pausen_werkzeuge
+
+        for werkzeug in pausen_werkzeuge(pausen):
             kasten.hinzufuegen(werkzeug)
 
     if kontaktpflege is not None:
@@ -208,3 +216,16 @@ def kontaktpflege_bauen(
         vorlauf_tage=einstellungen.kontakte_geburtstag_vorlauf,
         pruefzeit=einstellungen.kontakte_pruefzeit,
     )
+
+
+def pausen_waechter_bauen(
+    einstellungen: Einstellungen, zeitplaner: Zeitplaner, kalender: Kalender
+) -> PausenWaechter:
+    """Achtet auf Pausen und Puffer im Kalender (Haken und Abend-Prüfung)."""
+    from missa.tools.pausen import PausenWaechter
+
+    waechter = PausenWaechter(
+        kalender, einstellungen.pausen_regeln(), einstellungen.zone, zeitplaner
+    )
+    kalender.nach_pruefungen.append(waechter.nach_termin)
+    return waechter

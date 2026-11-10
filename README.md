@@ -28,6 +28,9 @@ Talk nutzen dieselbe Logik.
   ausdrücklichem Ja – die Senden-Sperre steckt im Code (siehe docs/email.md)
 - Fertig: Geburtstage aus Nextcloud-Kontakte (vorher und am Tag) und Kontaktpflege für
   wichtige Personen mit Vorschlag eines freien Zeitpunkts (siehe docs/kontakte.md)
+- Fertig: Pausen und Puffer – Missa prüft den Kalender jeden Abend und bei jeder neuen
+  Terminanlage, trägt Puffer- und Pausenblöcke selbst ein und schlägt Alternativen vor
+  (siehe docs/pausen.md)
 - Später als eigene Aufträge: Telefon, Push, Smart Home
 - Änderungen im Detail: [CHANGELOG.md](CHANGELOG.md)
 
@@ -46,6 +49,7 @@ Talk nutzen dieselbe Logik.
 - **[docs/email.md](docs/email.md)** – E-Mail-Entwürfe im eigenen Stil: Einrichtung
   (`MAIL_*`), Senden-Sperre, Schreibstil-Profil
 - **[docs/kontakte.md](docs/kontakte.md)** – Geburtstage und Kontaktpflege
+- **[docs/pausen.md](docs/pausen.md)** – Pausen und Puffer im Kalender, Grenzwerte
 - **[docs/erinnerungen.md](docs/erinnerungen.md)** – Erinnerungen: was Missa versteht,
   Wiederholungen, Nachholen nach einem Neustart
 

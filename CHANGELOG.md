@@ -38,6 +38,13 @@ die Versionsnummern folgen [Semantic Versioning](https://semver.org/lang/de/).
   mit Oma telefoniert“), und ist der Abstand überschritten, erinnert Missa freundlich und
   schlägt einen freien Zeitpunkt im Kalender vor (#29)
 
+- Missa achtet von sich aus auf Pausen und Puffer in deinem Kalender: Jeden Abend prüft sie
+  den nächsten Tag auf Termine direkt hintereinander, fehlende Mittagspause, zu volle Tage
+  und fehlende Wegzeit, trägt Puffer- und Pausenblöcke im Kalender „Pausen“ selbst ein
+  (rückgängig machbar) und sagt dir danach Bescheid; zerstört ein neuer Termin einen Puffer,
+  weist sie sofort darauf hin und schlägt eine bessere Uhrzeit vor. Alle Grenzwerte sind
+  über `PAUSEN_*` einstellbar (#30)
+
 ### Geändert
 
 - Termine löscht Missa jetzt ohne Rückfrage – dafür lässt sich jede Löschung rückgängig

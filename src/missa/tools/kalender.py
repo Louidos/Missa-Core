@@ -63,7 +63,8 @@ WOCHENTAG_NAMEN = ["montag", "dienstag", "mittwoch", "donnerstag", "freitag", "s
 KOSMETISCH = frozenset({"farbe", "kategorien", "erinnerungen"})
 
 #: Wird nach jeder Terminänderung mit dem betroffenen Tag aufgerufen (z. B. Pausen-Prüfung).
-NachPruefung = Callable[[date], str | None]
+#: Erhält den Tag und die UID des geänderten Termins.
+NachPruefung = Callable[[date, str | None], str | None]
 
 
 @dataclass(frozen=True)
@@ -333,12 +334,12 @@ class Kalender:
         aenderung = self.protokoll.eintragen(*args, **kwargs)
         return f"\n(Änderung #{aenderung.id} – rückgängig mit kalender_rueckgaengig)"
 
-    def _nachpruefen(self, *tage: date | datetime) -> str:
+    def _nachpruefen(self, uid: str | None, *tage: date | datetime) -> str:
         hinweise = []
         for tag in dict.fromkeys(t.date() if isinstance(t, datetime) else t for t in tage):
             for pruefung in self.nach_pruefungen:
                 try:
-                    if text := pruefung(tag):
+                    if text := pruefung(tag, uid):
                         hinweise.append(text)
                 except Exception:  # Hinweise dürfen die Änderung nie scheitern lassen
                     continue
@@ -618,7 +619,45 @@ class Kalender:
         with self.verbindung.fehler_abfangen("Termin eintragen"):
             self._kalender(name).save_event(text)
         hinweis = self._protokollieren("termin_neu", name, zeile[2:], nachher=text, uid=uid)
-        return f"Eingetragen im Kalender „{name}“:\n{zeile}{hinweis}" + self._nachpruefen(beginn)
+        return f"Eingetragen im Kalender „{name}“:\n{zeile}{hinweis}" + self._nachpruefen(
+            uid, beginn
+        )
+
+    def block_eintragen(
+        self,
+        titel: str,
+        start: datetime,
+        ende: datetime,
+        kalender: str,
+        art: str,
+        farbe: str | None = None,
+    ) -> str:
+        """Trägt einen eigenen Block von Missa ein (Puffer, Pause) – ohne Nachprüfung.
+
+        Der Block ist mit ``X-MISSA-ART`` markiert, damit Missa ihn später als ihren
+        eigenen erkennt; er wird protokolliert und ist rückgängig machbar.
+        """
+        name = self._name(kalender)
+        termin = icalendar.Event()
+        uid = neue_uid()
+        termin.add("uid", uid)
+        termin.add("dtstamp", jetzt_utc())
+        termin.add("created", jetzt_utc())
+        termin.add("summary", titel)
+        termin.add("dtstart", start)
+        termin.add("dtend", ende)
+        termin.add("transp", "OPAQUE")
+        termin.add("categories", ["Pausen"])
+        termin.add("x-missa-art", art)
+        self._farbe_setzen(termin, farbe)
+        ical_kalender = neuer_kalender()
+        ical_kalender.add_component(termin)
+        text = als_ical_text(ical_kalender)
+        with self.verbindung.fehler_abfangen("Block eintragen"):
+            self._kalender(name).save_event(text)
+        _, zeile = self._beschreiben(termin)
+        self._protokollieren("termin_neu", name, zeile[2:], nachher=text, uid=uid)
+        return uid
 
     def _suchen_in(self, sammlung: Any, termin_id: str) -> Any:
         try:
@@ -835,7 +874,7 @@ class Kalender:
         return (
             f"Geändert im Kalender „{name}“{(' ' + was) if was else ''}:\n"
             f"vorher: {zeile_vorher[2:]}\njetzt:  {zeile[2:]}{hinweis}"
-            + (self._nachpruefen(*tage) if "zeit" in geaendert else "")
+            + (self._nachpruefen(uid, *tage) if "zeit" in geaendert else "")
         )
 
     def termin_loeschen(
