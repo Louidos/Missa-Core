@@ -462,3 +462,17 @@ def test_ruecksprung_probelauf_mit_testschalter(welt: Welt):
     assert "Die alte Version v0.2.0 läuft wieder" in ergebnis.stdout
     assert welt.head() == welt.commits["v0.2.0"]
     assert welt.laeuft() == "0.2.0"
+
+
+def test_ersteinrichtung_ohne_tag_der_alten_version(welt: Welt):
+    """Fehler auf ai01: v0.1.0 gab es nicht als Tag – trotzdem darf es nicht „aktuell“ heißen."""
+    git(welt.app, "tag", "-d", "v0.1.0")
+    git(welt.app, "push", "-q", "origin", ":refs/tags/v0.1.0")
+    git(welt.app, "checkout", "-q", "v0.2.0")
+    ergebnis = welt.update()
+    assert ergebnis.returncode == 0, ergebnis.stdout + ergebnis.stderr
+    assert "schon aktuell" not in ergebnis.stdout
+    assert "noch nicht installiert" in ergebnis.stdout
+    assert welt.laeuft() == "0.2.0"
+    assert "NC_TALK_BOT_SECRET" in welt.env_datei.read_text()
+    assert "schon aktuell" in welt.update().stdout
