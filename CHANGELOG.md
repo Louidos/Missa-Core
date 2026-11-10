@@ -7,6 +7,12 @@ die Versionsnummern folgen [Semantic Versioning](https://semver.org/lang/de/).
 
 ## Unveröffentlicht
 
+### Hinzugefügt
+
+- Update auf ai01 mit einem Befehl: `sudo ./scripts/update.sh` holt die neueste Version,
+  zeigt, was neu ist, ergänzt neue Einstellungen (ohne bestehende zu ändern) und springt
+  bei Fehlern automatisch auf die vorherige Version zurück; `--dry-run` zeigt nur an (#16)
+
 ## 0.1.0 – 2026-11-09
 
 Erste Version von Missa-Core.

@@ -214,24 +214,15 @@ Erwartet: `enabled` und `active`.
 
 ## 8. Aktualisieren
 
-```bash
-sudo git -C /opt/missa/app fetch --tags
-```
+Ab Version 0.2.0 mit einem Befehl:
 
 ```bash
-sudo git -C /opt/missa/app checkout vX.Y.Z
+sudo /opt/missa/app/scripts/update.sh
 ```
 
-```bash
-sudo /opt/missa/venv/bin/pip install --upgrade /opt/missa/app
-```
-
-```bash
-sudo systemctl restart missa-core
-```
-
-Vor dem Aktualisieren den Abschnitt der neuen Version in `CHANGELOG.md` lesen. Hat sich
-die Unit geändert, sie erneut kopieren und `sudo systemctl daemon-reload` ausführen.
+Das Script holt den neuesten Release-Tag, zeigt die Neuerungen, installiert, ergänzt neue
+Einstellungen, startet neu, prüft `/health` und springt bei Fehlern automatisch zurück.
+Ersteinrichtung, Optionen und Einzelheiten: [update.md](update.md).
 
 ## 9. Fehlersuche
 
