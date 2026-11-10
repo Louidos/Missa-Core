@@ -17,7 +17,8 @@ Talk nutzen dieselbe Logik.
   Übersicht unter `GET /api/gedaechtnis`)
 - Fertig: systemd-Dienst, Installationsanleitung und API-Doku
 - Fertig: Update mit einem Befehl (`sudo ./scripts/update.sh`, mit automatischem Rücksprung)
-- Fertig: Nextcloud Talk als Kanal (nur für erlaubte Accounts, siehe docs/nextcloud-talk.md)
+- Fertig: Nextcloud Talk als Kanal (nur für erlaubte Accounts, siehe docs/nextcloud-talk.md);
+  Missa kann dort auch von sich aus schreiben (z. B. Erinnerungen)
 - Später als eigene Aufträge: Telefon, Push, Smart Home
 - Änderungen im Detail: [CHANGELOG.md](CHANGELOG.md)
 

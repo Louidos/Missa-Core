@@ -45,6 +45,8 @@ class Einstellungen:
     nc_talk_bot_secret: str = ""
     nc_talk_allowed_users: tuple[str, ...] = ()
     nc_talk_timeout: float = 300.0
+    nc_talk_notify_conversation: str = ""
+    nc_talk_notify_rate: int = 10
 
     @property
     def talk_aktiv(self) -> bool:
@@ -91,6 +93,12 @@ class Einstellungen:
             talk_timeout = float(wert("NC_TALK_TIMEOUT", "300"))
         except ValueError as fehler:
             raise KonfigurationsFehler("NC_TALK_TIMEOUT muss eine Zahl (Sekunden) sein") from fehler
+        try:
+            talk_rate = int(wert("NC_TALK_NOTIFY_RATE", "10"))
+        except ValueError as fehler:
+            raise KonfigurationsFehler(
+                "NC_TALK_NOTIFY_RATE muss eine ganze Zahl (Nachrichten pro Minute) sein"
+            ) from fehler
 
         return cls(
             host=wert("MISSA_HOST", cls.host),
@@ -119,6 +127,8 @@ class Einstellungen:
                 )
             ),
             nc_talk_timeout=talk_timeout if talk_timeout > 0 else 300.0,
+            nc_talk_notify_conversation=env.get("NC_TALK_NOTIFY_CONVERSATION", "").strip(),
+            nc_talk_notify_rate=talk_rate if talk_rate > 0 else 10,
         )
 
     def pruefen(self) -> None:

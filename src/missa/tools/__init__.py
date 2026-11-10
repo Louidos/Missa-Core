@@ -3,21 +3,28 @@
 from __future__ import annotations
 
 import logging
+from typing import TYPE_CHECKING
 
 from missa.core.config import Einstellungen
 from missa.core.werkzeuge import Werkzeugkasten
 from missa.tools.bestaetigung import Bestaetigungen
 from missa.tools.gedaechtnis import Gedaechtnis, gedaechtnis_werkzeuge
 
+if TYPE_CHECKING:
+    from missa.channels.nextcloud_talk import TalkClient
+
 log = logging.getLogger(__name__)
 
 
 def werkzeuge_laden(
-    einstellungen: Einstellungen, gedaechtnis: Gedaechtnis | None = None
+    einstellungen: Einstellungen,
+    gedaechtnis: Gedaechtnis | None = None,
+    talk_client: TalkClient | None = None,
 ) -> Werkzeugkasten:
     """Stellt alle Werkzeuge zusammen, die mit dieser Konfiguration nutzbar sind.
 
-    Die Gedächtnis-Werkzeuge kommen dazu, wenn ``gedaechtnis`` übergeben wird.
+    Die Gedächtnis-Werkzeuge kommen dazu, wenn ``gedaechtnis`` übergeben wird,
+    das Talk-Werkzeug, wenn Nextcloud Talk aktiv ist (``talk_client``).
     Nextcloud-Werkzeuge gibt es nur, wenn Adresse, Benutzer und App-Passwort
     gesetzt sind – sonst würde Missa Werkzeuge anbieten, die nie funktionieren.
     """
@@ -60,4 +67,19 @@ def werkzeuge_laden(
             "Nextcloud ist unvollständig konfiguriert (NEXTCLOUD_URL, NEXTCLOUD_USER und "
             "NEXTCLOUD_APP_PASSWORD nötig) – Nextcloud-Werkzeuge sind aus"
         )
+
+    if talk_client is not None:
+        from missa.tools.talk import Ratenbegrenzer, TalkMelder, talk_werkzeuge
+
+        melder = TalkMelder(
+            talk_client,
+            einstellungen.nc_talk_notify_conversation,
+            Ratenbegrenzer(einstellungen.nc_talk_notify_rate),
+        )
+        for werkzeug in talk_werkzeuge(melder):
+            kasten.hinzufuegen(werkzeug)
+        if not einstellungen.nc_talk_notify_conversation:
+            log.info(
+                "NC_TALK_NOTIFY_CONVERSATION ist leer – Missa schreibt nicht von sich aus in Talk"
+            )
     return kasten

@@ -137,6 +137,8 @@ und das App-Passwort lässt sich jederzeit einzeln widerrufen.
 | `NC_TALK_BOT_SECRET` | – | für Talk | Gemeinsames Bot-Secret (40–128 Zeichen). |
 | `NC_TALK_ALLOWED_USERS` | – | für Talk | Nur diese Nextcloud-Benutzer-IDs dürfen mit Missa sprechen (z. B. `louis,admin`); leer = alles ignorieren. |
 | `NC_TALK_TIMEOUT` | `300` | nein | Höchstdauer einer Talk-Antwort in Sekunden. |
+| `NC_TALK_NOTIFY_CONVERSATION` | – | nein | Talk-Unterhaltung (Token), in die Missa von sich aus schreiben darf. |
+| `NC_TALK_NOTIFY_RATE` | `10` | nein | Höchstens so viele eigene Talk-Nachrichten pro Minute. |
 
 Fehlen `NEXTCLOUD_URL`, `NEXTCLOUD_USER` oder `NEXTCLOUD_APP_PASSWORD`, bietet Missa
 keine Kalender- und Aufgaben-Werkzeuge an. Das Gedächtnis ist immer da. Nextcloud Talk ist

@@ -72,8 +72,15 @@ def create_app(
 
     einstellungen = einstellungen or Einstellungen.aus_umgebung()
     gedaechtnis = Gedaechtnis(einstellungen.datenbank, einstellungen.zone)
+    talk_client = (
+        TalkClient(
+            einstellungen.talk_api_url, einstellungen.nc_talk_bot_secret, transport=talk_transport
+        )
+        if einstellungen.talk_aktiv
+        else None
+    )
     if werkzeuge is None:
-        werkzeuge = werkzeuge_laden(einstellungen, gedaechtnis)
+        werkzeuge = werkzeuge_laden(einstellungen, gedaechtnis, talk_client)
 
     llama = LlamaClient(
         einstellungen.llama_url,
@@ -86,13 +93,6 @@ def create_app(
         einstellungen, llama, werkzeuge, verlauf, uhr=uhr, kontext_quellen=[gedaechtnis.kontext]
     )
     gestartet = int(time.time())
-    talk_client = (
-        TalkClient(
-            einstellungen.talk_api_url, einstellungen.nc_talk_bot_secret, transport=talk_transport
-        )
-        if einstellungen.talk_aktiv
-        else None
-    )
 
     @asynccontextmanager
     async def lebenszyklus(_app: FastAPI):
