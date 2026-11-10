@@ -67,10 +67,11 @@ def create_app(
     talk_transport: httpx.AsyncBaseTransport | None = None,
     uhr: Callable[[], datetime] | None = None,
     zustellung: Zustellung | None = None,
+    mail_dienst: Any = None,
 ) -> FastAPI:
     """Baut die App. Parameter außer ``einstellungen`` sind vor allem für Tests da."""
     from missa.channels.nextcloud_talk import TalkClient, talk_einrichten
-    from missa.tools import talk_melder_bauen, werkzeuge_laden
+    from missa.tools import mail_dienst_bauen, talk_melder_bauen, werkzeuge_laden
     from missa.tools.erinnerungen import ErinnerungsWerkzeuge
     from missa.tools.gedaechtnis import KATEGORIEN, Gedaechtnis
     from missa.tools.talk import TalkZustellkanal
@@ -90,10 +91,24 @@ def create_app(
         if talk_melder is not None and einstellungen.nc_talk_notify_conversation:
             zustellung.hinzufuegen(TalkZustellkanal(talk_melder))
     zeitplaner = Zeitplaner(einstellungen.datenbank, einstellungen.zone, zustellung)
+    if mail_dienst is None and einstellungen.mail_konfiguriert:
+        mail_dienst = mail_dienst_bauen(einstellungen, gedaechtnis)
     if werkzeuge is None:
         werkzeuge = werkzeuge_laden(
-            einstellungen, gedaechtnis, zeitplaner=zeitplaner, talk_melder=talk_melder
+            einstellungen,
+            gedaechtnis,
+            zeitplaner=zeitplaner,
+            talk_melder=talk_melder,
+            mail_dienst=mail_dienst,
         )
+    kontext_quellen = [gedaechtnis.kontext, ErinnerungsWerkzeuge(zeitplaner).kontext]
+    eingangs_pruefer = []
+    nachbearbeiter = []
+    if mail_dienst is not None:
+        # Die Senden-Sperre: Senden geht nur über diese Haken, nie über ein Werkzeug.
+        kontext_quellen.append(mail_dienst.kontext)
+        eingangs_pruefer.append(mail_dienst.eingang)
+        nachbearbeiter.append(mail_dienst.nachgang)
 
     llama = LlamaClient(
         einstellungen.llama_url,
@@ -108,7 +123,9 @@ def create_app(
         werkzeuge,
         verlauf,
         uhr=uhr,
-        kontext_quellen=[gedaechtnis.kontext, ErinnerungsWerkzeuge(zeitplaner).kontext],
+        kontext_quellen=kontext_quellen,
+        eingangs_pruefer=eingangs_pruefer,
+        nachbearbeiter=nachbearbeiter,
     )
     gestartet = int(time.time())
 
@@ -142,6 +159,7 @@ def create_app(
     app.state.dienst = dienst
     app.state.gedaechtnis = gedaechtnis
     app.state.zeitplaner = zeitplaner
+    app.state.mail = mail_dienst
 
     # -------------------------------------------------------------- Fehlerformat
 

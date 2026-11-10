@@ -6,3 +6,4 @@
 - [nextcloud-talk.md](nextcloud-talk.md) – Missa in Nextcloud Talk: Einrichtung, Zugriff, Firewall
 - [erinnerungen.md](erinnerungen.md) – Erinnerungen: was Missa versteht, Nachholen nach Neustart, Zustellung
 - [kalender.md](kalender.md) – Kalender: ändern, Farben, Serien, eigene Kalender, Rückgängig, Einladungen
+- [email.md](email.md) – E-Mail-Entwürfe im eigenen Stil, Einrichtung, Senden-Sperre, Schreibstil

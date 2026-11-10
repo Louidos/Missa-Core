@@ -47,6 +47,16 @@ class Einstellungen:
     nc_talk_timeout: float = 300.0
     nc_talk_notify_conversation: str = ""
     nc_talk_notify_rate: int = 10
+    mail_imap_host: str = ""
+    mail_imap_port: int = 993
+    mail_smtp_host: str = ""
+    mail_smtp_port: int = 465
+    mail_user: str = ""
+    mail_password: str = ""
+    mail_absender: str = ""
+    mail_ordner_entwuerfe: str = "Drafts"
+    mail_ordner_gesendet: str = "Sent"
+    mail_stil_datei: Path | None = None
 
     @property
     def talk_aktiv(self) -> bool:
@@ -62,6 +72,18 @@ class Einstellungen:
     def nextcloud_konfiguriert(self) -> bool:
         """``True``, wenn Adresse, Benutzer und App-Passwort für Nextcloud gesetzt sind."""
         return bool(self.nextcloud_url and self.nextcloud_user and self.nextcloud_app_password)
+
+    @property
+    def mail_konfiguriert(self) -> bool:
+        """``True``, wenn IMAP, SMTP, Benutzer und Passwort für E-Mail gesetzt sind."""
+        return bool(
+            self.mail_imap_host and self.mail_smtp_host and self.mail_user and self.mail_password
+        )
+
+    @property
+    def stil_datei(self) -> Path:
+        """Bearbeitbare Datei mit Louis' Schreibstil-Profil."""
+        return self.mail_stil_datei or self.daten / "schreibstil.md"
 
     @property
     def datenbank(self) -> Path:
@@ -100,6 +122,14 @@ class Einstellungen:
                 "NC_TALK_NOTIFY_RATE muss eine ganze Zahl (Nachrichten pro Minute) sein"
             ) from fehler
 
+        def zahl(name: str, standard: int) -> int:
+            try:
+                return int(wert(name, str(standard)))
+            except ValueError as fehler:
+                raise KonfigurationsFehler(f"{name} muss eine ganze Zahl sein") from fehler
+
+        stil = env.get("MAIL_STIL_DATEI", "").strip()
+
         return cls(
             host=wert("MISSA_HOST", cls.host),
             port=port,
@@ -129,6 +159,16 @@ class Einstellungen:
             nc_talk_timeout=talk_timeout if talk_timeout > 0 else 300.0,
             nc_talk_notify_conversation=env.get("NC_TALK_NOTIFY_CONVERSATION", "").strip(),
             nc_talk_notify_rate=talk_rate if talk_rate > 0 else 10,
+            mail_imap_host=env.get("MAIL_IMAP_HOST", "").strip(),
+            mail_imap_port=zahl("MAIL_IMAP_PORT", 993),
+            mail_smtp_host=env.get("MAIL_SMTP_HOST", "").strip(),
+            mail_smtp_port=zahl("MAIL_SMTP_PORT", 465),
+            mail_user=env.get("MAIL_USER", "").strip(),
+            mail_password=env.get("MAIL_PASSWORD", "").strip(),
+            mail_absender=env.get("MAIL_ABSENDER", "").strip(),
+            mail_ordner_entwuerfe=wert("MAIL_ORDNER_ENTWUERFE", cls.mail_ordner_entwuerfe),
+            mail_ordner_gesendet=wert("MAIL_ORDNER_GESENDET", cls.mail_ordner_gesendet),
+            mail_stil_datei=Path(stil) if stil else None,
         )
 
     def pruefen(self) -> None:

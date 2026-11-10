@@ -24,6 +24,8 @@ Talk nutzen dieselbe Logik.
   Missa kann dort auch von sich aus schreiben (z. B. Erinnerungen)
 - Fertig: Erinnerungen auf die Minute genau, auch wiederkehrend („jeden Montag um 7“),
   mit Nachholen nach einem Neustart (siehe docs/erinnerungen.md)
+- Fertig: E-Mail-Entwürfe im eigenen Schreibstil (IMAP/SMTP), gesendet wird nur nach
+  ausdrücklichem Ja – die Senden-Sperre steckt im Code (siehe docs/email.md)
 - Später als eigene Aufträge: Telefon, Push, Smart Home
 - Änderungen im Detail: [CHANGELOG.md](CHANGELOG.md)
 
@@ -39,6 +41,8 @@ Talk nutzen dieselbe Logik.
   erlaubte Accounts, occ-Befehle, Firewall
 - **[docs/kalender.md](docs/kalender.md)** – Kalender: ändern, Farben, Serien, eigene
   Kalender, Protokoll und Rückgängig, Einladungen
+- **[docs/email.md](docs/email.md)** – E-Mail-Entwürfe im eigenen Stil: Einrichtung
+  (`MAIL_*`), Senden-Sperre, Schreibstil-Profil
 - **[docs/erinnerungen.md](docs/erinnerungen.md)** – Erinnerungen: was Missa versteht,
   Wiederholungen, Nachholen nach einem Neustart
 
