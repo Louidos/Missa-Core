@@ -55,7 +55,7 @@ sudo git clone https://github.com/Louidos/Missa-Core.git /opt/missa/app
 Auf eine veröffentlichte Version wechseln (statt des neuesten Stands von `main`):
 
 ```bash
-sudo git -C /opt/missa/app checkout v0.1.0
+sudo git -C /opt/missa/app checkout v0.2.0
 ```
 
 Python-Umgebung anlegen und Missa-Core hineininstallieren:
