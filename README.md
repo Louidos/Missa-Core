@@ -19,6 +19,8 @@ Talk nutzen dieselbe Logik.
 - Fertig: Update mit einem Befehl (`sudo ./scripts/update.sh`, mit automatischem Rücksprung)
 - Fertig: Nextcloud Talk als Kanal (nur für erlaubte Accounts, siehe docs/nextcloud-talk.md);
   Missa kann dort auch von sich aus schreiben (z. B. Erinnerungen)
+- Fertig: Erinnerungen auf die Minute genau, auch wiederkehrend („jeden Montag um 7“),
+  mit Nachholen nach einem Neustart (siehe docs/erinnerungen.md)
 - Später als eigene Aufträge: Telefon, Push, Smart Home
 - Änderungen im Detail: [CHANGELOG.md](CHANGELOG.md)
 
@@ -32,6 +34,8 @@ Talk nutzen dieselbe Logik.
   einmalige Ersteinrichtung, Rücksprung bei Fehlern
 - **[docs/nextcloud-talk.md](docs/nextcloud-talk.md)** – Missa in Nextcloud Talk: Einrichtung,
   erlaubte Accounts, occ-Befehle, Firewall
+- **[docs/erinnerungen.md](docs/erinnerungen.md)** – Erinnerungen: was Missa versteht,
+  Wiederholungen, Nachholen nach einem Neustart
 
 ## Installation
 

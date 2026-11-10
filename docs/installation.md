@@ -124,7 +124,7 @@ und das App-Passwort lässt sich jederzeit einzeln widerrufen.
 | `LLAMA_URL` | `http://127.0.0.1:8080` | nein | Adresse von llama-server. |
 | `LLAMA_API_KEY_FILE` | `/etc/missa/llama.key` | nein | Datei mit dem API-Key von llama-server. Fehlt sie oder ist sie leer, wird kein Schlüssel geschickt. Wird bei jeder Anfrage neu gelesen. |
 | `LLAMA_TIMEOUT` | `600` | nein | Wie viele Sekunden auf eine Antwort von llama-server gewartet wird. Auf der CPU großzügig lassen. |
-| `TIMEZONE` | `Europe/Zurich` | nein | Zeitzone für Datum/Uhrzeit im Systemprompt und für Termine und Aufgaben. |
+| `TIMEZONE` | `Europe/Zurich` | nein | Zeitzone für Datum/Uhrzeit im Systemprompt, für Termine, Aufgaben und Erinnerungen. |
 | `MISSA_LOG_LEVEL` | `INFO` | nein | Ausführlichkeit der Logs: `DEBUG`, `INFO`, `WARNING`, `ERROR`. |
 | `NEXTCLOUD_URL` | – | für Kalender/Aufgaben | Adresse von Nextcloud, z. B. `https://cloud.example.ch` (ohne `/remote.php/dav`, das wird angehängt). |
 | `NEXTCLOUD_USER` | – | für Kalender/Aufgaben | Nextcloud-Benutzername. |

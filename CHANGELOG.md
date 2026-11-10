@@ -7,6 +7,15 @@ die Versionsnummern folgen [Semantic Versioning](https://semver.org/lang/de/).
 
 ## Unveröffentlicht
 
+### Hinzugefügt
+
+- Missa erinnert dich auf die Minute genau, auch wiederkehrend und nach einem Neustart:
+  „Erinnere mich um 6:30 Uhr an Training“, „in 20 Minuten“, „am Freitag um 14 Uhr“ oder
+  „jeden Montag um 7“ – sie bestätigt Datum und Uhrzeit, fragt bei mehrdeutigen Angaben
+  nach, holt verpasste Erinnerungen nach einem Ausfall mit Hinweis nach, und du kannst
+  Erinnerungen im Chat auflisten, ändern, löschen und schlummern („in 10 Minuten nochmal“);
+  Zustellung über Nextcloud Talk, Übersicht unter `GET /api/erinnerungen` (#26)
+
 ## 0.2.1 – 2026-11-10
 
 ### Behoben

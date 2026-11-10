@@ -171,6 +171,9 @@ erscheint 👀 an der Nachricht, dann die Antwort als Zitat-Antwort, und das �
 
 Missa kann auch **ohne vorherige Nachricht** in Talk schreiben – z. B. eine Erinnerung, einen
 Alarm oder eine Zusammenfassung. Dafür hat sie das Werkzeug `talk_nachricht_senden`.
+Auch alle geplanten Erinnerungen („Erinnere mich um 6:30 an …“, siehe
+[erinnerungen.md](erinnerungen.md)) kommen über diesen Weg – ohne
+`NC_TALK_NOTIFY_CONVERSATION` werden sie gespeichert, aber nicht zugestellt.
 
 - Sie schreibt **nur** in die Unterhaltung `NC_TALK_NOTIFY_CONVERSATION` (Token aus der
   Adresse `…/call/<token>`, sinnvollerweise die Unterhaltung „Missa“). Eine andere
