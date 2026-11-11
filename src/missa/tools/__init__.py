@@ -14,6 +14,7 @@ from missa.tools.gedaechtnis import Gedaechtnis, gedaechtnis_werkzeuge
 if TYPE_CHECKING:
     from missa.channels.nextcloud_talk import TalkClient
     from missa.core.hintergrund import Hintergrund
+    from missa.core.rechte import Aktionsprotokoll, Rechte
     from missa.core.zeitplaner import Zeitplaner
     from missa.tools.kalender import Kalender
     from missa.tools.kontakte import Adressbuch, Kontaktpflege
@@ -78,6 +79,8 @@ def werkzeuge_laden(
     kontaktpflege: Kontaktpflege | None = None,
     pausen: PausenWaechter | None = None,
     hintergrund: Hintergrund | None = None,
+    rechte: Rechte | None = None,
+    protokoll: Aktionsprotokoll | None = None,
 ) -> Werkzeugkasten:
     """Stellt alle Werkzeuge zusammen, die mit dieser Konfiguration nutzbar sind.
 
@@ -88,8 +91,14 @@ def werkzeuge_laden(
     Nextcloud-Werkzeuge gibt es nur, wenn Adresse, Benutzer und App-Passwort
     gesetzt sind – sonst würde Missa Werkzeuge anbieten, die nie funktionieren.
     """
-    kasten = Werkzeugkasten()
+    kasten = Werkzeugkasten(rechte=rechte)
     bestaetigungen = Bestaetigungen()
+
+    if protokoll is not None:
+        from missa.core.rechte import protokoll_werkzeuge
+
+        for werkzeug in protokoll_werkzeuge(protokoll, kasten.rechte, einstellungen.zone):
+            kasten.hinzufuegen(werkzeug)
 
     if gedaechtnis is not None:
         for werkzeug in gedaechtnis_werkzeuge(gedaechtnis, bestaetigungen):

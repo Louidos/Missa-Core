@@ -7,7 +7,7 @@ import sqlite3
 import pytest
 
 from missa.core.chat import KEIN_ERGEBNIS, MAX_RUNDEN
-from missa.core.werkzeuge import Werkzeug, WerkzeugFehler, Werkzeugkasten
+from missa.core.werkzeuge import Stufe, Werkzeug, WerkzeugFehler, Werkzeugkasten
 from tests.conftest import FakeLlama, sse_lesen, text, werkzeug_aufruf
 
 FRAGE = {"messages": [{"role": "user", "content": "Hallo Missa"}]}
@@ -36,9 +36,12 @@ def werkzeuge() -> Werkzeugkasten:
                 "Liefert das Wetter.",
                 {"type": "object", "properties": {"ort": {"type": "string"}}, "required": ["ort"]},
                 wetter,
+                stufe=Stufe.LESEN,
             ),
-            Werkzeug("kaputt", "Geht immer schief.", leer, kaputt),
-            Werkzeug("verboten", "Meldet einen erwarteten Fehler.", leer, verboten),
+            Werkzeug("kaputt", "Geht immer schief.", leer, kaputt, stufe=Stufe.LESEN),
+            Werkzeug(
+                "verboten", "Meldet einen erwarteten Fehler.", leer, verboten, stufe=Stufe.LESEN
+            ),
         ]
     )
 

@@ -7,6 +7,7 @@ dieselbe Datei; bereits gesetzte Variablen haben Vorrang.
 
 from __future__ import annotations
 
+import contextlib
 import os
 from collections.abc import Mapping, MutableMapping
 from dataclasses import dataclass
@@ -77,6 +78,25 @@ class Einstellungen:
     pausen_pruefzeit: time = time(19, 0)
     nachtschicht_von: time = time(1, 0)
     nachtschicht_bis: time = time(6, 0)
+    bestaetigung_minuten: int = 10
+
+    @property
+    def notfall_datei(self) -> Path:
+        """Solange diese Datei existiert, ist der Notfall-Stopp aktiv."""
+        return self.daten / "notfall-stopp"
+
+    @property
+    def geheimnisse(self) -> tuple[str, ...]:
+        """Zugangsdaten, die nie ins Aktionsprotokoll dürfen (werden geschwärzt)."""
+        werte = [
+            self.api_key,
+            self.nextcloud_app_password,
+            self.nc_talk_bot_secret,
+            self.mail_password,
+        ]
+        with contextlib.suppress(OSError):
+            werte.append(self.llama_api_key_file.read_text(encoding="utf-8").strip())
+        return tuple(w for w in werte if w)
 
     @property
     def talk_aktiv(self) -> bool:
@@ -233,6 +253,7 @@ class Einstellungen:
             pausen_pruefzeit=uhrzeit("PAUSEN_PRUEFZEIT", "19:00"),
             nachtschicht_von=uhrzeit("NACHTSCHICHT_VON", "01:00"),
             nachtschicht_bis=uhrzeit("NACHTSCHICHT_BIS", "06:00"),
+            bestaetigung_minuten=max(1, zahl("MISSA_BESTAETIGUNG_MINUTEN", 10)),
         )
 
     def pruefen(self) -> None:

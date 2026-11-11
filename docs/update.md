@@ -127,6 +127,10 @@ Einstellungen bleiben stehen; die alte Version ignoriert unbekannte Schlüssel. 
 die alte Version nicht, steht das deutlich da – dann hilft
 `journalctl -u missa-core -n 50`.
 
+Ein aktiver **Notfall-Stopp** bleibt bei einem Update (auch bei einem Rücksprung) bestehen –
+er liegt in `MISSA_DATEN/notfall-stopp`, nicht im Code. Aufheben nur mit
+`sudo /opt/missa/app/scripts/notfall-freigabe.sh` (siehe [rechte.md](rechte.md)).
+
 ## Log
 
 Jeder Lauf schreibt nach `logs/update.log` im Repo-Ordner (nicht im Git). Dort stehen auch

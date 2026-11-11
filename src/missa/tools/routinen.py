@@ -11,7 +11,7 @@ from __future__ import annotations
 from typing import Any
 
 from missa.core.hintergrund import Hintergrund
-from missa.core.werkzeuge import Werkzeug, WerkzeugFehler, im_hintergrund
+from missa.core.werkzeuge import Stufe, Werkzeug, WerkzeugFehler, im_hintergrund
 from missa.core.zeitangaben import Rueckfrage, zeit_verstehen
 from missa.core.zeitplaner import Erinnerung, Zeitplaner, abstand_text, zeitpunkt_text
 from missa.tools.bestaetigung import Bestaetigungen, loeschen_pruefen
@@ -192,21 +192,28 @@ def routinen_werkzeuge(
                 "required": ["anweisung", "wann"],
             },
             w.anlegen,
+            stufe=Stufe.SCHREIBEN,
         ),
         Werkzeug(
             "routinen_anzeigen",
             "Listet alle Routinen mit ID, nächstem Lauf, Wiederholung und ob sie pausiert sind.",
             {"type": "object", "properties": {}},
             w.anzeigen,
+            stufe=Stufe.LESEN,
         ),
         Werkzeug(
-            "routine_pausieren", "Pausiert eine Routine (läuft nicht mehr).", id_schema, w.pausieren
+            "routine_pausieren",
+            "Pausiert eine Routine (läuft nicht mehr).",
+            id_schema,
+            w.pausieren,
+            stufe=Stufe.SCHREIBEN,
         ),
         Werkzeug(
             "routine_fortsetzen",
             "Setzt eine pausierte Routine fort (ab dem nächsten regulären Zeitpunkt).",
             id_schema,
             w.fortsetzen,
+            stufe=Stufe.SCHREIBEN,
         ),
         Werkzeug(
             "routine_loeschen",
@@ -225,11 +232,13 @@ def routinen_werkzeuge(
                 "required": ["routine_id"],
             },
             w.loeschen,
+            stufe=Stufe.ZERSTOERERISCH,
         ),
         Werkzeug(
             "routine_jetzt_ausfuehren",
             "Führt eine Routine sofort einmal im Hintergrund aus (z. B. zum Ausprobieren).",
             id_schema,
             w.jetzt_ausfuehren,
+            stufe=Stufe.SCHREIBEN,
         ),
     ]

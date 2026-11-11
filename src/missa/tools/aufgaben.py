@@ -9,7 +9,7 @@ from zoneinfo import ZoneInfo
 import icalendar
 from caldav.lib import error as caldav_fehler
 
-from missa.core.werkzeuge import Werkzeug, WerkzeugFehler
+from missa.core.werkzeuge import Stufe, Werkzeug, WerkzeugFehler
 from missa.tools.bestaetigung import Bestaetigungen, loeschen_pruefen
 from missa.tools.nextcloud import (
     NextcloudVerbindung,
@@ -262,6 +262,7 @@ def aufgaben_werkzeuge(
                 },
             },
             aufgaben.aufgaben_anzeigen,
+            stufe=Stufe.LESEN,
         ),
         Werkzeug(
             "aufgabe_erstellen",
@@ -285,6 +286,7 @@ def aufgaben_werkzeuge(
                 "required": ["titel"],
             },
             aufgaben.aufgabe_erstellen,
+            stufe=Stufe.SCHREIBEN,
         ),
         Werkzeug(
             "aufgabe_erledigt",
@@ -295,6 +297,7 @@ def aufgaben_werkzeuge(
                 "required": ["aufgabe_id"],
             },
             aufgaben.aufgabe_erledigt,
+            stufe=Stufe.SCHREIBEN,
         ),
         Werkzeug(
             "aufgabe_loeschen",
@@ -313,5 +316,6 @@ def aufgaben_werkzeuge(
                 "required": ["aufgabe_id"],
             },
             aufgaben.aufgabe_loeschen,
+            stufe=Stufe.ZERSTOERERISCH,
         ),
     ]

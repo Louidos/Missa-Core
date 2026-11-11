@@ -17,12 +17,21 @@ die Versionsnummern folgen [Semantic Versioning](https://semver.org/lang/de/).
   Ergebnis kommt am Morgen als Nachricht und Missa erwähnt es im nächsten Gespräch. Alles
   läuft im Hintergrund, der Chat bleibt frei, und verpasste Läufe werden nach einem Neustart
   nachgeholt; Übersicht unter `GET /api/routinen` und `GET /api/nachtschicht` (#37)
+- Bestätigung vor zerstörerischen Aktionen, Aktionsprotokoll und Notfall-Stopp: Jedes Werkzeug
+  hat eine Stufe (lesen, schreiben, zerstörerisch). Löschen und Verwerfen macht Missa nur nach
+  deinem ausdrücklichen Ja zu genau dieser Aktion – sie sagt vorher, was passiert, und das Ja
+  gilt 10 Minuten. Jede Aktion steht mit Zeit, Kanal, Parametern (ohne Passwörter) und Ergebnis
+  im Protokoll: Frag „Was hast du heute gemacht?“ oder schau unter `GET /api/aktionen`.
+  „Notfall-Stopp“ im Chat oder `sudo scripts/notfall-stopp.sh` sperrt sofort alles Schreibende,
+  auch nach einem Neustart; Lesen und Reden geht weiter. Aufheben geht nur auf ai01 mit
+  `sudo scripts/notfall-freigabe.sh` (#39)
 
 ### Geändert
 
 - Erinnerungen, Routinen und Nachtaufgaben löscht Missa erst nach deinem ausdrücklichen Ja.
   Was sie im Hintergrund (Routine, Nachtschicht) tut, kann nie eine Rückfrage bestätigen
   oder eine E-Mail senden (#37)
+- Einen E-Mail-Entwurf verwirft Missa jetzt erst nach deinem ausdrücklichen Ja (#39)
 
 ## 0.3.0 – 2026-11-10
 

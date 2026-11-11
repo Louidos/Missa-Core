@@ -10,7 +10,7 @@ from __future__ import annotations
 import re
 from typing import Any
 
-from missa.core.werkzeuge import Werkzeug, WerkzeugFehler
+from missa.core.werkzeuge import Stufe, Werkzeug, WerkzeugFehler
 from missa.core.zeitangaben import Rueckfrage, Wiederholung, zeit_verstehen
 from missa.core.zeitplaner import Erinnerung, Zeitplaner, abstand_text, zeitpunkt_text
 from missa.tools.bestaetigung import Bestaetigungen, loeschen_pruefen
@@ -175,12 +175,14 @@ def erinnerungs_werkzeuge(
                 "required": ["was", "wann"],
             },
             w.anlegen,
+            stufe=Stufe.SCHREIBEN,
         ),
         Werkzeug(
             "erinnerungen_anzeigen",
             "Listet alle geplanten Erinnerungen mit ID, Zeitpunkt und Wiederholung.",
             {"type": "object", "properties": {}},
             w.anzeigen,
+            stufe=Stufe.LESEN,
         ),
         Werkzeug(
             "erinnerung_aendern",
@@ -200,6 +202,7 @@ def erinnerungs_werkzeuge(
                 "required": ["erinnerung_id"],
             },
             w.aendern,
+            stufe=Stufe.SCHREIBEN,
         ),
         Werkzeug(
             "erinnerung_loeschen",
@@ -218,6 +221,7 @@ def erinnerungs_werkzeuge(
                 "required": ["erinnerung_id"],
             },
             w.loeschen,
+            stufe=Stufe.ZERSTOERERISCH,
         ),
         Werkzeug(
             "erinnerung_schlummern",
@@ -231,5 +235,6 @@ def erinnerungs_werkzeuge(
                 },
             },
             w.schlummern,
+            stufe=Stufe.SCHREIBEN,
         ),
     ]

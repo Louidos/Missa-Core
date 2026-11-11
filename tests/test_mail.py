@@ -726,3 +726,27 @@ def test_entwurf_aus_einer_routine_gilt_nicht_als_gezeigt(app_client, llama, kon
     llama.antworten = [text("Welchen Entwurf meinst du?")]
     frage(app_client, "Ja, abschicken")
     assert konto.gesendet == []
+
+
+# ---------------------------------------------------------------------- Rechte-Schicht
+
+
+def test_senden_steht_im_aktionsprotokoll_ohne_passwort(app_client, llama, konto):
+    entwurf_anlegen(llama, app_client)
+    frage(app_client, "Ja, abschicken")
+    assert len(konto.gesendet) == 1
+    aktionen = app_client.get("/api/aktionen", params={"werkzeug": "email_senden"}).json()
+    [eintrag] = aktionen["aktionen"]
+    assert eintrag["stufe"] == "zerstoererisch"
+    assert eintrag["bestaetigt"] is True
+    assert eintrag["status"] == "ausgefuehrt"
+
+
+def test_notfall_stopp_sperrt_das_senden(app_client, llama, konto):
+    entwurf_anlegen(llama, app_client)
+    app_client.app.state.rechte.notfall_ausloesen("Test", "ai01")
+    frage(app_client, "Ja, abschicken")
+    assert konto.gesendet == []
+    assert "NICHT gesendet: Der Notfall-Stopp ist aktiv" in llama.system(-1)
+    gesperrt = app_client.get("/api/aktionen", params={"status": "gesperrt_notfall"}).json()
+    assert [a["werkzeug"] for a in gesperrt["aktionen"]] == ["email_senden"]

@@ -30,12 +30,13 @@ from typing import TYPE_CHECKING
 from zoneinfo import ZoneInfo
 
 from missa.core.prompt import datum_lang
-from missa.core.werkzeuge import Werkzeug, WerkzeugFehler
+from missa.core.werkzeuge import Stufe, Werkzeug, WerkzeugFehler
 from missa.core.zeitangaben import wandzeit
 from missa.tools.kalender import Belegung, freie_luecke
 from missa.tools.nextcloud import datum_kurz, zeitpunkt_lesen
 
 if TYPE_CHECKING:
+    from missa.core.rechte import Rechte
     from missa.core.zeitplaner import Zeitplaner
     from missa.tools.kalender import Kalender
 
@@ -283,6 +284,8 @@ class PausenWaechter:
         self.zeitplaner = zeitplaner
         self._uhr = uhr or (lambda: datetime.now(zone))
         self.formulierer: Formulierer | None = None
+        #: Zentrale Rechte-Schicht (Notfall-Stopp, Aktionsprotokoll) – setzt die App.
+        self.rechte: Rechte | None = None
 
     def jetzt(self) -> datetime:
         return self._uhr().astimezone(self.zone)
@@ -420,7 +423,31 @@ class PausenWaechter:
         """Täglicher Auftrag: morgen prüfen, Blöcke eintragen, Louis Bescheid geben."""
         morgen = self.jetzt().date() + timedelta(days=1)
         befunde, bloecke = await asyncio.to_thread(self.pruefen, morgen)
+        if bloecke and self.rechte is not None and self.rechte.notfall_aktiv():
+            # Notfall-Stopp: nichts eintragen, nur Bescheid geben.
+            self.rechte.protokollieren(
+                werkzeug="pausen_eintragen",
+                stufe="schreiben",
+                parameter={"tag": morgen.isoformat(), "bloecke": [b.zeile() for b in bloecke]},
+                bestaetigt=False,
+                status="gesperrt_notfall",
+                ergebnis="Notfall-Stopp aktiv",
+                kanal="hintergrund",
+                account="missa",
+            )
+            bloecke = []
         eingetragen = await asyncio.to_thread(self.eintragen, bloecke)
+        if eingetragen and self.rechte is not None:
+            self.rechte.protokollieren(
+                werkzeug="pausen_eintragen",
+                stufe="schreiben",
+                parameter={"tag": morgen.isoformat()},
+                bestaetigt=False,
+                status="ausgefuehrt",
+                ergebnis=", ".join(b.zeile() for b in eingetragen),
+                kanal="hintergrund",
+                account="missa",
+            )
         if not befunde and not eingetragen:
             return None
         teile = [f"☕ Kurzer Blick auf morgen ({datum_kurz(morgen)}):"]
@@ -468,5 +495,6 @@ def pausen_werkzeuge(waechter: PausenWaechter) -> list[Werkzeug]:
                 },
             },
             waechter.tag_pruefen_werkzeug,
+            stufe=Stufe.SCHREIBEN,
         )
     ]

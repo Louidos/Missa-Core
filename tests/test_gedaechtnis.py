@@ -32,10 +32,16 @@ def werkzeuge(einstellungen):
     return Werkzeugkasten(gedaechtnis_werkzeuge(gedaechtnis, Bestaetigungen()))
 
 
-def ausfuehren(kasten: Werkzeugkasten, name: str, anfrage: str = "a1", **argumente) -> str:
+def ausfuehren(
+    kasten: Werkzeugkasten,
+    name: str,
+    anfrage: str = "a1",
+    nachricht: str | None = None,
+    **argumente,
+) -> str:
     import asyncio
 
-    return asyncio.run(kasten.ausfuehren(name, argumente, anfrage))
+    return asyncio.run(kasten.ausfuehren(name, argumente, anfrage, nachricht=nachricht))
 
 
 # ---------------------------------------------------------------------- Speicher und Suche
@@ -125,13 +131,18 @@ def test_merken_und_erinnern(werkzeuge_kasten, gedaechtnis):
 def test_vergessen_erst_nach_ja(werkzeuge_kasten, gedaechtnis):
     gedaechtnis.hinzufuegen("Louis mag keine Pilze", "vorlieben")
     vorschau = ausfuehren(werkzeuge_kasten, "vergessen", "a1", fakt_id=1)
-    assert vorschau.startswith("NOCH NICHT GELÖSCHT")
-    assert "fakt_id=1 und bestaetigt=true" in vorschau
-    sofort = ausfuehren(werkzeuge_kasten, "vergessen", "a1", fakt_id=1, bestaetigt=True)
-    assert sofort.startswith("NICHT GELÖSCHT")
+    assert vorschau.startswith("NICHT AUSGEFÜHRT")
+    assert "Louis mag keine Pilze" in vorschau
+    sofort = ausfuehren(werkzeuge_kasten, "vergessen", "a1", "Ja", fakt_id=1, bestaetigt=True)
+    assert sofort.startswith("NICHT AUSGEFÜHRT")
+    assert gedaechtnis.holen(1) is not None
+    ohne_ja = ausfuehren(werkzeuge_kasten, "vergessen", "a2", "Was?", fakt_id=1, bestaetigt=True)
+    assert ohne_ja.startswith("NICHT AUSGEFÜHRT")
     assert gedaechtnis.holen(1) is not None
 
-    nach_ja = ausfuehren(werkzeuge_kasten, "vergessen", "a2", fakt_id="1", bestaetigt=True)
+    nach_ja = ausfuehren(
+        werkzeuge_kasten, "vergessen", "a3", "Ja, vergiss das", fakt_id="1", bestaetigt=True
+    )
     assert nach_ja.startswith("Vergessen:\n- Louis mag keine Pilze")
     assert gedaechtnis.holen(1) is None
 

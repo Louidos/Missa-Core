@@ -13,7 +13,7 @@ from collections import deque
 from collections.abc import Callable
 
 from missa.channels.nextcloud_talk import TalkClient, TalkFehler, aufteilen
-from missa.core.werkzeuge import Werkzeug, WerkzeugFehler
+from missa.core.werkzeuge import Stufe, Werkzeug, WerkzeugFehler
 from missa.core.zustellung import ZustellFehler
 
 #: Standard: höchstens so viele Nachrichten pro Minute.
@@ -125,5 +125,6 @@ def talk_werkzeuge(melder: TalkMelder) -> list[Werkzeug]:
                 "required": ["text"],
             },
             melder.senden,
+            stufe=Stufe.SCHREIBEN,
         )
     ]

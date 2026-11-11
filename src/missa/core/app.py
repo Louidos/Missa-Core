@@ -74,6 +74,7 @@ def create_app(
 ) -> FastAPI:
     """Baut die App. Parameter außer ``einstellungen`` sind vor allem für Tests da."""
     from missa.channels.nextcloud_talk import TalkClient, talk_einrichten
+    from missa.core.rechte import rechte_bauen
     from missa.tools import (
         kontaktpflege_bauen,
         mail_dienst_bauen,
@@ -87,6 +88,8 @@ def create_app(
     from missa.tools.talk import TalkZustellkanal
 
     einstellungen = einstellungen or Einstellungen.aus_umgebung()
+    # Die zentrale Rechte-Schicht (Stufen, Bestätigung, Protokoll, Notfall-Stopp).
+    rechte, protokoll = rechte_bauen(einstellungen)
     gedaechtnis = Gedaechtnis(einstellungen.datenbank, einstellungen.zone)
     talk_client = (
         TalkClient(
@@ -143,13 +146,29 @@ def create_app(
             kontaktpflege=kontaktpflege,
             pausen=pausen,
             hintergrund=hintergrund,
+            rechte=rechte,
+            protokoll=protokoll,
         )
+    else:
+        werkzeuge.rechte = rechte
+    # Ein absichtlich leerer Werkzeugkasten (Tests) bleibt leer.
+    if len(werkzeuge) and "aktionen_anzeigen" not in werkzeuge:
+        from missa.core.rechte import protokoll_werkzeuge
+
+        for werkzeug in protokoll_werkzeuge(protokoll, rechte, einstellungen.zone):
+            werkzeuge.hinzufuegen(werkzeug)
+    if mail_dienst is not None:
+        mail_dienst.rechte = rechte
+    if pausen is not None:
+        pausen.rechte = rechte
     kontext_quellen = [
+        rechte.kontext,
         gedaechtnis.kontext,
         ErinnerungsWerkzeuge(zeitplaner).kontext,
         hintergrund.kontext,
     ]
-    eingangs_pruefer = []
+    # Der Notfall-Stopp im Code kommt zuerst – noch vor der Senden-Sperre für Mails.
+    eingangs_pruefer = [rechte.eingang]
     nachbearbeiter = []
     if mail_dienst is not None:
         # Die Senden-Sperre: Senden geht nur über diese Haken, nie über ein Werkzeug.
@@ -222,6 +241,8 @@ def create_app(
     app.state.mail = mail_dienst
     app.state.kontaktpflege = kontaktpflege
     app.state.pausen = pausen
+    app.state.rechte = rechte
+    app.state.protokoll = protokoll
 
     # -------------------------------------------------------------- Fehlerformat
 
@@ -346,6 +367,37 @@ def create_app(
         )
         return {"anzahl": len(liste), "aenderungen": [a.als_dict() for a in liste]}
 
+    @app.get("/api/aktionen", dependencies=geschuetzt, tags=["Missa"])
+    async def aktionen_anzeigen(
+        von: str | None = None,
+        bis: str | None = None,
+        anzahl: int = 100,
+        werkzeug: str | None = None,
+        status: str | None = None,
+    ) -> dict[str, Any]:
+        """Aktionsprotokoll (nur lesen): jeder Werkzeug-Aufruf, neueste zuerst.
+
+        ``von``/``bis`` als Datum JJJJ-MM-TT (einschließlich), dazu der Notfall-Zustand.
+        """
+        from datetime import date
+
+        try:
+            von_datum = date.fromisoformat(von) if von else None
+            bis_datum = date.fromisoformat(bis) if bis else None
+        except ValueError as fehler:
+            raise HTTPException(
+                status_code=400, detail="von und bis müssen ein Datum wie 2026-11-11 sein"
+            ) from fehler
+        liste = protokoll.liste(
+            von_datum, bis_datum, max(1, min(anzahl, 1000)), werkzeug or None, status or None
+        )
+        notfall = rechte.notfall.info() if rechte.notfall is not None else {"aktiv": False}
+        return {
+            "anzahl": len(liste),
+            "notfall": notfall,
+            "aktionen": [a.als_dict() for a in liste],
+        }
+
     @app.post("/v1/chat/completions", dependencies=geschuetzt, tags=["OpenAI"])
     async def chat_completions(
         anfrage: ChatAnfrage,
@@ -356,6 +408,7 @@ def create_app(
             raise AnfrageFehler(f"Sitzungs-ID ist länger als {MAX_SITZUNG_LAENGE} Zeichen")
 
         vorbereitet = dienst.vorbereiten(anfrage.model_dump(exclude_none=True), sitzung)
+        vorbereitet.account = (anfrage.user or "").strip()[:MAX_SITZUNG_LAENGE]
         if anfrage.stream:
             return StreamingResponse(
                 dienst.antworten_stream(vorbereitet),
