@@ -34,6 +34,10 @@ Talk nutzen dieselbe Logik.
 - Fertig: Pausen und Puffer – Missa prüft den Kalender jeden Abend und bei jeder neuen
   Terminanlage, trägt Puffer- und Pausenblöcke selbst ein und schlägt Alternativen vor
   (siehe docs/pausen.md)
+- Fertig: Rechte-Schicht – jedes Werkzeug hat eine Stufe (lesen, schreiben, zerstörerisch),
+  Zerstörerisches nur nach deinem ausdrücklichen Ja (gilt 10 Minuten), lückenloses
+  Aktionsprotokoll (`GET /api/aktionen`, „Was hast du heute gemacht?“) und Notfall-Stopp per
+  Chat oder `scripts/notfall-stopp.sh`, aufheben nur auf ai01 (siehe docs/rechte.md)
 - Später als eigene Aufträge: Telefon, Push, Smart Home
 - Änderungen im Detail: [CHANGELOG.md](CHANGELOG.md)
 
@@ -55,6 +59,8 @@ Talk nutzen dieselbe Logik.
 - **[docs/pausen.md](docs/pausen.md)** – Pausen und Puffer im Kalender, Grenzwerte
 - **[docs/erinnerungen.md](docs/erinnerungen.md)** – Erinnerungen: was Missa versteht,
   Wiederholungen, Nachholen nach einem Neustart
+- **[docs/rechte.md](docs/rechte.md)** – Rechte-Stufen, Bestätigung, Aktionsprotokoll,
+  Notfall-Stopp und welche Rechte jeder Dienst braucht
 - **[docs/routinen-nachtschicht.md](docs/routinen-nachtschicht.md)** – Routinen per Gespräch,
   Nachtschicht, Morgenbericht, Sicherheitsregeln im Hintergrund
 

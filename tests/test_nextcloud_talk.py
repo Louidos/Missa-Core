@@ -523,3 +523,16 @@ def test_talk_einstellungen_aus_umgebung():
     assert not Einstellungen.aus_umgebung({"NC_TALK_ENABLED": "nein"}).nc_talk_enabled
     intern = Einstellungen.aus_umgebung({"NC_TALK_API_URL": "http://10.0.30.10/"})
     assert intern.talk_api_url == "http://10.0.30.10"
+
+
+# ---------------------------------------------------------------------- Rechte-Schicht
+
+
+def test_talk_notfall_stopp_und_protokoll_mit_account(talk, llama, talk_einstellungen):
+    llama.antworten = [text("Alles gesperrt.")]
+    schicken(talk, ereignis("Notfall-Stopp!", nachricht_id="2001"))
+    assert talk_einstellungen.notfall_datei.exists()
+    info = talk.app.state.rechte.notfall.info()
+    assert info["quelle"] == "talk/louis"
+    [eintrag] = talk.app.state.protokoll.liste(status="notfall_stopp")
+    assert (eintrag.kanal, eintrag.account) == ("talk", "louis")

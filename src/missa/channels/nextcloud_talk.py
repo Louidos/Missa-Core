@@ -391,6 +391,8 @@ class TalkKanal:
             ]
         }
         vorbereitet = self.dienst.vorbereiten(anfrage, sitzung=f"{KANAL}:{token}")
+        vorbereitet.kanal = "talk"
+        vorbereitet.account = benutzer
         ergebnis = await self.dienst.antworten(vorbereitet)
         return str(ergebnis["choices"][0]["message"]["content"])
 

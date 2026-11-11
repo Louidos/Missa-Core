@@ -11,7 +11,7 @@ from typing import Any
 from zoneinfo import ZoneInfo
 
 from missa.core.datenbank import verbinden
-from missa.core.werkzeuge import Werkzeug, WerkzeugFehler
+from missa.core.werkzeuge import Stufe, Werkzeug, WerkzeugFehler
 from missa.tools.bestaetigung import Bestaetigungen, loeschen_pruefen
 
 KATEGORIEN = ("termine", "vorlieben", "projekte", "sonstiges")
@@ -243,6 +243,7 @@ def gedaechtnis_werkzeuge(
                 "required": ["fakt", "kategorie"],
             },
             merken,
+            stufe=Stufe.SCHREIBEN,
         ),
         Werkzeug(
             "erinnern",
@@ -253,6 +254,7 @@ def gedaechtnis_werkzeuge(
                 "required": ["suche"],
             },
             erinnern,
+            stufe=Stufe.LESEN,
         ),
         Werkzeug(
             "vergessen",
@@ -271,5 +273,6 @@ def gedaechtnis_werkzeuge(
                 "required": ["fakt_id"],
             },
             vergessen,
+            stufe=Stufe.ZERSTOERERISCH,
         ),
     ]

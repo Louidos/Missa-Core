@@ -297,6 +297,37 @@ curl "$MISSA/api/kalender/protokoll?anzahl=10" -H "Authorization: Bearer $KEY"
 `aktion` ist `termin_neu`, `termin_geaendert`, `termin_geloescht`, `kalender_neu` oder
 `kalender_geaendert`.
 
+### `GET /api/aktionen` – Aktionsprotokoll (nur lesen)
+
+Jeder Werkzeug-Aufruf von Missa, die neueste zuerst: Zeit, Kanal (`api`, `talk`,
+`hintergrund`, `ai01`), Account, Werkzeug, Stufe (`lesen`, `schreiben`, `zerstoererisch`),
+Parameter (Passwörter und Tokens geschwärzt als `***`), ob Louis bestätigt hat, Status und
+gekürztes Ergebnis. Dazu der Zustand des Notfall-Stopps. Der Endpunkt ist nur lesend – es gibt
+kein POST/DELETE, und den Notfall-Stopp kann man darüber nicht aufheben.
+
+Filter (alle optional): `von` und `bis` als Datum `JJJJ-MM-TT` (einschließlich), `anzahl`
+(Standard 100, höchstens 1000), `werkzeug`, `status` (`ausgefuehrt`, `fehlgeschlagen`,
+`wartet_auf_bestaetigung`, `gesperrt_notfall`, `abgelehnt`, `ungueltig`, `notfall_stopp`,
+`notfall_freigabe`).
+
+```bash
+curl "$MISSA/api/aktionen?von=2026-11-11&bis=2026-11-11" -H "Authorization: Bearer $KEY"
+```
+
+```json
+{
+  "anzahl": 1,
+  "notfall": {"aktiv": false},
+  "aktionen": [
+    {"id": 7, "zeit": "2026-11-11T08:12:03+01:00", "kanal": "talk", "account": "louis",
+     "werkzeug": "aufgabe_loeschen", "stufe": "zerstoererisch", "parameter": {"uid": "…"},
+     "bestaetigt": true, "status": "ausgefuehrt", "ergebnis": "Aufgabe „Milch“ gelöscht."}
+  ]
+}
+```
+
+Mehr dazu: [rechte.md](rechte.md).
+
 ### `POST /channels/nextcloud-talk/webhook` – nur für Nextcloud Talk
 
 Kein Endpunkt für Apps: Hier liefert Nextcloud Talk Nachrichten an Missa (Bot-Webhook).

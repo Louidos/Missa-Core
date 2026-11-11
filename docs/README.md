@@ -10,3 +10,4 @@
 - [email.md](email.md) – E-Mail-Entwürfe im eigenen Stil, Einrichtung, Senden-Sperre, Schreibstil
 - [kontakte.md](kontakte.md) – Geburtstage und Kontaktpflege für wichtige Personen
 - [pausen.md](pausen.md) – Pausen und Puffer: was Missa prüft, wann sie Blöcke einträgt, Grenzwerte
+- [rechte.md](rechte.md) – Rechte-Stufen, Bestätigung, Aktionsprotokoll, Notfall-Stopp, Rechte pro Dienst

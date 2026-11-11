@@ -81,6 +81,10 @@ class Vorbereitet:
     #: Text der neuen Nachricht von Louis – nur, wenn die Anfrage mit einer
     #: user-Nachricht endet (nie Text des Modells oder eines Werkzeugs).
     neue_nachricht: str | None = None
+    #: Woher die Anfrage kommt (``api``, ``talk``, ``hintergrund``) – fürs Aktionsprotokoll.
+    kanal: str = "api"
+    #: Wer schreibt (Talk-Benutzer, ``user`` der API oder leer).
+    account: str = ""
 
 
 #: Läuft vor dem Modell mit der neuen Nachricht von Louis; ein zurückgegebener Text
@@ -233,7 +237,12 @@ class ChatDienst:
             name = str(funktion.get("name", ""))
             log.info("Werkzeug-Aufruf: %s(%s)", name, funktion.get("arguments"))
             ergebnis = await self.werkzeuge.ausfuehren(
-                name, funktion.get("arguments"), vorbereitet.anfrage_id
+                name,
+                funktion.get("arguments"),
+                vorbereitet.anfrage_id,
+                nachricht=vorbereitet.neue_nachricht,
+                kanal=vorbereitet.kanal,
+                account=vorbereitet.account,
             )
             vorbereitet.nachrichten.append(
                 {
@@ -287,6 +296,8 @@ class ChatDienst:
         """
         vorbereitet = self.vorbereiten({"messages": [{"role": "user", "content": auftrag}]}, None)
         vorbereitet.neue_nachricht = None
+        vorbereitet.kanal = "hintergrund"
+        vorbereitet.account = "missa"
         antwort = await self.antworten(vorbereitet)
         return text_aus_inhalt(antwort["choices"][0]["message"].get("content"))
 

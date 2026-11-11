@@ -10,6 +10,10 @@ Missa darf nichts löschen, ohne Louis vorher zu fragen. Darum gilt:
 
 So kann das Modell nicht im selben Zug fragen und löschen. Läuft Missa im
 Hintergrund (Routine, Nachtschicht), gilt nie eine Zustimmung.
+
+Darüber liegt die zentrale Rechte-Schicht (:mod:`missa.core.rechte`): Werkzeuge der
+Stufe ``zerstoererisch`` laufen nur nach Louis' ausdrücklichem Ja in seiner neuen
+Nachricht und innerhalb von 10 Minuten. Hat sie freigegeben, gilt das auch hier.
 """
 
 from __future__ import annotations
@@ -18,7 +22,7 @@ import threading
 import time
 from collections.abc import Callable
 
-from missa.core.werkzeuge import aktuelle_anfrage, im_hintergrund
+from missa.core.werkzeuge import aktuelle_anfrage, im_hintergrund, zentral_freigegeben
 
 #: So lange (Sekunden) bleibt eine Rückfrage gültig.
 GUELTIGKEIT = 30 * 60
@@ -53,6 +57,8 @@ class Bestaetigungen:
         """
         if im_hintergrund.get():
             return False
+        if zentral_freigegeben.get():
+            return True  # Louis hat genau diese Aktion über die Rechte-Schicht bestätigt
         with self._sperre:
             self._aufraeumen()
             eintrag = self._offen.get(schluessel)

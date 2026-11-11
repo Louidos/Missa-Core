@@ -38,12 +38,13 @@ from typing import TYPE_CHECKING, Any
 from zoneinfo import ZoneInfo
 
 from missa.core.datenbank import verbinden
-from missa.core.werkzeuge import Werkzeug, WerkzeugFehler, aktuelle_anfrage, im_hintergrund
+from missa.core.werkzeuge import Stufe, Werkzeug, WerkzeugFehler, aktuelle_anfrage, im_hintergrund
 from missa.tools.mail_konto import MailFehler, MailKonto, text_aus_mail
 from missa.tools.schreibstil import Schreibstil
 
 if TYPE_CHECKING:
     from missa.core.chat import Vorbereitet
+    from missa.core.rechte import Rechte
 
 log = logging.getLogger(__name__)
 
@@ -293,6 +294,8 @@ class MailDienst:
         self.adressquellen = list(adressquellen or [])
         #: Wird nach jedem Senden mit den Empfängeradressen aufgerufen (z. B. Kontaktpflege).
         self.nach_senden: list[Callable[[list[str]], None]] = []
+        #: Zentrale Rechte-Schicht (Notfall-Stopp, Aktionsprotokoll) – setzt die App.
+        self.rechte: Rechte | None = None
         self._sperre = threading.Lock()
         self._zu_zeigen: dict[str, list[int]] = {}
         self._zuletzt_gezeigt: dict[str, list[int]] = {}
@@ -675,12 +678,39 @@ class MailDienst:
                 f"Entwurf #{entwurf.id} wurde geändert, nachdem Louis ihn gesehen hat – NICHT "
                 "gesendet. Der Code zeigt die neue Fassung unten an; Louis muss erneut zustimmen."
             )
+        protokoll = {
+            "werkzeug": "email_senden",
+            "stufe": "zerstoererisch",
+            "parameter": {"entwurf": entwurf.id, "an": entwurf.an, "betreff": entwurf.betreff},
+            "kanal": vorbereitet.kanal,
+            "account": vorbereitet.account,
+        }
+        if self.rechte is not None and self.rechte.notfall_aktiv():
+            self.rechte.protokollieren(
+                **protokoll, bestaetigt=True, status="gesperrt_notfall", ergebnis="Notfall-Stopp"
+            )
+            return (
+                f"Entwurf #{entwurf.id} wurde NICHT gesendet: Der Notfall-Stopp ist aktiv. "
+                "Senden geht erst wieder, wenn Louis den Stopp direkt auf ai01 aufhebt. "
+                "Sag ihm das ehrlich."
+            )
         try:
             empfaenger = await asyncio.to_thread(self._senden, entwurf)
         except MailFehler as fehler:
+            if self.rechte is not None:
+                self.rechte.protokollieren(
+                    **protokoll, bestaetigt=True, status="fehlgeschlagen", ergebnis=str(fehler)
+                )
             return (
                 f"Senden von Entwurf #{entwurf.id} ist fehlgeschlagen ({fehler}). Der Entwurf "
                 "bleibt liegen. Sag Louis das ehrlich."
+            )
+        if self.rechte is not None:
+            self.rechte.protokollieren(
+                **protokoll,
+                bestaetigt=True,
+                status="ausgefuehrt",
+                ergebnis=f"gesendet an {', '.join(empfaenger)}",
             )
         return (
             f"Auf Louis' ausdrückliche Zustimmung hat der Code Entwurf #{entwurf.id} an "
@@ -766,6 +796,7 @@ def mail_werkzeuge(dienst: MailDienst) -> list[Werkzeug]:
                 },
             },
             dienst.emails_anzeigen,
+            stufe=Stufe.LESEN,
         ),
         Werkzeug(
             "email_lesen",
@@ -776,6 +807,7 @@ def mail_werkzeuge(dienst: MailDienst) -> list[Werkzeug]:
                 "required": ["mail_id"],
             },
             dienst.email_lesen,
+            stufe=Stufe.LESEN,
         ),
         Werkzeug(
             "email_entwurf_erstellen",
@@ -802,6 +834,7 @@ def mail_werkzeuge(dienst: MailDienst) -> list[Werkzeug]:
                 "required": ["text"],
             },
             dienst.entwurf_erstellen,
+            stufe=Stufe.SCHREIBEN,
         ),
         Werkzeug(
             "email_entwurf_aendern",
@@ -818,12 +851,14 @@ def mail_werkzeuge(dienst: MailDienst) -> list[Werkzeug]:
                 "required": ["entwurf_id"],
             },
             dienst.entwurf_aendern,
+            stufe=Stufe.SCHREIBEN,
         ),
         Werkzeug(
             "email_entwuerfe_anzeigen",
             "Zeigt alle offenen E-Mail-Entwürfe (Louis sieht sie unter deiner Antwort).",
             {"type": "object", "properties": {}},
             dienst.entwuerfe_anzeigen,
+            stufe=Stufe.LESEN,
         ),
         Werkzeug(
             "email_entwurf_verwerfen",
@@ -834,6 +869,7 @@ def mail_werkzeuge(dienst: MailDienst) -> list[Werkzeug]:
                 "required": ["entwurf_id"],
             },
             dienst.entwurf_verwerfen,
+            stufe=Stufe.ZERSTOERERISCH,
         ),
         Werkzeug(
             "email_adresse_suchen",
@@ -844,12 +880,14 @@ def mail_werkzeuge(dienst: MailDienst) -> list[Werkzeug]:
                 "required": ["name"],
             },
             dienst.adresse_suchen,
+            stufe=Stufe.LESEN,
         ),
         Werkzeug(
             "schreibstil_anzeigen",
             "Zeigt Louis' Schreibstil-Profil für E-Mails.",
             {"type": "object", "properties": {}},
             dienst.stil_anzeigen,
+            stufe=Stufe.LESEN,
         ),
         Werkzeug(
             "schreibstil_lernen",
@@ -859,6 +897,7 @@ def mail_werkzeuge(dienst: MailDienst) -> list[Werkzeug]:
                 "properties": {"anzahl": {"type": "integer", "description": "Standard 40"}},
             },
             dienst.stil_lernen,
+            stufe=Stufe.SCHREIBEN,
         ),
         Werkzeug(
             "schreibstil_anpassen",
@@ -872,5 +911,6 @@ def mail_werkzeuge(dienst: MailDienst) -> list[Werkzeug]:
                 "required": ["regel"],
             },
             dienst.stil_anpassen,
+            stufe=Stufe.SCHREIBEN,
         ),
     ]

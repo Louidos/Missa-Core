@@ -28,7 +28,7 @@ import httpx
 
 from missa.core.datenbank import verbinden
 from missa.core.prompt import WOCHENTAGE, datum_lang
-from missa.core.werkzeuge import Werkzeug, WerkzeugFehler
+from missa.core.werkzeuge import Stufe, Werkzeug, WerkzeugFehler
 from missa.core.zeitangaben import wandzeit
 from missa.tools.mail_konto import adressen as mail_adressen
 
@@ -811,6 +811,7 @@ def kontakt_werkzeuge(pflege: Kontaktpflege) -> list[Werkzeug]:
             "Sucht Kontakte in Nextcloud (Name, Spitzname, E-Mail) mit Adresse und Geburtstag.",
             {"type": "object", "properties": {"name": name}, "required": ["name"]},
             pflege.kontakte_suchen,
+            stufe=Stufe.LESEN,
         ),
         Werkzeug(
             "geburtstage_anzeigen",
@@ -820,6 +821,7 @@ def kontakt_werkzeuge(pflege: Kontaktpflege) -> list[Werkzeug]:
                 "properties": {"tage": {"type": "integer", "description": "Standard 30"}},
             },
             pflege.geburtstage_anzeigen,
+            stufe=Stufe.LESEN,
         ),
         Werkzeug(
             "kontakt_wichtig_markieren",
@@ -834,12 +836,14 @@ def kontakt_werkzeuge(pflege: Kontaktpflege) -> list[Werkzeug]:
                 "required": ["name", "abstand"],
             },
             pflege.wichtig_markieren,
+            stufe=Stufe.SCHREIBEN,
         ),
         Werkzeug(
             "kontakt_nicht_mehr_wichtig",
             "Nimmt eine Person aus der Kontaktpflege (keine Erinnerungen mehr).",
             {"type": "object", "properties": {"name": name}, "required": ["name"]},
             pflege.nicht_mehr_wichtig,
+            stufe=Stufe.SCHREIBEN,
         ),
         Werkzeug(
             "kontakt_gemeldet",
@@ -858,11 +862,13 @@ def kontakt_werkzeuge(pflege: Kontaktpflege) -> list[Werkzeug]:
                 "required": ["name"],
             },
             pflege.gemeldet,
+            stufe=Stufe.SCHREIBEN,
         ),
         Werkzeug(
             "wichtige_kontakte_anzeigen",
             "Zeigt die wichtigen Kontakte mit gewünschtem Abstand und letztem Kontakt.",
             {"type": "object", "properties": {}},
             pflege.wichtige_anzeigen,
+            stufe=Stufe.LESEN,
         ),
     ]

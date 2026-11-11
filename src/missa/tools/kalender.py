@@ -29,7 +29,7 @@ import recurring_ical_events
 from caldav.lib import error as caldav_fehler
 
 from missa.core.prompt import datum_lang
-from missa.core.werkzeuge import Werkzeug, WerkzeugFehler
+from missa.core.werkzeuge import Stufe, Werkzeug, WerkzeugFehler
 from missa.tools.bestaetigung import Bestaetigungen, zustimmung_pruefen
 from missa.tools.farben import Farbsystem, farbe_lesen, farbe_name
 from missa.tools.kalender_protokoll import KalenderProtokoll
@@ -1217,6 +1217,7 @@ def kalender_werkzeuge(
                 "required": ["von"],
             },
             k.termine_anzeigen,
+            stufe=Stufe.LESEN,
         ),
         Werkzeug(
             "termin_eintragen",
@@ -1238,6 +1239,7 @@ def kalender_werkzeuge(
                 "required": ["titel", "start"],
             },
             k.termin_eintragen,
+            stufe=Stufe.SCHREIBEN,
         ),
         Werkzeug(
             "termin_aendern",
@@ -1258,6 +1260,7 @@ def kalender_werkzeuge(
                 "required": ["termin_id"],
             },
             k.termin_aendern,
+            stufe=Stufe.SCHREIBEN,
         ),
         Werkzeug(
             "termin_loeschen",
@@ -1276,12 +1279,14 @@ def kalender_werkzeuge(
                 "required": ["termin_id"],
             },
             k.termin_loeschen,
+            stufe=Stufe.SCHREIBEN,
         ),
         Werkzeug(
             "kalender_anzeigen",
             "Listet alle Kalender mit Farbe und dein Farbsystem (Kategorie = Farbe).",
             {"type": "object", "properties": {}},
             k.kalender_anzeigen,
+            stufe=Stufe.LESEN,
         ),
         Werkzeug(
             "kalender_anlegen",
@@ -1296,6 +1301,7 @@ def kalender_werkzeuge(
                 "required": ["name"],
             },
             k.kalender_anlegen,
+            stufe=Stufe.SCHREIBEN,
         ),
         Werkzeug(
             "kalender_aendern",
@@ -1310,6 +1316,7 @@ def kalender_werkzeuge(
                 "required": ["name"],
             },
             k.kalender_aendern,
+            stufe=Stufe.SCHREIBEN,
         ),
         Werkzeug(
             "farbsystem_festlegen",
@@ -1324,6 +1331,7 @@ def kalender_werkzeuge(
                 "required": ["kategorie"],
             },
             k.farbsystem_festlegen,
+            stufe=Stufe.SCHREIBEN,
         ),
         Werkzeug(
             "kalender_rueckgaengig",
@@ -1336,6 +1344,7 @@ def kalender_werkzeuge(
                 },
             },
             k.rueckgaengig,
+            stufe=Stufe.SCHREIBEN,
         ),
         Werkzeug(
             "kalender_protokoll",
@@ -1345,5 +1354,6 @@ def kalender_werkzeuge(
                 "properties": {"anzahl": {"type": "integer", "description": "Standard 10"}},
             },
             k.protokoll_anzeigen,
+            stufe=Stufe.LESEN,
         ),
     ]

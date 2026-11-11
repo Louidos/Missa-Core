@@ -12,7 +12,7 @@ from typing import Any
 
 from missa.core.hintergrund import Hintergrund
 from missa.core.vorgaben import uhrzeit_lesen
-from missa.core.werkzeuge import Werkzeug, WerkzeugFehler, im_hintergrund
+from missa.core.werkzeuge import Stufe, Werkzeug, WerkzeugFehler, im_hintergrund
 from missa.core.zeitplaner import abstand_text, zeitpunkt_text
 from missa.tools.bestaetigung import Bestaetigungen, loeschen_pruefen
 
@@ -123,18 +123,21 @@ def nachtschicht_werkzeuge(
                 "required": ["anweisung"],
             },
             w.anlegen,
+            stufe=Stufe.SCHREIBEN,
         ),
         Werkzeug(
             "nachtaufgaben_anzeigen",
             "Zeigt das Nachtfenster, vorgemerkte Nachtaufgaben und Ergebnisse der letzten Tage.",
             {"type": "object", "properties": {}},
             w.anzeigen,
+            stufe=Stufe.LESEN,
         ),
         Werkzeug(
             "nachtaufgabe_ergebnis",
             "Liefert das vollständige Ergebnis einer Nachtaufgabe.",
             id_schema,
             w.ergebnis,
+            stufe=Stufe.LESEN,
         ),
         Werkzeug(
             "nachtaufgabe_loeschen",
@@ -152,6 +155,7 @@ def nachtschicht_werkzeuge(
                 "required": ["auftrag_id"],
             },
             w.loeschen,
+            stufe=Stufe.ZERSTOERERISCH,
         ),
         Werkzeug(
             "nachtschicht_einstellen",
@@ -166,5 +170,6 @@ def nachtschicht_werkzeuge(
                 "required": ["von", "bis"],
             },
             w.einstellen,
+            stufe=Stufe.SCHREIBEN,
         ),
     ]
