@@ -97,6 +97,24 @@ class Einstellungen:
     erreichbarkeit_domains: tuple[str, ...] = ()
     erreichbarkeit_intervall_minuten: int = 5
     erreichbarkeit_stufe: str = "wichtig"
+    ssh_hosts: str = ""
+    ssh_benutzer: str = "missa"
+    ssh_schluessel: Path = Path("/etc/missa/ssh/id_ed25519")
+    ssh_known_hosts: Path = Path("/etc/missa/ssh/known_hosts")
+    ssh_timeout: float = 20.0
+    container_intervall_minuten: int = 5
+    container_ignorieren: tuple[str, ...] = ()
+    login_hosts: tuple[str, ...] = ()
+    login_intervall_minuten: int = 5
+    login_fehlversuche_grenze: int = 10
+    login_fehlversuche_fenster_minuten: int = 15
+    login_automatisch_benutzer: tuple[str, ...] = ("missa",)
+    login_bekannte_ips: tuple[str, ...] = ()
+    login_nacht_von: time = time(0, 0)
+    login_nacht_bis: time = time(5, 0)
+    nextcloud_log_host: str = ""
+    nextcloud_log_quelle: str = ""
+    fehlersuche_dienste: str = ""
 
     @property
     def notfall_datei(self) -> Path:
@@ -149,6 +167,11 @@ class Einstellungen:
     def server_monitoring_konfiguriert(self) -> bool:
         """``True``, wenn mindestens eine Monitoring-Quelle eingerichtet ist."""
         return bool(self.monitoring_url or self.homepage_url or self.proxmox_konfiguriert)
+
+    @property
+    def ssh_konfiguriert(self) -> bool:
+        """``True``, wenn mindestens ein Host für SSH eingetragen ist (``SSH_HOSTS``)."""
+        return bool(self.ssh_hosts.strip())
 
     @property
     def stil_datei(self) -> Path:
@@ -318,6 +341,26 @@ class Einstellungen:
             erreichbarkeit_domains=liste("ERREICHBARKEIT_DOMAINS"),
             erreichbarkeit_intervall_minuten=max(1, zahl("ERREICHBARKEIT_INTERVALL_MINUTEN", 5)),
             erreichbarkeit_stufe=wert("ERREICHBARKEIT_STUFE", "wichtig").casefold(),
+            ssh_hosts=env.get("SSH_HOSTS", "").strip(),
+            ssh_benutzer=wert("SSH_BENUTZER", cls.ssh_benutzer),
+            ssh_schluessel=Path(wert("SSH_SCHLUESSEL", str(cls.ssh_schluessel))),
+            ssh_known_hosts=Path(wert("SSH_KNOWN_HOSTS", str(cls.ssh_known_hosts))),
+            ssh_timeout=max(1.0, kommazahl("SSH_TIMEOUT", 20.0)),
+            container_intervall_minuten=max(1, zahl("CONTAINER_INTERVALL_MINUTEN", 5)),
+            container_ignorieren=liste("CONTAINER_IGNORIEREN"),
+            login_hosts=liste("LOGIN_HOSTS"),
+            login_intervall_minuten=max(1, zahl("LOGIN_INTERVALL_MINUTEN", 5)),
+            login_fehlversuche_grenze=max(1, zahl("LOGIN_FEHLVERSUCHE_GRENZE", 10)),
+            login_fehlversuche_fenster_minuten=max(
+                1, zahl("LOGIN_FEHLVERSUCHE_FENSTER_MINUTEN", 15)
+            ),
+            login_automatisch_benutzer=liste("LOGIN_AUTOMATISCH_BENUTZER") or ("missa",),
+            login_bekannte_ips=liste("LOGIN_BEKANNTE_IPS"),
+            login_nacht_von=uhrzeit("LOGIN_NACHT_VON", "00:00"),
+            login_nacht_bis=uhrzeit("LOGIN_NACHT_BIS", "05:00"),
+            nextcloud_log_host=env.get("NEXTCLOUD_LOG_HOST", "").strip().casefold(),
+            nextcloud_log_quelle=env.get("NEXTCLOUD_LOG_QUELLE", "").strip(),
+            fehlersuche_dienste=env.get("FEHLERSUCHE_DIENSTE", "").strip(),
         )
 
     def pruefen(self) -> None:
@@ -336,6 +379,16 @@ class Einstellungen:
             )
         if self.erreichbarkeit_stufe not in ("info", "wichtig", "notfall"):
             raise KonfigurationsFehler("ERREICHBARKEIT_STUFE muss info, wichtig oder notfall sein")
+        try:
+            from missa.integrationen.anmeldungen import NextcloudLog
+            from missa.integrationen.ssh import hosts_lesen
+            from missa.tools.fehlersuche import dienste_lesen
+
+            hosts_lesen(self.ssh_hosts)
+            dienste_lesen(self.fehlersuche_dienste)
+            NextcloudLog.aus_text(self.nextcloud_log_host, self.nextcloud_log_quelle)
+        except ValueError as fehler:
+            raise KonfigurationsFehler(str(fehler)) from fehler
         try:
             ZoneInfo(self.timezone)
         except (ZoneInfoNotFoundError, ValueError) as fehler:

@@ -10,6 +10,7 @@ from collections.abc import Callable
 from contextlib import asynccontextmanager
 from datetime import datetime, timedelta
 from typing import Annotated, Any
+from zoneinfo import ZoneInfo
 
 import httpx
 from fastapi import Depends, FastAPI, Header, Request
@@ -74,18 +75,23 @@ def create_app(
     server_transport: httpx.AsyncBaseTransport | None = None,
     server_waechter: Any = None,
     erreichbarkeit: Any = None,
+    ssh_verbindung: Any = None,
 ) -> FastAPI:
     """Baut die App. Parameter außer ``einstellungen`` sind vor allem für Tests da."""
     from missa.channels.nextcloud_talk import TalkClient, talk_einrichten
     from missa.core.rechte import rechte_bauen
     from missa.tools import (
         alarme_bauen,
+        container_dienst_bauen,
         erreichbarkeit_bauen,
+        fehlersuche_bauen,
         kontaktpflege_bauen,
+        login_waechter_bauen,
         mail_dienst_bauen,
         nextcloud_dienste_bauen,
         pausen_waechter_bauen,
         server_waechter_bauen,
+        ssh_verbindung_bauen,
         talk_melder_bauen,
         werkzeuge_laden,
     )
@@ -159,6 +165,26 @@ def create_app(
             timedelta(minutes=einstellungen.erreichbarkeit_intervall_minuten),
             erreichbarkeit.pruefen,
         )
+    # Container, Logs und Anmeldungen auf anderen Hosts (SSH als „missa“, nur erlaubte Befehle).
+    if ssh_verbindung is None:
+        ssh_verbindung = ssh_verbindung_bauen(einstellungen)
+    container = fehlersuche = anmeldungen = None
+    if ssh_verbindung is not None:
+        container = container_dienst_bauen(einstellungen, ssh_verbindung, alarme)
+        fehlersuche = fehlersuche_bauen(
+            einstellungen, ssh_verbindung, container, server_waechter, erreichbarkeit
+        )
+        anmeldungen = login_waechter_bauen(einstellungen, ssh_verbindung, alarme)
+        zeitplaner.regelmaessig(
+            "container",
+            timedelta(minutes=einstellungen.container_intervall_minuten),
+            container.pruefen,
+        )
+        zeitplaner.regelmaessig(
+            "anmeldungen",
+            timedelta(minutes=einstellungen.login_intervall_minuten),
+            anmeldungen.pruefen,
+        )
     if werkzeuge is None:
         werkzeuge = werkzeuge_laden(
             einstellungen,
@@ -175,6 +201,9 @@ def create_app(
             alarme=alarme,
             server=server_waechter,
             erreichbarkeit=erreichbarkeit,
+            container=container,
+            fehlersuche=fehlersuche,
+            anmeldungen=anmeldungen,
         )
     else:
         werkzeuge.rechte = rechte
@@ -277,6 +306,8 @@ def create_app(
     app.state.alarme = alarme
     app.state.server = server_waechter
     app.state.erreichbarkeit = erreichbarkeit
+    app.state.container = container
+    app.state.anmeldungen = anmeldungen
 
     # -------------------------------------------------------------- Fehlerformat
 
@@ -466,6 +497,45 @@ def create_app(
             "quellen_fehler": fehler,
             "werte": werte,
             "erreichbarkeit": domains,
+        }
+
+    @app.get("/api/container", dependencies=geschuetzt, tags=["Missa"])
+    async def container_anzeigen() -> dict[str, Any]:
+        """Zuletzt gelesener Stand der Docker-Container je Host (ohne neue SSH-Abfrage)."""
+        if container is None:
+            return {"ssh": False, "hosts": {}}
+        return {
+            "ssh": True,
+            "hosts": {
+                host: {
+                    "stand": container.stand[host].isoformat(timespec="seconds")
+                    if host in container.stand
+                    else None,
+                    "container": [c.als_dict() for c in container.zuletzt.get(host, [])],
+                }
+                for host in container.ssh.namen
+            },
+        }
+
+    @app.get("/api/anmeldungen", dependencies=geschuetzt, tags=["Missa"])
+    async def anmeldungen_anzeigen(tage: int = 1) -> dict[str, Any]:
+        """Gespeicherte SSH- und Nextcloud-Anmeldungen und die bekannten IPs (nur lesen)."""
+        if anmeldungen is None:
+            return {"ssh": False, "anmeldungen": [], "bekannte_ips": []}
+        from missa.core.datenbank import verbinden
+
+        seit = alarme.jetzt() - timedelta(days=max(1, min(tage, 90)))
+        with verbinden(einstellungen.datenbank) as db:
+            zeilen = db.execute(
+                "SELECT quelle, host, zeit, benutzer, ip, erfolg, art FROM anmeldungen "
+                "WHERE zeit >= ? ORDER BY zeit DESC LIMIT 1000",
+                (seit.astimezone(ZoneInfo("UTC")).strftime("%Y-%m-%dT%H:%M:%S+00:00"),),
+            ).fetchall()
+        return {
+            "ssh": True,
+            "anzahl": len(zeilen),
+            "anmeldungen": [{**dict(z), "erfolg": bool(z["erfolg"])} for z in zeilen],
+            "bekannte_ips": anmeldungen.bekannte(),
         }
 
     @app.post("/v1/chat/completions", dependencies=geschuetzt, tags=["OpenAI"])

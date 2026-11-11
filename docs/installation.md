@@ -155,6 +155,15 @@ und das App-Passwort lässt sich jederzeit einzeln widerrufen.
 | `AUFFAELLIG_AKTIV` / `AUFFAELLIG_MIN_ABSTAND` | `true` / `15` | nein | Hinweise auf ungewöhnliche Anstiege (Prozentpunkte über dem 7-Tage-Mittel). |
 | `ERREICHBARKEIT_DOMAINS` | leer (Vorlage: cloud., git., ki.louis-degiorgi.ch) | nein | Domains, die Missa über die öffentliche Adresse prüft (kommagetrennt); leer = aus. |
 | `ERREICHBARKEIT_INTERVALL_MINUTEN` / `ERREICHBARKEIT_STUFE` | `5` / `wichtig` | nein | Prüfabstand und Alarm-Stufe für einen Ausfall. |
+| `SSH_HOSTS` | leer | nein | Hosts für Container, Logs und Anmeldungen als `name=adresse[:port]`; leer = aus. Einrichtung siehe [container-logs-logins.md](container-logs-logins.md). |
+| `SSH_BENUTZER` / `SSH_SCHLUESSEL` / `SSH_KNOWN_HOSTS` / `SSH_TIMEOUT` | `missa` / `/etc/missa/ssh/id_ed25519` / `/etc/missa/ssh/known_hosts` / `20` | nein | SSH-Zugang (Host-Schlüssel werden streng geprüft). |
+| `CONTAINER_INTERVALL_MINUTEN` / `CONTAINER_IGNORIEREN` | `5` / leer | nein | Prüfabstand für hängende Container; Container, die nicht gemeldet werden. |
+| `LOGIN_HOSTS` / `LOGIN_INTERVALL_MINUTEN` | leer (= alle) / `5` | nein | SSH-Login-Überwachung. |
+| `LOGIN_FEHLVERSUCHE_GRENZE` / `LOGIN_FEHLVERSUCHE_FENSTER_MINUTEN` | `10` / `15` | nein | Ab so vielen Fehlversuchen in so vielen Minuten: `wichtig` (im Gespräch änderbar). |
+| `LOGIN_AUTOMATISCH_BENUTZER` / `LOGIN_BEKANNTE_IPS` | `missa` / leer | nein | Automatische Benutzer (keine Zeit-Hinweise); IPs, die als bekannt gelten. |
+| `LOGIN_NACHT_VON` / `LOGIN_NACHT_BIS` | `00:00` / `05:00` | nein | Ungewohnte Zeit, solange es wenig Verlauf gibt. |
+| `NEXTCLOUD_LOG_HOST` / `NEXTCLOUD_LOG_QUELLE` | leer | nein | Nextcloud-Log für Logins und Fehlersuche: `datei` oder `journal[:Kennung]`. |
+| `FEHLERSUCHE_DIENSTE` | leer | nein | Zuordnung Dienst → Host und Container/Units, z. B. `nextcloud:int01:nextcloud-app,nextcloud-db`. |
 | `NC_TALK_ENABLED` | `false` | für Talk | Missa in Nextcloud Talk einschalten. |
 | `NC_TALK_BASE_URL` | – | für Talk | Nextcloud-Adresse wie `overwrite.cli.url` (Prüfung des Absenders). |
 | `NC_TALK_API_URL` | = `NC_TALK_BASE_URL` | nein | Adresse für Antworten an Nextcloud, falls ai01 sie intern anders erreicht. |
