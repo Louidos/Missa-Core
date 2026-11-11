@@ -9,9 +9,9 @@ einen Schlag alle Schreibrechte.
 
 | Stufe            | Bedeutung                                                    | Beispiele |
 |------------------|--------------------------------------------------------------|-----------|
-| `lesen`          | schaut nur nach, ändert nichts                               | `termine_anzeigen`, `erinnern`, `emails_anzeigen`, `aktionen_anzeigen`, `server_werte_anzeigen`, `erreichbarkeit_pruefen` |
-| `schreiben`      | legt an oder ändert – harmlos oder rückgängig machbar         | `termin_eintragen`, `termin_loeschen`*, `aufgabe_erstellen`, `merken`, `email_entwurf_erstellen`, `alarmregel_anlegen`, `alarm_einstellungen` |
-| `zerstoererisch` | löscht endgültig, verwirft, versendet – oder startet, installiert, aktiviert etwas neu | `vergessen`, `aufgabe_loeschen`, `erinnerung_loeschen`, `routine_loeschen`, `nachtaufgabe_loeschen`, `email_entwurf_verwerfen`, `alarmregel_loeschen`, E-Mail senden |
+| `lesen`          | schaut nur nach, ändert nichts                               | `termine_anzeigen`, `erinnern`, `emails_anzeigen`, `aktionen_anzeigen`, `server_werte_anzeigen`, `erreichbarkeit_pruefen`, `container_anzeigen`, `container_logs`, `fehlersuche`, `journal_lesen`, `anmeldungen_anzeigen` |
+| `schreiben`      | legt an oder ändert – harmlos oder rückgängig machbar         | `termin_eintragen`, `termin_loeschen`*, `aufgabe_erstellen`, `merken`, `email_entwurf_erstellen`, `alarmregel_anlegen`, `alarm_einstellungen`, `ip_als_bekannt_markieren`, `login_einstellungen` |
+| `zerstoererisch` | löscht endgültig, verwirft, versendet – oder startet, installiert, aktiviert etwas neu | `vergessen`, `aufgabe_loeschen`, `erinnerung_loeschen`, `routine_loeschen`, `nachtaufgabe_loeschen`, `email_entwurf_verwerfen`, `alarmregel_loeschen`, `container_neustarten`, E-Mail senden |
 
 \* Termine lassen sich mit „mach das rückgängig“ wiederherstellen, darum gilt Löschen im
 Kalender als `schreiben` (so seit 0.3.0). Bekämen andere Personen eine Absage, fragt Missa
@@ -123,6 +123,7 @@ Blöcke in [config/missa.env.example](../config/missa.env.example) sind danach g
 | E-Mail | `MAIL_USER`, `MAIL_PASSWORD` | IMAP: Posteingang und Gesendet lesen, im Entwürfe-Ordner ablegen und entfernen. SMTP: senden (nur nach deinem Ja) | Filter, Weiterleitungen, Kontoeinstellungen; wenn möglich ein App-Passwort statt des Hauptpassworts |
 | Proxmox (Server-Alarme) | `PROXMOX_TOKEN_ID`, `PROXMOX_TOKEN_SECRET` | Token `missa@pve!monitor` mit Rolle **PVEAuditor** auf `/` (nur lesen), Rechte-Trennung `--privsep 1`; Einrichtung mit `scripts/einrichten/proxmox-lesetoken.sh` auf pve-id01 | Starten, Stoppen, Ändern, Löschen, Konsole, Root-Zugang; der Benutzer `missa@pve` hat kein Passwort |
 | Eigenes Monitoring-Tool, Homepage | `MONITORING_TOKEN` (falls nötig) | nur lesen (GET) | Schreib- oder Admin-Zugang |
+| Andere Hosts (wb01, int01, rp01 …) | SSH-Schlüssel `SSH_SCHLUESSEL` | Benutzer `missa`, Schlüssel gebunden an `missa-befehl` (`restrict,command=`); sudo **nur** `docker ps`, `docker stats --no-stream`, `docker logs`, `docker restart`; Logs über die Gruppe `systemd-journal`; optional Lese-ACL auf die eine Nextcloud-Logdatei. Einrichtung: `scripts/einrichten/missa-benutzer.sh` (von Hand) | Shell, Terminal, Passwort, `docker exec`/`run`, sudo für andere Befehle, `sudo journalctl`; auf pve-id01 nur mit `--proxmox-ja` |
 | ntfy (Push, kommt mit dem Benachrichtigungs-Update) | eigenes Token | nur Schreiben in das eine Topic | Lesen anderer Topics, Admin |
 
 Zugangsdaten stehen nur in `/etc/missa/missa.env` (Rechte `640`, Gruppe `missa`), nie im Repo.

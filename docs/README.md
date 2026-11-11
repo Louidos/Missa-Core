@@ -14,3 +14,4 @@
 - [server-alarme.md](server-alarme.md) – Server-Alarme: Stufen, Ruhezeit, Regeln per Gespräch, Auffälliges, Erreichbarkeit, Proxmox-Token
 - [monitoring.md](monitoring.md) – Schnittstelle der Monitoring-Quellen und JSON-Formate (eigenes Tool, Homepage, Proxmox)
 - [netzfreigaben.md](netzfreigaben.md) – welche Verbindungen ai01 braucht (Vorlage für die Firewall-Regeln)
+- [container-logs-logins.md](container-logs-logins.md) – Container, Fehlersuche in Logs, Login-Überwachung, Benutzer `missa` auf den Hosts

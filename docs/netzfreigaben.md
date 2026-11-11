@@ -14,6 +14,8 @@ nur wb01. Jede Gruppe des Server-Updates trägt hier ein, was sie zusätzlich br
 | ai01 | Host des Homepage-Dashboards (`HOMEPAGE_URL`) | Port aus der URL (TCP, meist 3000) | Server-Alarme: Status der Dienste lesen | Server-Alarme | `HOMEPAGE_URL` gesetzt |
 | ai01 | DNS-Resolver von ai01 | UDP/TCP 53 | Erreichbarkeit: öffentliche Namen auflösen | Server-Alarme | `ERREICHBARKEIT_DOMAINS` gesetzt |
 | ai01 | öffentliche Adresse von cloud., git. und ki.louis-degiorgi.ch | TCP 443 | Erreichbarkeit: HTTPS-Antwort und Zertifikat prüfen | Server-Alarme | `ERREICHBARKEIT_DOMAINS` gesetzt |
+| ai01 | jeder Host aus `SSH_HOSTS` (z. B. wb01, int01, rp01 10.0.70.10) | TCP 22 | Container, Logs, Anmeldungen: SSH als `missa`, nur die Befehle aus `missa-befehl` | Container und Logs | `SSH_HOSTS` gesetzt |
+| ai01 | pve-id01 | TCP 22 | nur, wenn du Missa ausdrücklich auch auf dem Proxmox-Host einrichtest (`--proxmox-ja`) | Container und Logs | sonst nicht nötig |
 
 Hinweise:
 

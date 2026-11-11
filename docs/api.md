@@ -388,6 +388,57 @@ curl $MISSA/api/server -H "Authorization: Bearer $KEY"
 }
 ```
 
+### `GET /api/container` – Docker-Container der Hosts
+
+Der zuletzt gelesene Stand je Host aus `SSH_HOSTS` (Missa liest alle 5 Minuten neu). Der
+Endpunkt fragt die Hosts nicht selbst ab. Ohne SSH ist `ssh` `false`.
+
+```bash
+curl $MISSA/api/container -H "Authorization: Bearer $KEY"
+```
+
+```json
+{
+  "ssh": true,
+  "hosts": {
+    "wb01": {
+      "stand": "2026-11-11T14:05:00+01:00",
+      "container": [
+        {"host": "wb01", "name": "nextcloud", "image": "nextcloud:29", "zustand": "running",
+         "status": "Up 3 hours (healthy)", "gesundheit": "healthy", "ports": "", "cpu": "",
+         "speicher": "", "problem": ""}
+      ]
+    }
+  }
+}
+```
+
+### `GET /api/anmeldungen` – SSH- und Nextcloud-Anmeldungen
+
+Gespeicherte Anmeldungen (neueste zuerst, höchstens 1000) der letzten `tage` (Standard 1,
+höchstens 90) und die als bekannt markierten IPs. Nur lesend.
+
+```bash
+curl "$MISSA/api/anmeldungen?tage=7" -H "Authorization: Bearer $KEY"
+```
+
+```json
+{
+  "ssh": true,
+  "anzahl": 1,
+  "anmeldungen": [
+    {"quelle": "ssh", "host": "wb01", "zeit": "2026-11-11T13:02:00+00:00", "benutzer": "louis",
+     "ip": "10.0.30.5", "erfolg": true, "art": "publickey"}
+  ],
+  "bekannte_ips": [
+    {"ip": "10.0.30.5", "bekannt": 1, "notiz": "Laptop", "erstmals": "2026-11-11T13:02:00+00:00",
+     "zuletzt": "2026-11-11T13:02:00+00:00", "erfolge": 1}
+  ]
+}
+```
+
+Mehr dazu: [container-logs-logins.md](container-logs-logins.md).
+
 ### `POST /channels/nextcloud-talk/webhook` – nur für Nextcloud Talk
 
 Kein Endpunkt für Apps: Hier liefert Nextcloud Talk Nachrichten an Missa (Bot-Webhook).
@@ -492,3 +543,5 @@ kennen – man fragt einfach in normaler Sprache.
 | Nextcloud Talk (nur wenn eingerichtet) | „Schick mir die Übersicht per Talk“, „Erinnere mich per Talk an …“ | `talk_nachricht_senden` |
 | Server-Alarme (nur wenn eine Monitoring-Quelle eingerichtet ist) | „Ruf mich an, wenn ai01 über 90 % ist“, „Wie ist die Auslastung von ai01?“, „Welche Alarm-Regeln gibt es?“, „Ruhezeit von 23 bis 6 Uhr“ | `server_werte_anzeigen`, `alarmregel_anlegen`, `alarmregeln_anzeigen`, `alarmregel_aendern`, `alarmregel_loeschen`, `alarme_anzeigen`, `alarm_einstellungen` |
 | Erreichbarkeit (nur wenn `ERREICHBARKEIT_DOMAINS` gesetzt ist) | „Ist git von außen erreichbar?“ | `erreichbarkeit_pruefen` |
+| Container und Logs (nur wenn `SSH_HOSTS` gesetzt ist) | „Welche Container laufen auf wb01?“, „Warum geht Nextcloud nicht?“, „Starte nextcloud neu“ (nur nach Ja) | `container_anzeigen`, `container_logs`, `container_neustarten`, `fehlersuche`, `journal_lesen` |
+| Anmeldungen (nur wenn `SSH_HOSTS` gesetzt ist) | „Wer hat sich heute angemeldet?“, „10.0.30.5 ist mein Laptop“ | `anmeldungen_anzeigen`, `ip_als_bekannt_markieren`, `ip_nicht_mehr_bekannt`, `bekannte_ips_anzeigen`, `login_einstellungen` |

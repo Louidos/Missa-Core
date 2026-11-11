@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import logging
 from dataclasses import dataclass
+from datetime import datetime
 from typing import TYPE_CHECKING
 
 from missa.core.config import Einstellungen
@@ -19,7 +20,11 @@ if TYPE_CHECKING:
     from missa.core.hintergrund import Hintergrund
     from missa.core.rechte import Aktionsprotokoll, Rechte
     from missa.core.zeitplaner import Zeitplaner
+    from missa.integrationen.ssh import SshVerbindung
+    from missa.tools.anmeldungen import LoginWaechter
+    from missa.tools.container import ContainerDienst
     from missa.tools.erreichbarkeit import ErreichbarkeitsWaechter
+    from missa.tools.fehlersuche import Fehlersuche
     from missa.tools.kalender import Kalender
     from missa.tools.kontakte import Adressbuch, Kontaktpflege
     from missa.tools.mail import MailDienst
@@ -89,6 +94,9 @@ def werkzeuge_laden(
     alarme: Alarme | None = None,
     server: ServerWaechter | None = None,
     erreichbarkeit: ErreichbarkeitsWaechter | None = None,
+    container: ContainerDienst | None = None,
+    fehlersuche: Fehlersuche | None = None,
+    anmeldungen: LoginWaechter | None = None,
 ) -> Werkzeugkasten:
     """Stellt alle Werkzeuge zusammen, die mit dieser Konfiguration nutzbar sind.
 
@@ -151,7 +159,26 @@ def werkzeuge_laden(
         for werkzeug in erreichbarkeit_werkzeuge(erreichbarkeit):
             kasten.hinzufuegen(werkzeug)
 
-    if alarme is not None and (server is not None or erreichbarkeit is not None):
+    if container is not None:
+        from missa.tools.container import container_werkzeuge
+
+        for werkzeug in container_werkzeuge(container):
+            kasten.hinzufuegen(werkzeug)
+
+    if fehlersuche is not None:
+        from missa.tools.fehlersuche import fehlersuche_werkzeuge
+
+        for werkzeug in fehlersuche_werkzeuge(fehlersuche):
+            kasten.hinzufuegen(werkzeug)
+
+    if anmeldungen is not None:
+        from missa.tools.anmeldungen import login_werkzeuge
+
+        for werkzeug in login_werkzeuge(anmeldungen):
+            kasten.hinzufuegen(werkzeug)
+
+    meldende = (server, erreichbarkeit, container, anmeldungen)
+    if alarme is not None and any(d is not None for d in meldende):
         from missa.core.alarme import alarm_werkzeuge
 
         for werkzeug in alarm_werkzeuge(alarme):
@@ -356,4 +383,77 @@ def erreichbarkeit_bauen(
         einstellungen.datenbank,
         einstellungen.zone,
         stufe=AlarmStufe(einstellungen.erreichbarkeit_stufe),
+    )
+
+
+def ssh_verbindung_bauen(einstellungen: Einstellungen) -> SshVerbindung | None:
+    """SSH zu den Hosts aus ``SSH_HOSTS`` (als ``missa``, nur erlaubte Befehle) – sonst aus."""
+    if not einstellungen.ssh_konfiguriert:
+        return None
+    from missa.integrationen.ssh import SshVerbindung, hosts_lesen
+
+    return SshVerbindung(
+        hosts_lesen(einstellungen.ssh_hosts),
+        benutzer=einstellungen.ssh_benutzer,
+        schluessel=einstellungen.ssh_schluessel,
+        known_hosts=einstellungen.ssh_known_hosts,
+        timeout=einstellungen.ssh_timeout,
+    )
+
+
+def container_dienst_bauen(
+    einstellungen: Einstellungen, ssh: SshVerbindung, alarme: Alarme
+) -> ContainerDienst:
+    """Container-Übersicht, Logs, Neustart nach Ja und Hänger-Erkennung."""
+    from missa.tools.container import ContainerDienst
+
+    return ContainerDienst(ssh, alarme, ignorieren=einstellungen.container_ignorieren)
+
+
+def fehlersuche_bauen(
+    einstellungen: Einstellungen,
+    ssh: SshVerbindung,
+    container: ContainerDienst | None,
+    server: ServerWaechter | None = None,
+    erreichbarkeit: ErreichbarkeitsWaechter | None = None,
+) -> Fehlersuche:
+    """Fehlersuche in Logs (Docker, journal, Nextcloud) mit Monitoring und Erreichbarkeit."""
+    from missa.integrationen.anmeldungen import NextcloudLog
+    from missa.tools.fehlersuche import Fehlersuche, dienste_lesen
+
+    return Fehlersuche(
+        ssh,
+        container,
+        dienste=dienste_lesen(einstellungen.fehlersuche_dienste),
+        nextcloud_log=NextcloudLog.aus_text(
+            einstellungen.nextcloud_log_host, einstellungen.nextcloud_log_quelle
+        ),
+        server=server,
+        erreichbarkeit=erreichbarkeit,
+        uhr=lambda: datetime.now(einstellungen.zone),
+    )
+
+
+def login_waechter_bauen(
+    einstellungen: Einstellungen, ssh: SshVerbindung, alarme: Alarme
+) -> LoginWaechter:
+    """Login-Überwachung für SSH (alle bzw. ``LOGIN_HOSTS``) und Nextcloud."""
+    from missa.integrationen.anmeldungen import NextcloudLog
+    from missa.tools.anmeldungen import LoginWaechter
+
+    return LoginWaechter(
+        ssh,
+        alarme,
+        einstellungen.datenbank,
+        einstellungen.zone,
+        hosts=einstellungen.login_hosts,
+        nextcloud_log=NextcloudLog.aus_text(
+            einstellungen.nextcloud_log_host, einstellungen.nextcloud_log_quelle
+        ),
+        fehlversuche_grenze=einstellungen.login_fehlversuche_grenze,
+        fenster_minuten=einstellungen.login_fehlversuche_fenster_minuten,
+        automatisch=einstellungen.login_automatisch_benutzer,
+        bekannte_ips=einstellungen.login_bekannte_ips,
+        nacht_von=einstellungen.login_nacht_von,
+        nacht_bis=einstellungen.login_nacht_bis,
     )

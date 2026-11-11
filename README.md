@@ -42,8 +42,13 @@ Talk nutzen dieselbe Logik.
   `info`/`wichtig`/`notfall` mit Ruhezeit und Ruhefenster, Hinweise auf ungewöhnliche Anstiege
   unter der Grenze und Prüfung der eigenen Domains von außen; Werte aus dem eigenen
   Monitoring-Tool, Homepage und Proxmox, alles nur lesend (siehe docs/server-alarme.md)
-- In Arbeit (Server-Update): Container und Logs, Updates und Zertifikate, Homelab-Wissen,
-  Proxmox-VMs, Caddy und Minecraft, Git-Überblick
+- Fertig: Container und Logs – „Welche Container laufen auf wb01?“, hängende Container
+  melden, Neustart nur nach Ja, „Warum geht Nextcloud nicht?“ mit verständlicher Ursache aus
+  den Logs und Login-Überwachung für SSH und Nextcloud (neue IPs, Fehlversuche, ungewohnte
+  Zeiten); Zugang über den Benutzer `missa` mit eng begrenzten Rechten
+  (siehe docs/container-logs-logins.md)
+- In Arbeit (Server-Update): Updates und Zertifikate, Homelab-Wissen, Proxmox-VMs, Caddy und
+  Minecraft, Git-Überblick
 - Später als eigene Aufträge: Telefon, Push, Smart Home
 - Änderungen im Detail: [CHANGELOG.md](CHANGELOG.md)
 
@@ -74,6 +79,8 @@ Talk nutzen dieselbe Logik.
 - **[docs/monitoring.md](docs/monitoring.md)** – Schnittstelle und JSON-Formate der
   Monitoring-Quellen
 - **[docs/netzfreigaben.md](docs/netzfreigaben.md)** – welche Verbindungen ai01 braucht
+- **[docs/container-logs-logins.md](docs/container-logs-logins.md)** – Container, Fehlersuche
+  in Logs, Login-Überwachung und der Benutzer `missa` auf den Hosts
 
 ## Installation
 

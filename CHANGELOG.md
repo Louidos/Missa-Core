@@ -7,6 +7,22 @@ die Versionsnummern folgen [Semantic Versioning](https://semver.org/lang/de/).
 
 ## Unveröffentlicht
 
+### Hinzugefügt
+
+- Container-Übersicht, verständliche Fehlersuche in Logs und Warnungen bei ungewöhnlichen
+  Anmeldungen: „Welche Container laufen auf wb01?“ zeigt Status, CPU und RAM. Hängende oder
+  abgestürzte Container meldet Missa von selbst (`wichtig`), neu startet sie einen erst
+  nach deinem Ja, und beides steht im Aktionsprotokoll. „Warum geht Nextcloud nicht?“
+  liest Container-, System- und Nextcloud-Logs und erklärt die wahrscheinliche Ursache
+  verständlich (z. B. „Die Datenbank ist nicht erreichbar“, „Die Festplatte ist voll“).
+  Lange Logs kommen in Teilen, sehr lange Analysen bietet Missa für die Nachtschicht an.
+  SSH- und Nextcloud-Anmeldungen werden überwacht: 10 Fehlversuche in 15 Minuten,
+  Anmeldungen von neuen IPs und zu ungewohnten Zeiten meldet Missa. „10.0.30.5 ist mein
+  Laptop“ markiert eine IP als bekannt. Zugang über den Benutzer `missa`, den
+  `scripts/einrichten/missa-benutzer.sh` auf jedem Host einrichtet: keine Shell, per sudo
+  nur `docker ps`/`stats`/`logs`/`restart`. Neu: `GET /api/container` und
+  `GET /api/anmeldungen`; Einrichtung siehe docs/container-logs-logins.md (#48)
+
 ## 0.5.0 – 2026-11-11
 
 ### Hinzugefügt
