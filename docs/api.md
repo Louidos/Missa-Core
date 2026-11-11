@@ -73,7 +73,7 @@ curl $MISSA/health
 ```json
 {
   "status": "ok",
-  "version": "0.3.0",
+  "version": "0.4.0",
   "llama": "ok",
   "charakter": "ok",
   "werkzeuge": ["merken", "erinnern", "vergessen", "termine_anzeigen", "termin_eintragen", "termin_loeschen", "aufgaben_anzeigen", "aufgabe_erstellen", "aufgabe_erledigt", "aufgabe_loeschen"]

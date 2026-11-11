@@ -7,6 +7,13 @@ die Versionsnummern folgen [Semantic Versioning](https://semver.org/lang/de/).
 
 ## Unveröffentlicht
 
+### Behoben
+
+- Die Versionsnummer im Code passt wieder zu den Releases: Nach dem Update auf 0.4.0 zeigten
+  `/health` und das Update-Script noch „0.3.0“ an; ab dem nächsten Release stimmt es wieder (#43)
+
+## 0.4.0 – 2026-11-11
+
 ### Hinzugefügt
 
 - Zeitgenaue Erinnerungen, Routinen per Sprache und Nachtschicht für lange Aufgaben: „Jeden
