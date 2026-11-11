@@ -7,6 +7,8 @@ die Versionsnummern folgen [Semantic Versioning](https://semver.org/lang/de/).
 
 ## Unveröffentlicht
 
+## 0.7.0 – 2026-11-11
+
 ### Hinzugefügt
 
 - Update-Verwaltung mit Wartungsfenster und Warnungen vor ablaufenden Zertifikaten und
