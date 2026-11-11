@@ -81,10 +81,10 @@ def test_fehler_werden_verstaendlich():
 
 @pytest.fixture
 def fakes(tmp_path: Path) -> Path:
-    """Ordner mit gefälschtem docker, sudo, journalctl und tail, die ihre Aufrufe protokollieren."""
+    """Ordner mit gefälschten Programmen, die ihre Aufrufe protokollieren (nie die echten!)."""
     ordner = tmp_path / "bin"
     ordner.mkdir()
-    for name in ("docker", "sudo", "journalctl", "tail"):
+    for name in ("docker", "sudo", "journalctl", "tail", "apt-get", "apt", "shutdown"):
         programm = ordner / name
         programm.write_text(
             f'#!/bin/bash\nprintf "%s\\n" "{name} $*" >> "{tmp_path}/aufrufe.log"\n',
@@ -94,10 +94,14 @@ def fakes(tmp_path: Path) -> Path:
     return ordner
 
 
-def erzeugen(fakes: Path, *argumente: str, wrapper: Path | None = None) -> str:
+def erzeugen(
+    fakes: Path, *argumente: str, wrapper: Path | None = None, update: Path | None = None
+) -> str:
     umgebung = {**os.environ, "PATH": f"{fakes}:{os.environ['PATH']}"}
     if wrapper is not None:
         umgebung["MISSA_DOCKER_DATEI"] = str(wrapper)
+    if update is not None:
+        umgebung["MISSA_UPDATE_DATEI"] = str(update)
     ergebnis = subprocess.run(
         ["bash", str(SCRIPT), *argumente], capture_output=True, text=True, env=umgebung, check=True
     )
@@ -114,7 +118,16 @@ def wrapper(tmp_path: Path, fakes: Path) -> Path:
 
 
 @pytest.fixture
-def befehl(tmp_path: Path, fakes: Path, wrapper: Path) -> Path:
+def update(tmp_path: Path, fakes: Path) -> Path:
+    """Das erzeugte missa-update (ruft gefälschtes apt-get und shutdown mit absolutem Pfad auf)."""
+    datei = tmp_path / "missa-update"
+    datei.write_text(erzeugen(fakes, "--nur-update"), encoding="utf-8")
+    datei.chmod(0o755)
+    return datei
+
+
+@pytest.fixture
+def befehl(tmp_path: Path, fakes: Path, wrapper: Path, update: Path) -> Path:
     datei = tmp_path / "missa-befehl"
     datei.write_text(
         erzeugen(
@@ -123,6 +136,7 @@ def befehl(tmp_path: Path, fakes: Path, wrapper: Path) -> Path:
             "/var/log/nextcloud/nextcloud.log",
             "--nur-befehl",
             wrapper=wrapper,
+            update=update,
         ),
         encoding="utf-8",
     )
@@ -170,12 +184,21 @@ def ausfuehren(befehl: Path, fakes: Path, ssh_befehl: str) -> tuple[int, list[st
             "--since @1700000000 -n 5000",
         ),
         ("nextcloud-log 200", "tail -n 200 -- /var/log/nextcloud/nextcloud.log"),
+        ("apt-update", "sudo -n {u} update"),
+        ("apt-upgrade", "sudo -n {u} upgrade"),
+        ("neustart", "sudo -n {u} reboot"),
+        ("apt-liste", "apt list --upgradable"),
     ],
 )  # fmt: skip
-def test_missa_befehl_fuehrt_erlaubtes_aus(befehl, fakes, wrapper, ssh_befehl, erwartet):
+def test_missa_befehl_fuehrt_erlaubtes_aus(befehl, fakes, wrapper, update, ssh_befehl, erwartet):
     code, aufrufe, fehler = ausfuehren(befehl, fakes, ssh_befehl)
     assert code == 0, fehler
-    assert aufrufe == [erwartet.format(w=wrapper)]
+    assert aufrufe == [erwartet.format(w=wrapper, u=update)]
+
+
+def test_neustart_noetig_liest_nur(befehl, fakes):
+    code, aufrufe, _ = ausfuehren(befehl, fakes, "neustart-noetig")
+    assert code == 0 and aufrufe == []
 
 
 @pytest.mark.parametrize(
@@ -199,6 +222,14 @@ def test_missa_befehl_fuehrt_erlaubtes_aus(befehl, fakes, wrapper, ssh_befehl, e
         "journal prio=9",
         "ssh-log unit=sshd",
         "nextcloud-log 10 /etc/shadow",
+        "apt-update --allow-insecure-repositories",
+        "apt-upgrade -y",
+        "apt-get install foo",
+        "apt-install foo",
+        "apt-liste --all",
+        "neustart now",
+        "reboot",
+        "shutdown -h now",
     ],
 )
 def test_missa_befehl_lehnt_alles_andere_ab(befehl, fakes, ssh_befehl):
@@ -241,12 +272,18 @@ def wrapper_ausfuehren(wrapper: Path, fakes: Path, *argumente: str) -> tuple[int
     return ergebnis.returncode, protokoll_lesen(fakes)
 
 
-def test_sudoers_erlaubt_nur_missa_docker(fakes):
-    """sudo darf nur das eine Programm – ohne Platzhalter, gültig für sudo und sudo-rs."""
+def test_sudoers_erlaubt_nur_missa_docker_und_missa_update(fakes):
+    """sudo darf nur die zwei Programme – ohne Platzhalter, gültig für sudo und sudo-rs."""
     inhalt = erzeugen(fakes, "--nur-sudoers")
-    assert sudoers_regeln(inhalt) == ["/usr/local/lib/missa/missa-docker"]
+    assert sudoers_regeln(inhalt) == [
+        "/usr/local/lib/missa/missa-docker",
+        "/usr/local/lib/missa/missa-update",
+    ]
     regeln = [z for z in inhalt.splitlines() if z and not z.startswith("#")]
-    assert regeln == ["missa ALL=(root) NOPASSWD: /usr/local/lib/missa/missa-docker"]
+    assert regeln == [
+        "missa ALL=(root) NOPASSWD: /usr/local/lib/missa/missa-docker, "
+        "/usr/local/lib/missa/missa-update"
+    ]
     assert "*" not in "".join(regeln) and "ALL\n" not in inhalt and "NOPASSWD: ALL" not in inhalt
 
 
@@ -377,11 +414,50 @@ def test_authorized_keys_bindet_an_missa_befehl():
 
 
 @pytest.mark.skipif(shutil.which("shellcheck") is None, reason="shellcheck nicht installiert")
-def test_erzeugte_programme_bestehen_shellcheck(befehl, wrapper):
+def test_erzeugte_programme_bestehen_shellcheck(befehl, wrapper, update):
     ergebnis = subprocess.run(
-        ["shellcheck", "-s", "bash", str(befehl), str(wrapper)],
+        ["shellcheck", "-s", "bash", str(befehl), str(wrapper), str(update)],
         capture_output=True,
         text=True,
         check=False,
     )
     assert ergebnis.returncode == 0, ergebnis.stdout
+
+
+@pytest.mark.parametrize(
+    ("argumente", "erwartet"),
+    [
+        (["update"], "apt-get update"),
+        (
+            ["upgrade"],
+            "apt-get -y -o Dpkg::Options::=--force-confdef -o Dpkg::Options::=--force-confold "
+            "upgrade",
+        ),
+        (["reboot"], "shutdown -r +1 Neustart durch Missa (nach Louis' Ja)"),
+    ],
+)
+def test_missa_update_kann_nur_update_upgrade_reboot(update, fakes, argumente, erwartet):
+    code, aufrufe = wrapper_ausfuehren(update, fakes, *argumente)
+    assert code == 0
+    assert aufrufe == [erwartet]
+
+
+@pytest.mark.parametrize(
+    "argumente",
+    [
+        [],
+        ["install", "nmap"],
+        ["remove", "openssh-server"],
+        ["dist-upgrade"],
+        ["full-upgrade"],
+        ["upgrade", "-y"],
+        ["update", "--allow-insecure-repositories"],
+        ["reboot", "now"],
+        ["poweroff"],
+        ["-o", "APT::Update::Pre-Invoke::=/bin/sh", "update"],
+    ],
+)
+def test_missa_update_lehnt_alles_andere_ab(update, fakes, argumente):
+    code, aufrufe = wrapper_ausfuehren(update, fakes, *argumente)
+    assert code == 64
+    assert aufrufe == []

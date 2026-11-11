@@ -47,8 +47,12 @@ Talk nutzen dieselbe Logik.
   den Logs und Login-Überwachung für SSH und Nextcloud (neue IPs, Fehlversuche, ungewohnte
   Zeiten); Zugang über den Benutzer `missa` mit eng begrenzten Rechten
   (siehe docs/container-logs-logins.md)
-- In Arbeit (Server-Update): Updates und Zertifikate, Homelab-Wissen, Proxmox-VMs, Caddy und
-  Minecraft, Git-Überblick
+- Fertig: Updates und Zertifikate – „Welche Updates stehen an?“ pro VM mit markierten
+  Sicherheitsupdates, Wartungsfenster-Vorschlag im Kalender (eingetragen erst nach Ja),
+  Einspielen und Neustart VM für VM nur nach Ja (ai01 zuletzt), Warnungen 21 und 7 Tage vor
+  dem Ablauf von Zertifikaten und Domains (RDAP) und DNS-Abgleich
+  (siehe docs/updates-zertifikate.md)
+- In Arbeit (Server-Update): Homelab-Wissen, Proxmox-VMs, Caddy und Minecraft, Git-Überblick
 - Später als eigene Aufträge: Telefon, Push, Smart Home
 - Änderungen im Detail: [CHANGELOG.md](CHANGELOG.md)
 
@@ -81,6 +85,8 @@ Talk nutzen dieselbe Logik.
 - **[docs/netzfreigaben.md](docs/netzfreigaben.md)** – welche Verbindungen ai01 braucht
 - **[docs/container-logs-logins.md](docs/container-logs-logins.md)** – Container, Fehlersuche
   in Logs, Login-Überwachung und der Benutzer `missa` auf den Hosts
+- **[docs/updates-zertifikate.md](docs/updates-zertifikate.md)** – Updates, Wartungsfenster,
+  Zertifikate, Domains und DNS
 
 ## Installation
 

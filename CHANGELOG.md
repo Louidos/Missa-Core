@@ -7,6 +7,21 @@ die Versionsnummern folgen [Semantic Versioning](https://semver.org/lang/de/).
 
 ## Unveröffentlicht
 
+### Hinzugefügt
+
+- Update-Verwaltung mit Wartungsfenster und Warnungen vor ablaufenden Zertifikaten und
+  Domains: „Welche Updates stehen an?“ zeigt pro VM, was ansteht, Sicherheitsupdates mit 🔒
+  und ob ein Neustart nötig ist. Missa prüft das täglich selbst und meldet neue
+  Sicherheitsupdates einmal. „Plan ein Wartungsfenster“ schlägt einen freien Termin im
+  Kalender vor, eingetragen wird er erst nach deinem Ja, und zu Beginn erinnert Missa dich
+  mit dem Plan. Eingespielt wird VM für VM, jede erst nach deinem Ja. ai01 kommt zuletzt,
+  mit Warnung, weil Missa dabei kurz weg ist. Ein Neustart braucht ein eigenes Ja, und
+  danach meldet sich Missa mit „Ich bin wieder da“. Täglich prüft sie außerdem die
+  HTTPS-Zertifikate, das Ablaufdatum der Domains (RDAP) und die erwarteten DNS-Einträge
+  und warnt 21 und 7 Tage vor einem Ablauf. Auf den Hosts darf `missa` per sudo dafür nur
+  `apt-get update`, `apt-get -y upgrade` und `reboot` (Einrichtungs-Script noch einmal
+  ausführen). Neu: `GET /api/updates`; siehe docs/updates-zertifikate.md (#51)
+
 ## 0.6.0 – 2026-11-11
 
 ### Hinzugefügt

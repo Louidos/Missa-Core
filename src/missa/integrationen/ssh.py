@@ -4,8 +4,10 @@ Auf jedem Host richtet Louis von Hand ``scripts/einrichten/missa-benutzer.sh`` e
 SSH-Schlüssel von Missa ist dort an einen festen Befehl gebunden
 (``command="/usr/local/lib/missa/missa-befehl"``, ``restrict``): Missa kann keine Shell
 öffnen, sondern nur die Befehle aus :data:`BEFEHLE` mit geprüften Angaben aufrufen. Per
-sudo darf ``missa`` nur ``docker ps``, ``docker stats``, ``docker logs`` und
-``docker restart``; die Logs (journal) liest ``missa`` über die Gruppe ``systemd-journal``.
+sudo darf ``missa`` nur zwei feste Programme starten: ``missa-docker`` (``docker ps``,
+``docker stats``, ``docker logs``, ``docker restart``) und ``missa-update`` (``apt-get update``,
+``apt-get -y upgrade``, ``reboot``); die Logs (journal) liest ``missa`` über die Gruppe
+``systemd-journal``.
 
 Auch hier im Code gilt: Nur Befehle aus :data:`BEFEHLE`, jede Angabe muss zu
 :data:`SICHER` passen – Text des Modells landet nie ungeprüft auf einem Host.
@@ -36,6 +38,11 @@ BEFEHLE = frozenset(
         "journal",
         "ssh-log",
         "nextcloud-log",
+        "apt-update",
+        "apt-liste",
+        "apt-upgrade",
+        "neustart-noetig",
+        "neustart",
     }
 )
 #: Erlaubte Zeichen in jeder Angabe: keine Leerzeichen, Anführungszeichen oder Shell-Zeichen.

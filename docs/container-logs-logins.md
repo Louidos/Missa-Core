@@ -151,6 +151,9 @@ Was das Script einrichtet (siehe `--nur-sudoers` und `--nur-befehl`):
   - `docker logs --tail <1–5000> --timestamps <name>`
   - `docker restart <name>`
 
+  Dazu `/usr/local/lib/missa/missa-update` für die Update-Verwaltung: nur `apt-get update`,
+  `apt-get -y upgrade` und `reboot` (siehe [updates-zertifikate.md](updates-zertifikate.md)).
+
   Nichts sonst: kein `docker exec`, kein `docker run`, kein `docker rm`, keine Shell, kein
   `journalctl` per sudo. Die sudoers-Zeile hat keine Platzhalter und funktioniert darum mit
   dem klassischen sudo genauso wie mit sudo-rs (Standard ab Ubuntu 25.10), das Platzhalter

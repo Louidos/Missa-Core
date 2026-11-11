@@ -32,6 +32,8 @@ if TYPE_CHECKING:
     from missa.tools.pausen import PausenWaechter
     from missa.tools.server_alarme import ServerWaechter
     from missa.tools.talk import TalkMelder
+    from missa.tools.updates import UpdateVerwaltung
+    from missa.tools.zertifikate import ZertifikatsWaechter
 
 log = logging.getLogger(__name__)
 
@@ -97,6 +99,8 @@ def werkzeuge_laden(
     container: ContainerDienst | None = None,
     fehlersuche: Fehlersuche | None = None,
     anmeldungen: LoginWaechter | None = None,
+    updates: UpdateVerwaltung | None = None,
+    zertifikate: ZertifikatsWaechter | None = None,
 ) -> Werkzeugkasten:
     """Stellt alle Werkzeuge zusammen, die mit dieser Konfiguration nutzbar sind.
 
@@ -177,7 +181,19 @@ def werkzeuge_laden(
         for werkzeug in login_werkzeuge(anmeldungen):
             kasten.hinzufuegen(werkzeug)
 
-    meldende = (server, erreichbarkeit, container, anmeldungen)
+    if updates is not None:
+        from missa.tools.updates import update_werkzeuge
+
+        for werkzeug in update_werkzeuge(updates):
+            kasten.hinzufuegen(werkzeug)
+
+    if zertifikate is not None:
+        from missa.tools.zertifikate import zertifikat_werkzeuge
+
+        for werkzeug in zertifikat_werkzeuge(zertifikate):
+            kasten.hinzufuegen(werkzeug)
+
+    meldende = (server, erreichbarkeit, container, anmeldungen, updates, zertifikate)
     if alarme is not None and any(d is not None for d in meldende):
         from missa.core.alarme import alarm_werkzeuge
 
@@ -456,4 +472,50 @@ def login_waechter_bauen(
         bekannte_ips=einstellungen.login_bekannte_ips,
         nacht_von=einstellungen.login_nacht_von,
         nacht_bis=einstellungen.login_nacht_bis,
+    )
+
+
+def update_verwaltung_bauen(
+    einstellungen: Einstellungen,
+    ssh: SshVerbindung,
+    alarme: Alarme,
+    kalender: Kalender | None = None,
+    rechte: Rechte | None = None,
+) -> UpdateVerwaltung:
+    """Updates pro VM, Wartungsfenster im Kalender, Einspielen und Neustart nach Ja."""
+    from missa.tools.updates import UpdateVerwaltung, wochentage_lesen
+
+    return UpdateVerwaltung(
+        ssh,
+        alarme,
+        einstellungen.datenbank,
+        einstellungen.zone,
+        hosts=einstellungen.update_hosts,
+        eigener_host=einstellungen.updates_eigener_host,
+        kalender=kalender,
+        wartung_tage=wochentage_lesen(einstellungen.wartung_tage),
+        wartung_von=einstellungen.wartung_von,
+        wartung_bis=einstellungen.wartung_bis,
+        wartung_dauer_minuten=einstellungen.wartung_dauer_minuten,
+        rechte=rechte,
+    )
+
+
+def zertifikats_waechter_bauen(
+    einstellungen: Einstellungen, alarme: Alarme
+) -> ZertifikatsWaechter | None:
+    """Zertifikate, Domain-Ablauf (RDAP) und DNS – ohne Domains und Erwartungen aus."""
+    if not (einstellungen.zertifikat_domain_liste or einstellungen.dns_erwartet):
+        return None
+    from missa.integrationen.domains import RdapClient, erwartet_lesen
+    from missa.tools.zertifikate import ZertifikatsWaechter
+
+    return ZertifikatsWaechter(
+        alarme,
+        einstellungen.datenbank,
+        zertifikat_domains=einstellungen.zertifikat_domain_liste,
+        domain_namen=einstellungen.domain_namen_liste,
+        dns_erwartet=erwartet_lesen(einstellungen.dns_erwartet),
+        warn_tage=einstellungen.zertifikat_warnung_tage,
+        rdap=RdapClient(einstellungen.rdap_bootstrap_url) if einstellungen.rdap_aktiv else None,
     )
