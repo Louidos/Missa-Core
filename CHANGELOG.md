@@ -7,6 +7,8 @@ die Versionsnummern folgen [Semantic Versioning](https://semver.org/lang/de/).
 
 ## Unveröffentlicht
 
+## 0.5.0 – 2026-11-11
+
 ### Hinzugefügt
 
 - Server-Alarme mit Regeln per Sprache, Hinweise auf auffällige Werte und Prüfung der
