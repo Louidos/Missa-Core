@@ -38,6 +38,12 @@ Talk nutzen dieselbe Logik.
   Zerstörerisches nur nach deinem ausdrücklichen Ja (gilt 10 Minuten), lückenloses
   Aktionsprotokoll (`GET /api/aktionen`, „Was hast du heute gemacht?“) und Notfall-Stopp per
   Chat oder `scripts/notfall-stopp.sh`, aufheben nur auf ai01 (siehe docs/rechte.md)
+- Fertig: Server-Alarme – Regeln per Gespräch („Ruf mich an, wenn ai01 über 90 % ist“), Stufen
+  `info`/`wichtig`/`notfall` mit Ruhezeit und Ruhefenster, Hinweise auf ungewöhnliche Anstiege
+  unter der Grenze und Prüfung der eigenen Domains von außen; Werte aus dem eigenen
+  Monitoring-Tool, Homepage und Proxmox, alles nur lesend (siehe docs/server-alarme.md)
+- In Arbeit (Server-Update): Container und Logs, Updates und Zertifikate, Homelab-Wissen,
+  Proxmox-VMs, Caddy und Minecraft, Git-Überblick
 - Später als eigene Aufträge: Telefon, Push, Smart Home
 - Änderungen im Detail: [CHANGELOG.md](CHANGELOG.md)
 
@@ -63,6 +69,11 @@ Talk nutzen dieselbe Logik.
   Notfall-Stopp und welche Rechte jeder Dienst braucht
 - **[docs/routinen-nachtschicht.md](docs/routinen-nachtschicht.md)** – Routinen per Gespräch,
   Nachtschicht, Morgenbericht, Sicherheitsregeln im Hintergrund
+- **[docs/server-alarme.md](docs/server-alarme.md)** – Server-Alarme: Stufen, Ruhezeit, Regeln
+  per Gespräch, Hinweise auf Auffälliges, Erreichbarkeit, nur lesendes Proxmox-Token
+- **[docs/monitoring.md](docs/monitoring.md)** – Schnittstelle und JSON-Formate der
+  Monitoring-Quellen
+- **[docs/netzfreigaben.md](docs/netzfreigaben.md)** – welche Verbindungen ai01 braucht
 
 ## Installation
 
@@ -135,6 +146,7 @@ Das Skript führt `ruff check`, `ruff format --check` und `pytest` aus – genau
 | `src/missa/` | Programmcode (Python-Paket)                             |
 | `tests/`   | Tests (pytest)                                            |
 | `scripts/` | Hilfsskripte                                              |
+| `scripts/einrichten/` | Einrichtungs-Scripts für andere Hosts (von Hand ausführen) |
 | `docs/`    | Dokumentation                                             |
 | `config/`  | Beispiel-Konfiguration (keine echten Geheimnisse!)        |
 | `deploy/`  | systemd-Unit                                              |

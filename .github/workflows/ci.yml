@@ -32,7 +32,7 @@ jobs:
         run: ruff format --check .
 
       - name: Shell-Scripts (shellcheck)
-        run: shellcheck scripts/*.sh
+        run: shellcheck scripts/*.sh scripts/einrichten/*.sh
 
       - name: Tests (pytest)
         run: pytest
