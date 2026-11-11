@@ -7,6 +7,22 @@ die Versionsnummern folgen [Semantic Versioning](https://semver.org/lang/de/).
 
 ## Unveröffentlicht
 
+### Hinzugefügt
+
+- Server-Alarme mit Regeln per Sprache, Hinweise auf auffällige Werte und Prüfung der
+  Erreichbarkeit: „Ruf mich an, wenn ai01 über 90 % ist“ speichert eine Regel (Ziel,
+  Messwert, Grenze, Dauer, Stufe), die du im Chat auflisten, ändern und löschen kannst.
+  Missa liest dafür jede Minute dein Monitoring-Tool, das Homepage-Dashboard und Proxmox
+  (sobald eingerichtet, nur lesend) und meldet sich mit der passenden Stufe: `info`, `wichtig`
+  oder `notfall`. Notfälle kommen sofort, auch nachts (bis es ein Telefon gibt, deutlich
+  markiert per Talk); `info` und `wichtig` warten bis nach der Ruhezeit
+  (Standard 22–7 Uhr, im Chat änderbar). Derselbe Alarm kommt nicht im Minutentakt
+  (Ruhefenster, Standard 60 Minuten). Steigt ein Wert ungewöhnlich stark über das, was um
+  diese Tageszeit üblich ist, gibt Missa schon unter der Grenze einen Hinweis. Außerdem prüft
+  sie alle 5 Minuten, ob cloud., git. und ki.louis-degiorgi.ch von außen erreichbar sind (DNS,
+  HTTPS, gültiges Zertifikat), und meldet Ausfall und Rückkehr. Übersicht unter
+  `GET /api/alarme` und `GET /api/server`; Einrichtung siehe docs/server-alarme.md (#45)
+
 ### Behoben
 
 - Die Versionsnummer im Code passt wieder zu den Releases: Nach dem Update auf 0.4.0 zeigten

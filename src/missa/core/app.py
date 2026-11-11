@@ -8,7 +8,7 @@ import secrets
 import time
 from collections.abc import Callable
 from contextlib import asynccontextmanager
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import Annotated, Any
 
 import httpx
@@ -71,15 +71,21 @@ def create_app(
     mail_dienst: Any = None,
     kontaktpflege: Any = None,
     pausen: Any = None,
+    server_transport: httpx.AsyncBaseTransport | None = None,
+    server_waechter: Any = None,
+    erreichbarkeit: Any = None,
 ) -> FastAPI:
     """Baut die App. Parameter außer ``einstellungen`` sind vor allem für Tests da."""
     from missa.channels.nextcloud_talk import TalkClient, talk_einrichten
     from missa.core.rechte import rechte_bauen
     from missa.tools import (
+        alarme_bauen,
+        erreichbarkeit_bauen,
         kontaktpflege_bauen,
         mail_dienst_bauen,
         nextcloud_dienste_bauen,
         pausen_waechter_bauen,
+        server_waechter_bauen,
         talk_melder_bauen,
         werkzeuge_laden,
     )
@@ -135,6 +141,24 @@ def create_app(
         pausen = pausen_waechter_bauen(einstellungen, zeitplaner, nextcloud.kalender)
     if pausen is not None:
         zeitplaner.taeglich("pausen", einstellungen.pausen_pruefzeit, pausen.abends_pruefen)
+    # Server-Alarme: Stufen, Ruhezeit und Ruhefenster gelten für alle Meldungen.
+    alarme = alarme_bauen(einstellungen, zeitplaner)
+    if server_waechter is None and einstellungen.server_monitoring_konfiguriert:
+        server_waechter = server_waechter_bauen(einstellungen, alarme, server_transport)
+    if server_waechter is not None:
+        zeitplaner.regelmaessig(
+            "server-monitoring",
+            timedelta(seconds=einstellungen.monitoring_intervall_sekunden),
+            server_waechter.pruefen,
+        )
+    if erreichbarkeit is None:
+        erreichbarkeit = erreichbarkeit_bauen(einstellungen, alarme)
+    if erreichbarkeit is not None:
+        zeitplaner.regelmaessig(
+            "erreichbarkeit",
+            timedelta(minutes=einstellungen.erreichbarkeit_intervall_minuten),
+            erreichbarkeit.pruefen,
+        )
     if werkzeuge is None:
         werkzeuge = werkzeuge_laden(
             einstellungen,
@@ -148,6 +172,9 @@ def create_app(
             hintergrund=hintergrund,
             rechte=rechte,
             protokoll=protokoll,
+            alarme=alarme,
+            server=server_waechter,
+            erreichbarkeit=erreichbarkeit,
         )
     else:
         werkzeuge.rechte = rechte
@@ -167,6 +194,10 @@ def create_app(
         ErinnerungsWerkzeuge(zeitplaner).kontext,
         hintergrund.kontext,
     ]
+    if server_waechter is not None:
+        kontext_quellen.append(server_waechter.kontext)
+    if erreichbarkeit is not None:
+        kontext_quellen.append(erreichbarkeit.kontext)
     # Der Notfall-Stopp im Code kommt zuerst – noch vor der Senden-Sperre für Mails.
     eingangs_pruefer = [rechte.eingang]
     nachbearbeiter = []
@@ -243,6 +274,9 @@ def create_app(
     app.state.pausen = pausen
     app.state.rechte = rechte
     app.state.protokoll = protokoll
+    app.state.alarme = alarme
+    app.state.server = server_waechter
+    app.state.erreichbarkeit = erreichbarkeit
 
     # -------------------------------------------------------------- Fehlerformat
 
@@ -396,6 +430,42 @@ def create_app(
             "anzahl": len(liste),
             "notfall": notfall,
             "aktionen": [a.als_dict() for a in liste],
+        }
+
+    @app.get("/api/alarme", dependencies=geschuetzt, tags=["Missa"])
+    async def alarme_anzeigen(tage: int = 1) -> dict[str, Any]:
+        """Gemeldete Alarme (neueste zuerst), Alarm-Regeln, Ruhezeit und Ruhefenster."""
+        seit = alarme.jetzt() - timedelta(days=max(1, min(tage, 90)))
+        liste = alarme.liste(seit, 500)
+        ruhe = alarme.ruhezeit()
+        return {
+            "anzahl": len(liste),
+            "ruhezeit": {"von": f"{ruhe[0]:%H:%M}", "bis": f"{ruhe[1]:%H:%M}"} if ruhe else None,
+            "ruhefenster_minuten": int(alarme.ruhefenster().total_seconds() // 60),
+            "regeln": [r.als_dict() for r in server_waechter.regeln()]
+            if server_waechter is not None
+            else [],
+            "aktiv": server_waechter.aktive_alarme() if server_waechter is not None else [],
+            "alarme": [a.als_dict() for a in liste],
+        }
+
+    @app.get("/api/server", dependencies=geschuetzt, tags=["Missa"])
+    async def server_anzeigen() -> dict[str, Any]:
+        """Letzte Messwerte aller Quellen und der Zustand der geprüften Domains."""
+        werte, gemessen, fehler = [], None, {}
+        if server_waechter is not None:
+            werte = [w.als_dict() for w in server_waechter.aktuell.values()]
+            if server_waechter.zuletzt_gemessen is not None:
+                gemessen = server_waechter.zuletzt_gemessen.isoformat(timespec="seconds")
+            fehler = dict(server_waechter.quellen_fehler)
+        domains = list(erreichbarkeit.zustand().values()) if erreichbarkeit is not None else []
+        return {
+            "monitoring": server_waechter is not None,
+            "gemessen": gemessen,
+            "quellen": [q.name for q in server_waechter.quellen] if server_waechter else [],
+            "quellen_fehler": fehler,
+            "werte": werte,
+            "erreichbarkeit": domains,
         }
 
     @app.post("/v1/chat/completions", dependencies=geschuetzt, tags=["OpenAI"])

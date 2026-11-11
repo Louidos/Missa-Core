@@ -9,9 +9,9 @@ einen Schlag alle Schreibrechte.
 
 | Stufe            | Bedeutung                                                    | Beispiele |
 |------------------|--------------------------------------------------------------|-----------|
-| `lesen`          | schaut nur nach, ändert nichts                               | `termine_anzeigen`, `erinnern`, `emails_anzeigen`, `aktionen_anzeigen` |
-| `schreiben`      | legt an oder ändert – harmlos oder rückgängig machbar         | `termin_eintragen`, `termin_loeschen`*, `aufgabe_erstellen`, `merken`, `email_entwurf_erstellen` |
-| `zerstoererisch` | löscht endgültig, verwirft oder versendet                     | `vergessen`, `aufgabe_loeschen`, `erinnerung_loeschen`, `routine_loeschen`, `nachtaufgabe_loeschen`, `email_entwurf_verwerfen`, E-Mail senden |
+| `lesen`          | schaut nur nach, ändert nichts                               | `termine_anzeigen`, `erinnern`, `emails_anzeigen`, `aktionen_anzeigen`, `server_werte_anzeigen`, `erreichbarkeit_pruefen` |
+| `schreiben`      | legt an oder ändert – harmlos oder rückgängig machbar         | `termin_eintragen`, `termin_loeschen`*, `aufgabe_erstellen`, `merken`, `email_entwurf_erstellen`, `alarmregel_anlegen`, `alarm_einstellungen` |
+| `zerstoererisch` | löscht endgültig, verwirft, versendet – oder startet, installiert, aktiviert etwas neu | `vergessen`, `aufgabe_loeschen`, `erinnerung_loeschen`, `routine_loeschen`, `nachtaufgabe_loeschen`, `email_entwurf_verwerfen`, `alarmregel_loeschen`, E-Mail senden |
 
 \* Termine lassen sich mit „mach das rückgängig“ wiederherstellen, darum gilt Löschen im
 Kalender als `schreiben` (so seit 0.3.0). Bekämen andere Personen eine Absage, fragt Missa
@@ -67,7 +67,7 @@ Jeder Werkzeug-Aufruf – auch abgelehnte, gesperrte und fehlerhafte – kommt i
 
 Geschwärzt werden Felder mit Namen wie `passwort`, `token`, `secret`, `api_key`, `auth`, alle
 Zugangsdaten aus der Konfiguration (API-Key, App-Passwörter, Bot-Secret, Mail-Passwort,
-llama-Key) und Muster wie `Bearer …` oder `passwort=…` im Text.
+llama-Key, Proxmox-Token, Monitoring-Token) und Muster wie `Bearer …` oder `passwort=…` im Text.
 
 Die Tabelle wird beim Start automatisch angelegt – beim Update ist nichts zu tun.
 
@@ -121,6 +121,8 @@ Blöcke in [config/missa.env.example](../config/missa.env.example) sind danach g
 | Nextcloud (Kalender, Aufgaben, Kontakte) | `NEXTCLOUD_USER`, `NEXTCLOUD_APP_PASSWORD` | CalDAV: Lesen und Schreiben im Kalender `NEXTCLOUD_KALENDER`, im Pausen-Kalender und in der Aufgabenliste; Kalender anlegen (für „Pausen“ und eigene Kalender). CardDAV: nur **lesen** im Adressbuch | Admin-Rechte, Dateien, andere Benutzer; am besten ein eigener Benutzer `missa`, mit dem du nur diese Kalender, die Liste und das Adressbuch teilst (Adressbuch nur lesend). Eigenes App-Passwort, damit es einzeln widerrufbar ist |
 | Nextcloud Talk | `NC_TALK_BOT_SECRET` | Bot: Nachrichten empfangen, senden und reagieren – nur in Unterhaltungen, in denen der Bot aktiviert ist | Benutzer-Passwort, Moderator- oder Admin-Rechte |
 | E-Mail | `MAIL_USER`, `MAIL_PASSWORD` | IMAP: Posteingang und Gesendet lesen, im Entwürfe-Ordner ablegen und entfernen. SMTP: senden (nur nach deinem Ja) | Filter, Weiterleitungen, Kontoeinstellungen; wenn möglich ein App-Passwort statt des Hauptpassworts |
+| Proxmox (Server-Alarme) | `PROXMOX_TOKEN_ID`, `PROXMOX_TOKEN_SECRET` | Token `missa@pve!monitor` mit Rolle **PVEAuditor** auf `/` (nur lesen), Rechte-Trennung `--privsep 1`; Einrichtung mit `scripts/einrichten/proxmox-lesetoken.sh` auf pve-id01 | Starten, Stoppen, Ändern, Löschen, Konsole, Root-Zugang; der Benutzer `missa@pve` hat kein Passwort |
+| Eigenes Monitoring-Tool, Homepage | `MONITORING_TOKEN` (falls nötig) | nur lesen (GET) | Schreib- oder Admin-Zugang |
 | ntfy (Push, kommt mit dem Benachrichtigungs-Update) | eigenes Token | nur Schreiben in das eine Topic | Lesen anderer Topics, Admin |
 
 Zugangsdaten stehen nur in `/etc/missa/missa.env` (Rechte `640`, Gruppe `missa`), nie im Repo.

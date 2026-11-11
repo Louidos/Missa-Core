@@ -144,6 +144,17 @@ und das App-Passwort lässt sich jederzeit einzeln widerrufen.
 | `PAUSEN_WEGZEIT_MINUTEN` | `30` | nein | Mindest-Wegzeit zwischen Terminen an verschiedenen Orten. |
 | `PAUSEN_PRUEFZEIT` | `19:00` | nein | Abendliche Prüfung des nächsten Tages. |
 | `NACHTSCHICHT_VON` / `NACHTSCHICHT_BIS` | `01:00` / `06:00` | nein | Nachtfenster für lange Aufgaben; am Ende kommt der Morgenbericht. Im Gespräch geänderte Zeiten haben Vorrang (siehe [routinen-nachtschicht.md](routinen-nachtschicht.md)). |
+| `MONITORING_URL` / `MONITORING_TOKEN` | leer | nein | Eigenes Monitoring-Tool (JSON, Format in [monitoring.md](monitoring.md)); leer = aus. |
+| `HOMEPAGE_URL` | leer | nein | Homepage-Dashboard: Status der Dienste mit `siteMonitor`; leer = aus. |
+| `PROXMOX_URL` / `PROXMOX_TOKEN_ID` / `PROXMOX_TOKEN_SECRET` | leer / `missa@pve!monitor` / leer | nein | Proxmox-API mit nur lesendem Token (PVEAuditor), siehe [server-alarme.md](server-alarme.md); ohne alle drei aus. |
+| `PROXMOX_TLS_PRUEFEN` / `PROXMOX_CA_DATEI` | `true` / leer | nein | Zertifikat von Proxmox prüfen, am besten mit der CA aus `/etc/pve/pve-root-ca.pem`. |
+| `MONITORING_INTERVALL_SEKUNDEN` | `60` | nein | So oft holt Missa die Messwerte. |
+| `ALARM_DAUER_MINUTEN` | `5` | nein | Standard-Dauer einer Alarm-Regel. |
+| `ALARM_RUHEFENSTER_MINUTEN` | `60` | nein | Derselbe Alarm kommt frühestens nach so vielen Minuten wieder (im Gespräch änderbar). |
+| `ALARM_RUHEZEIT_VON` / `ALARM_RUHEZEIT_BIS` | `22:00` / `07:00` | nein | Ruhezeit für `info` und `wichtig`; Notfälle kommen immer. `aus` = keine Ruhezeit. Im Gespräch änderbar. |
+| `AUFFAELLIG_AKTIV` / `AUFFAELLIG_MIN_ABSTAND` | `true` / `15` | nein | Hinweise auf ungewöhnliche Anstiege (Prozentpunkte über dem 7-Tage-Mittel). |
+| `ERREICHBARKEIT_DOMAINS` | leer (Vorlage: cloud., git., ki.louis-degiorgi.ch) | nein | Domains, die Missa über die öffentliche Adresse prüft (kommagetrennt); leer = aus. |
+| `ERREICHBARKEIT_INTERVALL_MINUTEN` / `ERREICHBARKEIT_STUFE` | `5` / `wichtig` | nein | Prüfabstand und Alarm-Stufe für einen Ausfall. |
 | `NC_TALK_ENABLED` | `false` | für Talk | Missa in Nextcloud Talk einschalten. |
 | `NC_TALK_BASE_URL` | – | für Talk | Nextcloud-Adresse wie `overwrite.cli.url` (Prüfung des Absenders). |
 | `NC_TALK_API_URL` | = `NC_TALK_BASE_URL` | nein | Adresse für Antworten an Nextcloud, falls ai01 sie intern anders erreicht. |

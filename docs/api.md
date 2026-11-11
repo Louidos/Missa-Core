@@ -328,6 +328,66 @@ curl "$MISSA/api/aktionen?von=2026-11-11&bis=2026-11-11" -H "Authorization: Bear
 
 Mehr dazu: [rechte.md](rechte.md).
 
+### `GET /api/alarme` – welche Alarme gab es?
+
+Gemeldete Alarme (neueste zuerst) mit Stufe (`info`, `wichtig`, `notfall`), dazu alle
+Alarm-Regeln, gerade ausgelöste Regeln, Ruhezeit und Ruhefenster. `?tage=7` zeigt die letzten
+7 Tage (Standard 1, höchstens 90). Nur lesend; Regeln legt man im Chat an.
+
+```bash
+curl "$MISSA/api/alarme?tage=7" -H "Authorization: Bearer $KEY"
+```
+
+```json
+{
+  "anzahl": 1,
+  "ruhezeit": {"von": "22:00", "bis": "07:00"},
+  "ruhefenster_minuten": 60,
+  "regeln": [
+    {"id": 1, "ziel": "ai01", "messwert": "cpu", "richtung": "ueber", "grenze": 90.0,
+     "einheit": "%", "dauer_minuten": 5.0, "stufe": "notfall", "ruhefenster_minuten": null,
+     "text": "#1: ai01: CPU über 90 % länger als 5 Minuten → notfall"}
+  ],
+  "aktiv": ["ai01: CPU über 90 % seit 14:02 Uhr (notfall)"],
+  "alarme": [
+    {"id": 3, "zeit": "2026-11-11T14:07:00+01:00", "stufe": "notfall",
+     "schluessel": "regel:1:ai01", "titel": "ai01: CPU über 90 %",
+     "text": "Seit 14:02 Uhr, aktuell 95 % (Regel #1, Quelle proxmox).", "quelle": "proxmox",
+     "status": "gesendet", "zustellen_ab": "2026-11-11T14:07:00+01:00"}
+  ]
+}
+```
+
+`status` ist `gesendet` oder `aufgeschoben` (Ruhezeit, zugestellt ab `zustellen_ab`).
+Mehr dazu: [server-alarme.md](server-alarme.md).
+
+### `GET /api/server` – Messwerte und Erreichbarkeit
+
+Die zuletzt gemessenen Werte aller Monitoring-Quellen, Quellen mit Fehlern und der Zustand
+jeder geprüften Domain. Ohne eingerichtete Quelle ist `monitoring` `false`.
+
+```bash
+curl $MISSA/api/server -H "Authorization: Bearer $KEY"
+```
+
+```json
+{
+  "monitoring": true,
+  "gemessen": "2026-11-11T14:07:00+01:00",
+  "quellen": ["monitoring", "proxmox"],
+  "quellen_fehler": {},
+  "werte": [
+    {"ziel": "ai01", "metrik": "cpu", "wert": 95.0, "einheit": "%", "quelle": "proxmox"}
+  ],
+  "erreichbarkeit": [
+    {"domain": "git.louis-degiorgi.ch", "status": "ok", "seit": "2026-11-11T08:00:00+00:00",
+     "fehler_in_folge": 0, "gemeldet": 0, "letzte_pruefung": "2026-11-11T13:05:00+00:00",
+     "problem": "", "adressen": "203.0.113.10", "http_status": 200,
+     "zertifikat_bis": "2027-01-20T10:11:12+00:00"}
+  ]
+}
+```
+
 ### `POST /channels/nextcloud-talk/webhook` – nur für Nextcloud Talk
 
 Kein Endpunkt für Apps: Hier liefert Nextcloud Talk Nachrichten an Missa (Bot-Webhook).
@@ -430,3 +490,5 @@ kennen – man fragt einfach in normaler Sprache.
 | Kontakte (Nextcloud) | „Wer hat bald Geburtstag?“, „Oma ist mir wichtig, mindestens alle 3 Wochen“, „Hab gerade mit Oma telefoniert“ | `kontakte_suchen`, `geburtstage_anzeigen`, `kontakt_wichtig_markieren`, `kontakt_nicht_mehr_wichtig`, `kontakt_gemeldet`, `wichtige_kontakte_anzeigen` |
 | E-Mail (nur wenn eingerichtet) | „Schreib dem Chef, dass ich morgen später komme“, „Was ist neu im Posteingang?“, „Schreib förmlicher an Lehrer“ – gesendet wird nur nach „Ja, abschicken“ | `emails_anzeigen`, `email_lesen`, `email_entwurf_erstellen`, `email_entwurf_aendern`, `email_entwuerfe_anzeigen`, `email_entwurf_verwerfen`, `email_adresse_suchen`, `schreibstil_anzeigen`, `schreibstil_lernen`, `schreibstil_anpassen` (kein Senden-Werkzeug – siehe [email.md](email.md)) |
 | Nextcloud Talk (nur wenn eingerichtet) | „Schick mir die Übersicht per Talk“, „Erinnere mich per Talk an …“ | `talk_nachricht_senden` |
+| Server-Alarme (nur wenn eine Monitoring-Quelle eingerichtet ist) | „Ruf mich an, wenn ai01 über 90 % ist“, „Wie ist die Auslastung von ai01?“, „Welche Alarm-Regeln gibt es?“, „Ruhezeit von 23 bis 6 Uhr“ | `server_werte_anzeigen`, `alarmregel_anlegen`, `alarmregeln_anzeigen`, `alarmregel_aendern`, `alarmregel_loeschen`, `alarme_anzeigen`, `alarm_einstellungen` |
+| Erreichbarkeit (nur wenn `ERREICHBARKEIT_DOMAINS` gesetzt ist) | „Ist git von außen erreichbar?“ | `erreichbarkeit_pruefen` |

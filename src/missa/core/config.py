@@ -79,6 +79,24 @@ class Einstellungen:
     nachtschicht_von: time = time(1, 0)
     nachtschicht_bis: time = time(6, 0)
     bestaetigung_minuten: int = 10
+    monitoring_url: str = ""
+    monitoring_token: str = ""
+    homepage_url: str = ""
+    proxmox_url: str = ""
+    proxmox_token_id: str = ""
+    proxmox_token_secret: str = ""
+    proxmox_tls_pruefen: bool = True
+    proxmox_ca_datei: Path | None = None
+    monitoring_intervall_sekunden: int = 60
+    alarm_dauer_minuten: float = 5.0
+    alarm_ruhefenster_minuten: int = 60
+    alarm_ruhezeit_von: time | None = time(22, 0)
+    alarm_ruhezeit_bis: time | None = time(7, 0)
+    auffaellig_aktiv: bool = True
+    auffaellig_min_abstand: float = 15.0
+    erreichbarkeit_domains: tuple[str, ...] = ()
+    erreichbarkeit_intervall_minuten: int = 5
+    erreichbarkeit_stufe: str = "wichtig"
 
     @property
     def notfall_datei(self) -> Path:
@@ -93,6 +111,8 @@ class Einstellungen:
             self.nextcloud_app_password,
             self.nc_talk_bot_secret,
             self.mail_password,
+            self.monitoring_token,
+            self.proxmox_token_secret,
         ]
         with contextlib.suppress(OSError):
             werte.append(self.llama_api_key_file.read_text(encoding="utf-8").strip())
@@ -119,6 +139,16 @@ class Einstellungen:
         return bool(
             self.mail_imap_host and self.mail_smtp_host and self.mail_user and self.mail_password
         )
+
+    @property
+    def proxmox_konfiguriert(self) -> bool:
+        """``True``, wenn Adresse, Token-ID und Token-Secret für Proxmox gesetzt sind."""
+        return bool(self.proxmox_url and self.proxmox_token_id and self.proxmox_token_secret)
+
+    @property
+    def server_monitoring_konfiguriert(self) -> bool:
+        """``True``, wenn mindestens eine Monitoring-Quelle eingerichtet ist."""
+        return bool(self.monitoring_url or self.homepage_url or self.proxmox_konfiguriert)
 
     @property
     def stil_datei(self) -> Path:
@@ -199,6 +229,22 @@ class Einstellungen:
             except ValueError as fehler:
                 raise KonfigurationsFehler(f"{name} muss eine Uhrzeit wie 08:00 sein") from fehler
 
+        def uhrzeit_oder_aus(name: str, standard: str) -> time | None:
+            if wert(name, standard).casefold() in ("aus", "nein", "keine", "-"):
+                return None
+            return uhrzeit(name, standard)
+
+        def liste(name: str) -> tuple[str, ...]:
+            return tuple(
+                dict.fromkeys(
+                    teil.strip().casefold()
+                    for teil in env.get(name, "").replace(";", ",").split(",")
+                    if teil.strip()
+                )
+            )
+
+        ca_datei = env.get("PROXMOX_CA_DATEI", "").strip()
+
         return cls(
             host=wert("MISSA_HOST", cls.host),
             port=port,
@@ -254,6 +300,24 @@ class Einstellungen:
             nachtschicht_von=uhrzeit("NACHTSCHICHT_VON", "01:00"),
             nachtschicht_bis=uhrzeit("NACHTSCHICHT_BIS", "06:00"),
             bestaetigung_minuten=max(1, zahl("MISSA_BESTAETIGUNG_MINUTEN", 10)),
+            monitoring_url=env.get("MONITORING_URL", "").strip(),
+            monitoring_token=env.get("MONITORING_TOKEN", "").strip(),
+            homepage_url=env.get("HOMEPAGE_URL", "").strip().rstrip("/"),
+            proxmox_url=env.get("PROXMOX_URL", "").strip().rstrip("/"),
+            proxmox_token_id=env.get("PROXMOX_TOKEN_ID", "").strip(),
+            proxmox_token_secret=env.get("PROXMOX_TOKEN_SECRET", "").strip(),
+            proxmox_tls_pruefen=wert("PROXMOX_TLS_PRUEFEN", "true").casefold() in WAHR,
+            proxmox_ca_datei=Path(ca_datei) if ca_datei else None,
+            monitoring_intervall_sekunden=max(10, zahl("MONITORING_INTERVALL_SEKUNDEN", 60)),
+            alarm_dauer_minuten=max(0.0, kommazahl("ALARM_DAUER_MINUTEN", 5.0)),
+            alarm_ruhefenster_minuten=max(1, zahl("ALARM_RUHEFENSTER_MINUTEN", 60)),
+            alarm_ruhezeit_von=uhrzeit_oder_aus("ALARM_RUHEZEIT_VON", "22:00"),
+            alarm_ruhezeit_bis=uhrzeit_oder_aus("ALARM_RUHEZEIT_BIS", "07:00"),
+            auffaellig_aktiv=wert("AUFFAELLIG_AKTIV", "true").casefold() in WAHR,
+            auffaellig_min_abstand=max(1.0, kommazahl("AUFFAELLIG_MIN_ABSTAND", 15.0)),
+            erreichbarkeit_domains=liste("ERREICHBARKEIT_DOMAINS"),
+            erreichbarkeit_intervall_minuten=max(1, zahl("ERREICHBARKEIT_INTERVALL_MINUTEN", 5)),
+            erreichbarkeit_stufe=wert("ERREICHBARKEIT_STUFE", "wichtig").casefold(),
         )
 
     def pruefen(self) -> None:
@@ -270,6 +334,8 @@ class Einstellungen:
             raise KonfigurationsFehler(
                 "NACHTSCHICHT_VON und NACHTSCHICHT_BIS dürfen nicht gleich sein"
             )
+        if self.erreichbarkeit_stufe not in ("info", "wichtig", "notfall"):
+            raise KonfigurationsFehler("ERREICHBARKEIT_STUFE muss info, wichtig oder notfall sein")
         try:
             ZoneInfo(self.timezone)
         except (ZoneInfoNotFoundError, ValueError) as fehler:

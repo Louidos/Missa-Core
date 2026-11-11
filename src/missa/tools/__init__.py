@@ -12,15 +12,20 @@ from missa.tools.bestaetigung import Bestaetigungen
 from missa.tools.gedaechtnis import Gedaechtnis, gedaechtnis_werkzeuge
 
 if TYPE_CHECKING:
+    import httpx
+
     from missa.channels.nextcloud_talk import TalkClient
+    from missa.core.alarme import Alarme
     from missa.core.hintergrund import Hintergrund
     from missa.core.rechte import Aktionsprotokoll, Rechte
     from missa.core.zeitplaner import Zeitplaner
+    from missa.tools.erreichbarkeit import ErreichbarkeitsWaechter
     from missa.tools.kalender import Kalender
     from missa.tools.kontakte import Adressbuch, Kontaktpflege
     from missa.tools.mail import MailDienst
     from missa.tools.nextcloud import NextcloudVerbindung
     from missa.tools.pausen import PausenWaechter
+    from missa.tools.server_alarme import ServerWaechter
     from missa.tools.talk import TalkMelder
 
 log = logging.getLogger(__name__)
@@ -81,6 +86,9 @@ def werkzeuge_laden(
     hintergrund: Hintergrund | None = None,
     rechte: Rechte | None = None,
     protokoll: Aktionsprotokoll | None = None,
+    alarme: Alarme | None = None,
+    server: ServerWaechter | None = None,
+    erreichbarkeit: ErreichbarkeitsWaechter | None = None,
 ) -> Werkzeugkasten:
     """Stellt alle Werkzeuge zusammen, die mit dieser Konfiguration nutzbar sind.
 
@@ -129,6 +137,24 @@ def werkzeuge_laden(
         from missa.tools.kontakte import kontakt_werkzeuge
 
         for werkzeug in kontakt_werkzeuge(kontaktpflege):
+            kasten.hinzufuegen(werkzeug)
+
+    if server is not None:
+        from missa.tools.server_alarme import server_werkzeuge
+
+        for werkzeug in server_werkzeuge(server):
+            kasten.hinzufuegen(werkzeug)
+
+    if erreichbarkeit is not None:
+        from missa.tools.erreichbarkeit import erreichbarkeit_werkzeuge
+
+        for werkzeug in erreichbarkeit_werkzeuge(erreichbarkeit):
+            kasten.hinzufuegen(werkzeug)
+
+    if alarme is not None and (server is not None or erreichbarkeit is not None):
+        from missa.core.alarme import alarm_werkzeuge
+
+        for werkzeug in alarm_werkzeuge(alarme):
             kasten.hinzufuegen(werkzeug)
 
     if mail_dienst is not None:
@@ -250,3 +276,84 @@ def pausen_waechter_bauen(
     )
     kalender.nach_pruefungen.append(waechter.nach_termin)
     return waechter
+
+
+def alarme_bauen(einstellungen: Einstellungen, zeitplaner: Zeitplaner) -> Alarme:
+    """Alarm-Stufen mit Ruhezeit und Ruhefenster (Standardwerte aus der Konfiguration)."""
+    from missa.core.alarme import Alarme
+
+    return Alarme(
+        einstellungen.datenbank,
+        einstellungen.zone,
+        zeitplaner,
+        ruhe_von=einstellungen.alarm_ruhezeit_von,
+        ruhe_bis=einstellungen.alarm_ruhezeit_bis,
+        ruhefenster_minuten=einstellungen.alarm_ruhefenster_minuten,
+    )
+
+
+def server_waechter_bauen(
+    einstellungen: Einstellungen,
+    alarme: Alarme,
+    transport: httpx.AsyncBaseTransport | None = None,
+) -> ServerWaechter | None:
+    """Server-Alarme mit allen konfigurierten Quellen – ohne Quelle ``None`` (aus)."""
+    from missa.integrationen.monitoring import HomepageQuelle, JsonQuelle
+    from missa.integrationen.proxmox import ProxmoxLeser
+    from missa.tools.server_alarme import ServerWaechter
+
+    quellen = []
+    if einstellungen.monitoring_url:
+        quellen.append(
+            JsonQuelle(
+                einstellungen.monitoring_url, einstellungen.monitoring_token, transport=transport
+            )
+        )
+    if einstellungen.homepage_url:
+        quellen.append(HomepageQuelle(einstellungen.homepage_url, transport=transport))
+    if einstellungen.proxmox_konfiguriert:
+        quellen.append(
+            ProxmoxLeser(
+                einstellungen.proxmox_url,
+                einstellungen.proxmox_token_id,
+                einstellungen.proxmox_token_secret,
+                tls_pruefen=einstellungen.proxmox_tls_pruefen,
+                ca_datei=einstellungen.proxmox_ca_datei,
+                transport=transport,
+            )
+        )
+    elif einstellungen.proxmox_url:
+        log.warning(
+            "Proxmox ist unvollständig konfiguriert (PROXMOX_URL, PROXMOX_TOKEN_ID und "
+            "PROXMOX_TOKEN_SECRET nötig) – Proxmox-Werte sind aus"
+        )
+    if not quellen:
+        return None
+    return ServerWaechter(
+        quellen,
+        alarme,
+        einstellungen.datenbank,
+        einstellungen.zone,
+        dauer_minuten=einstellungen.alarm_dauer_minuten,
+        auffaellig_aktiv=einstellungen.auffaellig_aktiv,
+        auffaellig_min_abstand=einstellungen.auffaellig_min_abstand,
+    )
+
+
+def erreichbarkeit_bauen(
+    einstellungen: Einstellungen, alarme: Alarme
+) -> ErreichbarkeitsWaechter | None:
+    """Prüfung der eigenen Domains von außen – ohne ``ERREICHBARKEIT_DOMAINS`` aus."""
+    if not einstellungen.erreichbarkeit_domains:
+        return None
+    from missa.core.alarme import AlarmStufe
+    from missa.integrationen.erreichbarkeit import ErreichbarkeitsPruefer
+    from missa.tools.erreichbarkeit import ErreichbarkeitsWaechter
+
+    return ErreichbarkeitsWaechter(
+        ErreichbarkeitsPruefer(einstellungen.erreichbarkeit_domains),
+        alarme,
+        einstellungen.datenbank,
+        einstellungen.zone,
+        stufe=AlarmStufe(einstellungen.erreichbarkeit_stufe),
+    )
