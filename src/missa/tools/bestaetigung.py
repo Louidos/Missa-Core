@@ -8,7 +8,8 @@ Missa darf nichts löschen, ohne Louis vorher zu fragen. Darum gilt:
    **früheren** Chat-Anfrage gestellt wurde – Louis also inzwischen
    geantwortet hat – und noch nicht abgelaufen ist.
 
-So kann das Modell nicht im selben Zug fragen und löschen.
+So kann das Modell nicht im selben Zug fragen und löschen. Läuft Missa im
+Hintergrund (Routine, Nachtschicht), gilt nie eine Zustimmung.
 """
 
 from __future__ import annotations
@@ -17,7 +18,7 @@ import threading
 import time
 from collections.abc import Callable
 
-from missa.core.werkzeuge import aktuelle_anfrage
+from missa.core.werkzeuge import aktuelle_anfrage, im_hintergrund
 
 #: So lange (Sekunden) bleibt eine Rückfrage gültig.
 GUELTIGKEIT = 30 * 60
@@ -46,7 +47,12 @@ class Bestaetigungen:
             self._offen.setdefault(schluessel, (aktuelle_anfrage.get(), self._uhr()))
 
     def erlaubt(self, schluessel: str) -> bool:
-        """``True``, wenn die Rückfrage in einer früheren Anfrage gestellt wurde."""
+        """``True``, wenn die Rückfrage in einer früheren Anfrage gestellt wurde.
+
+        Im Hintergrund (Routine, Nachtschicht) nie: Louis kann dort nicht Ja sagen.
+        """
+        if im_hintergrund.get():
+            return False
         with self._sperre:
             self._aufraeumen()
             eintrag = self._offen.get(schluessel)

@@ -13,6 +13,7 @@ from missa.tools.gedaechtnis import Gedaechtnis, gedaechtnis_werkzeuge
 
 if TYPE_CHECKING:
     from missa.channels.nextcloud_talk import TalkClient
+    from missa.core.hintergrund import Hintergrund
     from missa.core.zeitplaner import Zeitplaner
     from missa.tools.kalender import Kalender
     from missa.tools.kontakte import Adressbuch, Kontaktpflege
@@ -76,11 +77,13 @@ def werkzeuge_laden(
     nextcloud: NextcloudDienste | None = None,
     kontaktpflege: Kontaktpflege | None = None,
     pausen: PausenWaechter | None = None,
+    hintergrund: Hintergrund | None = None,
 ) -> Werkzeugkasten:
     """Stellt alle Werkzeuge zusammen, die mit dieser Konfiguration nutzbar sind.
 
     Die Gedächtnis-Werkzeuge kommen dazu, wenn ``gedaechtnis`` übergeben wird,
-    die Erinnerungs-Werkzeuge mit ``zeitplaner``, das Talk-Werkzeug, wenn
+    die Erinnerungs-Werkzeuge mit ``zeitplaner``, Routinen und Nachtschicht mit
+    ``zeitplaner`` und ``hintergrund``, das Talk-Werkzeug, wenn
     Nextcloud Talk aktiv ist (``talk_client`` oder ein fertiger ``talk_melder``).
     Nextcloud-Werkzeuge gibt es nur, wenn Adresse, Benutzer und App-Passwort
     gesetzt sind – sonst würde Missa Werkzeuge anbieten, die nie funktionieren.
@@ -95,7 +98,16 @@ def werkzeuge_laden(
     if zeitplaner is not None:
         from missa.tools.erinnerungen import erinnerungs_werkzeuge
 
-        for werkzeug in erinnerungs_werkzeuge(zeitplaner):
+        for werkzeug in erinnerungs_werkzeuge(zeitplaner, bestaetigungen):
+            kasten.hinzufuegen(werkzeug)
+
+    if zeitplaner is not None and hintergrund is not None:
+        from missa.tools.nachtschicht import nachtschicht_werkzeuge
+        from missa.tools.routinen import routinen_werkzeuge
+
+        for werkzeug in routinen_werkzeuge(zeitplaner, hintergrund, bestaetigungen):
+            kasten.hinzufuegen(werkzeug)
+        for werkzeug in nachtschicht_werkzeuge(hintergrund, bestaetigungen):
             kasten.hinzufuegen(werkzeug)
 
     if pausen is not None:

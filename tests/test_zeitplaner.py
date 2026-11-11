@@ -12,7 +12,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 from missa.core.app import create_app
-from missa.core.werkzeuge import WerkzeugFehler, Werkzeugkasten
+from missa.core.werkzeuge import WerkzeugFehler, Werkzeugkasten, aktuelle_anfrage
 from missa.core.zeitangaben import Wiederholung
 from missa.core.zeitplaner import Zeitplaner
 from missa.core.zustellung import ZustellFehler, Zustellung
@@ -308,7 +308,16 @@ def test_werkzeug_anzeigen_aendern_loeschen(ew, planer):
     geaendert = ew.aendern(1, wann="morgen um 8", was="Lauftraining")
     assert "Lauftraining" in geaendert and "08:00 Uhr" in geaendert
 
-    assert "gelöscht" in ew.loeschen("#2")
+    # Löschen erst nach einem Ja in einer späteren Nachricht.
+    marke = aktuelle_anfrage.set("anfrage-1")
+    vorschau = ew.loeschen("#2")
+    assert vorschau.startswith("NOCH NICHT GELÖSCHT")
+    assert ew.loeschen(2, bestaetigt=True).startswith("NICHT GELÖSCHT")
+    assert len(planer.offene()) == 2
+    aktuelle_anfrage.reset(marke)
+    marke = aktuelle_anfrage.set("anfrage-2")
+    assert "Erinnerung gelöscht" in ew.loeschen("#2", bestaetigt=True)
+    aktuelle_anfrage.reset(marke)
     assert [e.text for e in planer.offene()] == ["Lauftraining"]
     with pytest.raises(WerkzeugFehler):
         ew.loeschen(2)

@@ -22,6 +22,7 @@ from starlette.exceptions import HTTPException
 from missa import __version__
 from missa.core.chat import MODELL, AnfrageFehler, ChatDienst
 from missa.core.config import Einstellungen
+from missa.core.hintergrund import Hintergrund
 from missa.core.llama import LlamaClient, LlamaFehler
 from missa.core.verlauf import Verlauf
 from missa.core.werkzeuge import Werkzeugkasten
@@ -100,6 +101,13 @@ def create_app(
         if talk_melder is not None and einstellungen.nc_talk_notify_conversation:
             zustellung.hinzufuegen(TalkZustellkanal(talk_melder))
     zeitplaner = Zeitplaner(einstellungen.datenbank, einstellungen.zone, zustellung)
+    hintergrund = Hintergrund(
+        einstellungen.datenbank,
+        einstellungen.zone,
+        zeitplaner,
+        nacht_von=einstellungen.nachtschicht_von,
+        nacht_bis=einstellungen.nachtschicht_bis,
+    )
     if mail_dienst is None and einstellungen.mail_konfiguriert:
         mail_dienst = mail_dienst_bauen(einstellungen, gedaechtnis)
     nextcloud = (
@@ -134,8 +142,13 @@ def create_app(
             nextcloud=nextcloud,
             kontaktpflege=kontaktpflege,
             pausen=pausen,
+            hintergrund=hintergrund,
         )
-    kontext_quellen = [gedaechtnis.kontext, ErinnerungsWerkzeuge(zeitplaner).kontext]
+    kontext_quellen = [
+        gedaechtnis.kontext,
+        ErinnerungsWerkzeuge(zeitplaner).kontext,
+        hintergrund.kontext,
+    ]
     eingangs_pruefer = []
     nachbearbeiter = []
     if mail_dienst is not None:
@@ -166,6 +179,11 @@ def create_app(
         kontaktpflege.formulierer = dienst.formulieren
     if pausen is not None:
         pausen.formulierer = dienst.formulieren
+
+    async def hintergrund_ausfuehren(auftrag) -> str:
+        return await dienst.hintergrund_ausfuehren(auftrag.auftrag_fuer_missa())
+
+    hintergrund.ausfuehrer = hintergrund_ausfuehren
     gestartet = int(time.time())
 
     @asynccontextmanager
@@ -182,7 +200,9 @@ def create_app(
                 "Erinnerungen werden gespeichert, aber erst zugestellt, wenn ein Kanal da ist"
             )
         zeitplaner.starten()
+        hintergrund.starten()
         yield
+        await hintergrund.stoppen()
         await zeitplaner.stoppen()
         await llama.schliessen()
         if talk_client is not None:
@@ -198,6 +218,7 @@ def create_app(
     app.state.dienst = dienst
     app.state.gedaechtnis = gedaechtnis
     app.state.zeitplaner = zeitplaner
+    app.state.hintergrund = hintergrund
     app.state.mail = mail_dienst
     app.state.kontaktpflege = kontaktpflege
     app.state.pausen = pausen
@@ -296,6 +317,23 @@ def create_app(
             "anzahl": len(offene),
             "kanaele": zustellung.namen,
             "erinnerungen": [e.als_dict() for e in offene],
+        }
+
+    @app.get("/api/routinen", dependencies=geschuetzt, tags=["Missa"])
+    async def routinen_anzeigen() -> dict[str, Any]:
+        """Alle Routinen (auch pausierte), nächster Lauf zuerst."""
+        routinen = zeitplaner.offene("routine")
+        return {"anzahl": len(routinen), "routinen": [r.als_dict() for r in routinen]}
+
+    @app.get("/api/nachtschicht", dependencies=geschuetzt, tags=["Missa"])
+    async def nachtschicht_anzeigen() -> dict[str, Any]:
+        """Nachtfenster, vorgemerkte Nachtaufgaben und Ergebnisse der letzten 7 Tage."""
+        von, bis = hintergrund.fenster()
+        auftraege = hintergrund.liste("nacht")
+        return {
+            "fenster": {"von": f"{von:%H:%M}", "bis": f"{bis:%H:%M}"},
+            "anzahl": len(auftraege),
+            "auftraege": [a.als_dict() for a in auftraege],
         }
 
     @app.get("/api/kalender/protokoll", dependencies=geschuetzt, tags=["Missa"])

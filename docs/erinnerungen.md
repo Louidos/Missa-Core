@@ -22,7 +22,7 @@ Weitere Befehle im Chat:
 
 - „Welche Erinnerungen hast du?“ – Liste mit Nummern
 - „Verschieb die Erinnerung #3 auf 9 Uhr“, „Mach daraus nur noch eine einmalige“
-- „Lösch die Erinnerung ans Training“
+- „Lösch die Erinnerung ans Training“ – Missa fragt zuerst nach und löscht erst nach deinem Ja
 - „In 10 Minuten nochmal“ – schlummert die zuletzt geschickte Erinnerung
 
 ## Wie es funktioniert
@@ -50,6 +50,12 @@ nicht schreiben kann; sobald der Kanal eingerichtet ist, kommen sie (verspätet)
 
 Weitere Kanäle (Telefon, App) kommen später als zusätzlicher Kanal dazu
 (`src/missa/core/zustellung.py`), ohne dass sich an den Erinnerungen etwas ändert.
+
+## Routinen und Nachtschicht
+
+Wiederkehrende Aufträge an Missa („jeden Freitag um 17 Uhr Wochenrückblick“) und lange
+Aufgaben für die Nacht laufen über denselben Zeitplaner – siehe
+[routinen-nachtschicht.md](routinen-nachtschicht.md).
 
 ## Für Apps und das Admin-Panel
 

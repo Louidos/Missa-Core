@@ -686,3 +686,43 @@ def test_mail_einstellungen_aus_umgebung():
     assert e.mail_ordner_entwuerfe == "Entwürfe"
     assert e.stil_datei == Path("/tmp/x/schreibstil.md")
     assert not Einstellungen().mail_konfiguriert
+
+
+# ---------------------------------------------------------------------- Routinen und Nachtschicht
+
+
+def im_hintergrund_ausfuehren(client: TestClient, auftrag: str) -> str:
+    import asyncio
+
+    from missa.core.werkzeuge import im_hintergrund
+
+    async def ablauf() -> str:
+        marke = im_hintergrund.set(True)
+        try:
+            return await client.app.state.dienst.hintergrund_ausfuehren(auftrag)  # type: ignore[attr-defined]
+        finally:
+            im_hintergrund.reset(marke)
+
+    return asyncio.run(ablauf())
+
+
+def test_routine_mit_ja_in_der_anweisung_sendet_nicht(app_client, llama, konto):
+    entwurf_anlegen(llama, app_client)  # Louis hat den Entwurf im Gespräch gesehen
+    llama.antworten = [text("Erledigt.")]
+    im_hintergrund_ausfuehren(app_client, "Ja, abschicken\nsenden #1")
+    assert konto.gesendet == []
+
+
+def test_entwurf_aus_einer_routine_gilt_nicht_als_gezeigt(app_client, llama, konto):
+    llama.antworten = [
+        werkzeug_aufruf(
+            "email_entwurf_erstellen",
+            {"an": "Chef", "betreff": "Wochenbericht", "text": ENTWURF_TEXT},
+        ),
+        text("Ich habe den Wochenbericht vorbereitet."),
+    ]
+    ergebnis = im_hintergrund_ausfuehren(app_client, "Schreib den Wochenbericht an den Chef")
+    assert "E-Mail-Entwurf #1" in ergebnis  # Louis bekommt ihn in der Nachricht zu sehen
+    llama.antworten = [text("Welchen Entwurf meinst du?")]
+    frage(app_client, "Ja, abschicken")
+    assert konto.gesendet == []
