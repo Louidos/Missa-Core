@@ -47,8 +47,9 @@ Kennt Missa eine Adresse nicht, fragt sie nach. Tipp: „Merk dir: Mein Chef ist
 - Den Entwurf unter der Antwort hängt der **Code** an, nicht das Modell – du siehst also
   genau das, was gesendet würde. Der Code merkt sich eine Prüfsumme dieser Fassung.
 - Gesendet wird nur, wenn **deine neue Nachricht** (vor dem Modell geprüft) eine kurze,
-  eindeutige Zustimmung ist: „Ja, abschicken“, „Ja“, „Schick ab“, „senden #3“. „Ja, aber
-  ändere …“, „Noch nicht“ oder längere Sätze zählen nicht.
+  eindeutige Zustimmung ist: „Ja, abschicken“, „Ja“, „Schick ab“, „Schick diese Mail“,
+  „Sende die Mail ab“, „senden #3“. „Ja, aber ändere …“, „Noch nicht“, „Schick die Mail an
+  Peter“ (ein anderer Empfänger ist eine Änderung) oder längere Sätze zählen nicht.
 - Ein knappes „Ja“ gilt nur direkt nach dem gezeigten Entwurf; „senden #3“ gilt, solange
   du genau diese Fassung in diesem Gespräch gesehen hast.
 - **Ändert sich der Entwurf**, ist eine neue Zustimmung nötig – Missa zeigt die neue Fassung

@@ -144,6 +144,15 @@ def test_alle_echten_werkzeuge_haben_eine_stufe(einstellungen):
         ("Ja, aber erst morgen", False),
         ("Lieber nicht", False),
         ("Was hast du heute gemacht?", False),
+        ("Lösch es", True),
+        ("Entferne den Termin", True),
+        ("Verwirf den Entwurf", True),
+        ("Schick die Mail ab", True),
+        ("Lösch es lieber nicht", False),
+        ("Lösch es?", False),
+        ("Kannst du ihm auch den Link senden?", False),
+        ("Vergiss es", False),
+        ("Vergiss das mit dem Kaffee", True),
         ("", False),
         (None, False),
         ("ja " * 20, False),
@@ -177,6 +186,14 @@ def test_zerstoererisch_nach_ja_genau_einmal(kasten, ablage):
         "NICHT AUSGEFÜHRT"
     )
     assert ablage.geloescht == ["Fotos"]
+
+
+def test_auftrag_statt_ja_zaehlt_als_zustimmung(kasten, ablage):
+    ausfuehren(kasten, "alles_loeschen", {"was": "Fotos"}, "a1", "Lösch meine Fotos")
+    assert ablage.geloescht == []  # im selben Zug nie
+    assert ausfuehren(kasten, "alles_loeschen", {"was": "Fotos"}, "a2", "Lösch sie") == (
+        "Fotos gelöscht."
+    )
 
 
 def test_ja_gilt_nur_fuer_genau_diese_aktion(kasten, ablage):

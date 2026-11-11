@@ -166,6 +166,9 @@ def entwurf_anlegen(llama, client, inhalt: str = ENTWURF_TEXT) -> str:
         ("senden #3", ("explizit", 3)),
         ("Klar, raus damit", ("explizit", None)),
         ("Abschicken 👍", ("explizit", None)),
+        ("Schick diese Mail", ("explizit", None)),
+        ("Sende die Mail ab", ("explizit", None)),
+        ("Schick die Mail an Peter", None),
         ("Ja", ("ja", None)),
         ("ok", ("ja", None)),
         ("Ja bitte", ("ja", None)),
@@ -226,6 +229,14 @@ def test_erst_nach_ja_geht_die_mail_raus(app_client, llama, konto):
     # Ein zweites Ja sendet nichts mehr.
     frage(app_client, "Ja")
     frage(app_client, "senden #1")
+    assert len(konto.gesendet) == 1
+
+
+def test_schick_diese_mail_sendet_ohne_ja(app_client, llama, konto):
+    entwurf_anlegen(llama, app_client)
+    assert konto.gesendet == []
+    llama.antworten = [text("Ist raus.")]
+    frage(app_client, "Schick diese Mail")
     assert len(konto.gesendet) == 1
 
 

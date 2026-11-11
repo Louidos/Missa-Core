@@ -12,8 +12,9 @@ So kann das Modell nicht im selben Zug fragen und löschen. Läuft Missa im
 Hintergrund (Routine, Nachtschicht), gilt nie eine Zustimmung.
 
 Darüber liegt die zentrale Rechte-Schicht (:mod:`missa.core.rechte`): Werkzeuge der
-Stufe ``zerstoererisch`` laufen nur nach Louis' ausdrücklichem Ja in seiner neuen
-Nachricht und innerhalb von 10 Minuten. Hat sie freigegeben, gilt das auch hier.
+Stufe ``zerstoererisch`` laufen nur nach Louis' ausdrücklicher Zustimmung in seiner neuen
+Nachricht („Ja“ oder ein klarer Auftrag wie „Lösch es“) und innerhalb von 10 Minuten.
+Hat sie freigegeben, gilt das auch hier.
 """
 
 from __future__ import annotations
@@ -92,7 +93,8 @@ def zustimmung_pruefen(
     )
     return (
         f"{grund} {frage}\n{beschreibung}\n"
-        f"Erst wenn er in seiner nächsten Nachricht ausdrücklich Ja sagt, rufe {werkzeug} "
+        f"Erst wenn er in seiner nächsten Nachricht zustimmt („Ja“ oder z. B. „Lösch es“), "
+        f"rufe {werkzeug} "
         f"mit denselben Angaben ({parameter}) und bestaetigt=true auf."
     )
 
@@ -119,6 +121,7 @@ def loeschen_pruefen(
     return (
         f"{grund} Frag Louis zuerst, ob das wirklich gelöscht werden soll:\n"
         f"{beschreibung}\n"
-        f"Erst wenn er in seiner nächsten Nachricht ausdrücklich Ja sagt, rufe {werkzeug} "
+        f"Erst wenn er in seiner nächsten Nachricht zustimmt („Ja“ oder z. B. „Lösch es“), "
+        f"rufe {werkzeug} "
         f"mit {parameter} und bestaetigt=true auf."
     )

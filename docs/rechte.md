@@ -32,8 +32,11 @@ wird gelöscht“), und fragt dich. Ausgeführt wird erst, wenn
 
 1. die Rückfrage in einer **früheren** Nachricht gestellt wurde (Missa kann nicht im selben
    Zug fragen und löschen),
-2. deine **neue** Nachricht eine knappe, eindeutige Zustimmung ist („Ja“, „Ja, lösch es“,
-   „Okay, mach“) – „Ja, aber …“, „lieber nicht“ oder lange Texte zählen nicht,
+2. deine **neue** Nachricht eine knappe, eindeutige Zustimmung ist – ein „Ja“ („Ja“,
+   „Okay, mach“) **oder** ein klarer Auftrag wie „Lösch es“, „Entferne den Termin“,
+   „Verwirf den Entwurf“. Ein extra „Ja“ ist also nicht nötig. Nicht zählen: „Ja, aber …“,
+   „lösch es lieber nicht“, Fragen („Lösch es?“), „Vergiss es“ (heißt meist „lass es“) und
+   lange Texte,
 3. Missa genau **dieselbe Aktion** mit denselben Angaben noch einmal aufruft und
 4. die Rückfrage höchstens **10 Minuten** alt ist (`MISSA_BESTAETIGUNG_MINUTEN`).
 

@@ -32,6 +32,9 @@ die Versionsnummern folgen [Semantic Versioning](https://semver.org/lang/de/).
   Was sie im Hintergrund (Routine, Nachtschicht) tut, kann nie eine Rückfrage bestätigen
   oder eine E-Mail senden (#37)
 - Einen E-Mail-Entwurf verwirft Missa jetzt erst nach deinem ausdrücklichen Ja (#39)
+- Auf Missas Rückfrage musst du nicht extra „Ja“ sagen: Ein klarer Auftrag wie „Lösch es“,
+  „Entferne den Termin“ oder „Schick diese Mail“ zählt genauso als Zustimmung. Fragen,
+  „lieber nicht“ oder „Vergiss es“ zählen weiterhin nicht (#41)
 
 ## 0.3.0 – 2026-11-10
 
