@@ -7,6 +7,8 @@ die Versionsnummern folgen [Semantic Versioning](https://semver.org/lang/de/).
 
 ## Unveröffentlicht
 
+## 0.6.0 – 2026-11-11
+
 ### Hinzugefügt
 
 - Container-Übersicht, verständliche Fehlersuche in Logs und Warnungen bei ungewöhnlichen
