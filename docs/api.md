@@ -227,7 +227,51 @@ curl $MISSA/api/erinnerungen -H "Authorization: Bearer $KEY"
 ```
 
 Anlegen, ändern und löschen geht im Chat („Erinnere mich um 6:30 an Training“), siehe
-[erinnerungen.md](erinnerungen.md).
+[erinnerungen.md](erinnerungen.md). Seit dem Organisations-Update hat jeder Eintrag zusätzlich
+die Felder `art` (`erinnerung`), `anweisung` und `pausiert`; Routinen erscheinen hier nicht.
+
+### `GET /api/routinen` – welche Routinen laufen?
+
+Alle Routinen (auch pausierte), nächster Lauf zuerst. Gleiche Felder wie bei
+`/api/erinnerungen`, mit `art: "routine"`, der `anweisung` an Missa und `pausiert`.
+
+```bash
+curl $MISSA/api/routinen -H "Authorization: Bearer $KEY"
+```
+
+```json
+{
+  "anzahl": 1,
+  "routinen": [
+    {"id": 4, "text": "Wochenrückblick", "art": "routine", "pausiert": false,
+     "anweisung": "Schreib mir einen Wochenrückblick", "faellig": "2026-11-13T17:00:00+01:00",
+     "wiederholung": "woechentlich:4", "wiederholung_text": "jeden Freitag", "status": "offen"}
+  ]
+}
+```
+
+### `GET /api/nachtschicht` – Nachtfenster und Nachtaufgaben
+
+Das aktuelle Nachtfenster, wartende Nachtaufgaben und die Ergebnisse der letzten 7 Tage.
+
+```bash
+curl $MISSA/api/nachtschicht -H "Authorization: Bearer $KEY"
+```
+
+```json
+{
+  "fenster": {"von": "01:00", "bis": "06:00"},
+  "anzahl": 1,
+  "auftraege": [
+    {"id": 2, "titel": "Aufgaben-Übersicht", "anweisung": "Fasse alle offenen Aufgaben zusammen",
+     "art": "nacht", "status": "fertig", "ergebnis": "…", "fehler": null, "versuche": 1,
+     "erstellt": "2026-11-10T21:03:00+01:00", "gestartet": "2026-11-11T01:00:02+01:00",
+     "beendet": "2026-11-11T01:07:40+01:00", "gemeldet": "2026-11-11T06:00:01+01:00"}
+  ]
+}
+```
+
+Siehe [routinen-nachtschicht.md](routinen-nachtschicht.md).
 
 ### `GET /api/kalender/protokoll` – was hat Missa am Kalender geändert?
 
@@ -349,6 +393,8 @@ kennen – man fragt einfach in normaler Sprache.
 | Aufgaben (Nextcloud) | „Was steht auf meiner Liste?“, „Schreib auf: Milch kaufen“, „Hab ich erledigt“ | `aufgaben_anzeigen`, `aufgabe_erstellen`, `aufgabe_erledigt`, `aufgabe_loeschen` |
 | Gedächtnis | „Merk dir, dass ich Kaffee ohne Zucker trinke“, „Was weißt du über meine Schwester?“, „Vergiss das“ | `merken`, `erinnern`, `vergessen` |
 | Erinnerungen | „Erinnere mich um 6:30 an Training“, „Jeden Montag um 7 an die Wochenplanung“, „In 10 Minuten nochmal“ | `erinnerung_anlegen`, `erinnerungen_anzeigen`, `erinnerung_aendern`, `erinnerung_loeschen`, `erinnerung_schlummern` |
+| Routinen | „Jeden Freitag um 17 Uhr Wochenrückblick“, „Pausier den Wochenrückblick“, „Lösch die Routine“ | `routine_anlegen`, `routinen_anzeigen`, `routine_pausieren`, `routine_fortsetzen`, `routine_loeschen`, `routine_jetzt_ausfuehren` |
+| Nachtschicht | „Mach mir heute Nacht eine Übersicht aller offenen Aufgaben“, „Nachtschicht von 2 bis 5 Uhr“ | `nachtaufgabe_anlegen`, `nachtaufgaben_anzeigen`, `nachtaufgabe_ergebnis`, `nachtaufgabe_loeschen`, `nachtschicht_einstellen` |
 | Pausen und Puffer (Nextcloud-Kalender) | „Prüf mal morgen auf Pausen“, „… und trag die Pausen ein“ | `tag_pruefen` (dazu prüft Missa jeden Abend und nach jeder Terminanlage von selbst) |
 | Kontakte (Nextcloud) | „Wer hat bald Geburtstag?“, „Oma ist mir wichtig, mindestens alle 3 Wochen“, „Hab gerade mit Oma telefoniert“ | `kontakte_suchen`, `geburtstage_anzeigen`, `kontakt_wichtig_markieren`, `kontakt_nicht_mehr_wichtig`, `kontakt_gemeldet`, `wichtige_kontakte_anzeigen` |
 | E-Mail (nur wenn eingerichtet) | „Schreib dem Chef, dass ich morgen später komme“, „Was ist neu im Posteingang?“, „Schreib förmlicher an Lehrer“ – gesendet wird nur nach „Ja, abschicken“ | `emails_anzeigen`, `email_lesen`, `email_entwurf_erstellen`, `email_entwurf_aendern`, `email_entwuerfe_anzeigen`, `email_entwurf_verwerfen`, `email_adresse_suchen`, `schreibstil_anzeigen`, `schreibstil_lernen`, `schreibstil_anpassen` (kein Senden-Werkzeug – siehe [email.md](email.md)) |

@@ -1,4 +1,4 @@
-"""Dauerhafter Zeitplaner für Erinnerungen.
+"""Dauerhafter Zeitplaner für Erinnerungen und Routinen.
 
 Erinnerungen stehen in der SQLite-Datenbank (Tabelle ``erinnerungen``) und
 überleben damit Neustarts und Updates. Ein Hintergrund-Task schläft genau bis
@@ -14,6 +14,10 @@ eine verstellte Uhr schnell bemerkt wird) und stellt sie über die
   Wanduhrzeit berechnet (7:00 bleibt 7:00, auch über die Zeitumstellung).
 - Fehlschlag: Klappt die Zustellung nicht (z. B. Nextcloud nicht erreichbar),
   wird es mit wachsendem Abstand (bis 15 Minuten) erneut versucht.
+- Routinen (``art = 'routine'``) stehen in derselben Tabelle und laufen über
+  dieselbe Schleife. Statt eines Textes wird zur Zeit ihre Anweisung an Missa
+  übergeben (:attr:`Zeitplaner.routine_ausloeser`, siehe
+  :mod:`missa.core.hintergrund`). Pausierte Einträge werden übersprungen.
 """
 
 from __future__ import annotations
@@ -64,8 +68,29 @@ CREATE TABLE IF NOT EXISTS zeitplaner_auftraege (
 );
 """
 
+#: Spalten, die nach Version 0.3.0 dazugekommen sind (automatische Migration beim Start).
+NEUE_SPALTEN = {
+    "art": "TEXT NOT NULL DEFAULT 'erinnerung'",
+    "anweisung": "TEXT",
+    "pausiert": "INTEGER NOT NULL DEFAULT 0",
+}
+ARTEN = ("erinnerung", "routine")
+ART_NAMEN = {"erinnerung": "Erinnerung", "routine": "Routine"}
+
 #: Ein täglicher Auftrag (z. B. Geburtstage prüfen); darf async sein.
 Auftrag = Callable[[], Any]
+#: Wird für eine fällige Routine aufgerufen (Routine, verspätet?) und reiht sie ein.
+RoutinenAusloeser = Callable[["Erinnerung", bool], Any]
+
+
+def migrieren(db: sqlite3.Connection) -> None:
+    """Ergänzt fehlende Spalten in ``erinnerungen`` (alte Daten bleiben erhalten)."""
+    vorhanden = {zeile["name"] for zeile in db.execute("PRAGMA table_info(erinnerungen)")}
+    for name, typ in NEUE_SPALTEN.items():
+        if name not in vorhanden:
+            log.info("Migration: Spalte erinnerungen.%s wird ergänzt", name)
+            db.execute(f"ALTER TABLE erinnerungen ADD COLUMN {name} {typ}")
+
 
 #: Ab so viel Verspätung bekommt die Nachricht einen Hinweis.
 TOLERANZ = timedelta(seconds=60)
@@ -123,11 +148,22 @@ class Erinnerung:
     schluessel: str | None
     kanal: str | None
     herkunft: str
+    art: str = "erinnerung"
+    anweisung: str | None = None
+    pausiert: bool = False
 
     def zeile(self) -> str:
-        teile = f"- #{self.id} „{self.text}“ – {zeitpunkt_text(self.faellig)}"
+        if self.art == "routine":
+            teile = f"- #{self.id} „{self.text}“ – "
+            teile += (
+                "PAUSIERT" if self.pausiert else f"nächster Lauf {zeitpunkt_text(self.faellig)}"
+            )
+        else:
+            teile = f"- #{self.id} „{self.text}“ – {zeitpunkt_text(self.faellig)}"
         if self.wiederholung:
-            teile += f" (wiederholt sich {self.wiederholung.text()})"
+            teile += f" (wiederholt sich {self.wiederholung.text()} um {self.uhrzeit:%H:%M} Uhr)"
+        if self.art == "routine" and self.anweisung:
+            teile += f"\n  Anweisung: {self.anweisung}"
         if self.versuche:
             teile += f" – Zustellung bisher {self.versuche}× fehlgeschlagen"
         return teile
@@ -148,6 +184,9 @@ class Erinnerung:
             "fehlversuche": self.versuche,
             "kanal": self.kanal,
             "herkunft": self.herkunft,
+            "art": self.art,
+            "anweisung": self.anweisung,
+            "pausiert": self.pausiert,
         }
 
 
@@ -180,8 +219,12 @@ class Zeitplaner:
         self._wecker: asyncio.Event | None = None
         self._sperre = threading.Lock()
         self._auftraege: dict[str, TaeglicherAuftrag] = {}
+        #: Nimmt fällige Routinen entgegen (setzt die App, siehe missa.core.hintergrund).
+        self.routine_ausloeser: RoutinenAusloeser | None = None
         with verbinden(datei) as db:
             db.executescript(SCHEMA)
+            migrieren(db)
+            db.execute("CREATE INDEX IF NOT EXISTS erinnerungen_art ON erinnerungen (art, status)")
 
     def jetzt(self) -> datetime:
         return self._uhr().astimezone(self.zone)
@@ -204,6 +247,9 @@ class Zeitplaner:
             schluessel=zeile["schluessel"],
             kanal=zeile["kanal"],
             herkunft=zeile["herkunft"],
+            art=zeile["art"],
+            anweisung=zeile["anweisung"],
+            pausiert=bool(zeile["pausiert"]),
         )
 
     def anlegen(
@@ -215,11 +261,18 @@ class Zeitplaner:
         schluessel: str | None = None,
         herkunft: str = "chat",
         kanal: str | None = None,
+        art: str = "erinnerung",
+        anweisung: str | None = None,
     ) -> Erinnerung:
-        """Legt eine Erinnerung an. Mit ``schluessel`` wird sie nie doppelt angelegt."""
+        """Legt eine Erinnerung (oder Routine) an. Mit ``schluessel`` nie doppelt."""
+        if art not in ARTEN:
+            raise ValueError(f"Unbekannte Art: {art}")
         text = " ".join(str(text).split())
         if not text:
             raise WerkzeugFehler("Woran soll ich dich erinnern? Der Text fehlt.")
+        anweisung = (anweisung or "").strip() or None
+        if art == "routine" and not anweisung:
+            raise WerkzeugFehler("Was soll ich bei der Routine tun? Die Anweisung fehlt.")
         zeitpunkt = zeitpunkt.astimezone(self.zone)
         nachricht = (nachricht or "").strip() or None
         with self._sperre, verbinden(self.datei) as db:
@@ -233,8 +286,8 @@ class Zeitplaner:
                 """
                 INSERT INTO erinnerungen
                     (text, nachricht, faellig, uhrzeit, regel, erstellt, schluessel,
-                     herkunft, kanal)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                     herkunft, kanal, art, anweisung)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 (
                     text,
@@ -246,26 +299,36 @@ class Zeitplaner:
                     schluessel,
                     herkunft,
                     kanal,
+                    art,
+                    anweisung,
                 ),
             )
             neu = db.execute(
                 "SELECT * FROM erinnerungen WHERE id = ?", (cursor.lastrowid,)
             ).fetchone()
+        eintrag = self._erinnerung(neu)
+        if herkunft == "chat":
+            log.info("%s #%s angelegt: „%s“", ART_NAMEN[art], eintrag.id, eintrag.text)
         self.wecken()
-        return self._erinnerung(neu)
+        return eintrag
 
-    def holen(self, erinnerung_id: int) -> Erinnerung | None:
+    def holen(self, erinnerung_id: int, art: str | None = "erinnerung") -> Erinnerung | None:
+        """Ein Eintrag nach ID; ``art=None`` liefert Erinnerungen und Routinen."""
         with verbinden(self.datei) as db:
             zeile = db.execute(
-                "SELECT * FROM erinnerungen WHERE id = ? AND status != 'geloescht'",
-                (erinnerung_id,),
+                "SELECT * FROM erinnerungen WHERE id = ? AND status != 'geloescht' "
+                "AND (? IS NULL OR art = ?)",
+                (erinnerung_id, art, art),
             ).fetchone()
         return self._erinnerung(zeile) if zeile else None
 
-    def offene(self) -> list[Erinnerung]:
+    def offene(self, art: str = "erinnerung") -> list[Erinnerung]:
+        """Alle offenen Einträge einer Art (auch pausierte), nächster zuerst."""
         with verbinden(self.datei) as db:
             zeilen = db.execute(
-                "SELECT * FROM erinnerungen WHERE status = 'offen' ORDER BY faellig, id"
+                "SELECT * FROM erinnerungen WHERE status = 'offen' AND art = ? "
+                "ORDER BY faellig, id",
+                (art,),
             ).fetchall()
         return [self._erinnerung(z) for z in zeilen]
 
@@ -276,6 +339,7 @@ class Zeitplaner:
                 """
                 SELECT * FROM erinnerungen
                 WHERE zugestellt IS NOT NULL AND zugestellt >= ? AND status != 'geloescht'
+                    AND art = 'erinnerung'
                 ORDER BY zugestellt DESC, id DESC LIMIT 1
                 """,
                 (grenze,),
@@ -327,16 +391,51 @@ class Zeitplaner:
         assert neu is not None
         return neu
 
-    def loeschen(self, erinnerung_id: int) -> Erinnerung:
-        alt = self.holen(erinnerung_id)
+    def loeschen(self, erinnerung_id: int, art: str = "erinnerung") -> Erinnerung:
+        alt = self.holen(erinnerung_id, art)
         if alt is None:
-            raise WerkzeugFehler(f"Eine Erinnerung #{erinnerung_id} gibt es nicht (mehr).")
+            raise WerkzeugFehler(f"Eine {ART_NAMEN[art]} #{erinnerung_id} gibt es nicht (mehr).")
         with self._sperre, verbinden(self.datei) as db:
             db.execute(
                 "UPDATE erinnerungen SET status = 'geloescht' WHERE id = ?", (erinnerung_id,)
             )
+        log.info("%s #%s gelöscht: „%s“", ART_NAMEN[art], alt.id, alt.text)
         self.wecken()
         return alt
+
+    def pausieren(
+        self, erinnerung_id: int, pausiert: bool = True, art: str = "routine"
+    ) -> Erinnerung:
+        """Pausiert einen Eintrag oder setzt ihn fort.
+
+        Beim Fortsetzen werden verpasste Läufe nicht nachgeholt: Es geht mit dem
+        nächsten regulären Zeitpunkt weiter.
+        """
+        alt = self.holen(erinnerung_id, art)
+        if alt is None or alt.status != "offen":
+            raise WerkzeugFehler(f"Eine {ART_NAMEN[art]} #{erinnerung_id} gibt es nicht (mehr).")
+        felder: dict[str, Any] = {"pausiert": int(pausiert)}
+        jetzt = self.jetzt()
+        if not pausiert and alt.faellig <= jetzt and alt.wiederholung is not None:
+            felder["faellig"] = _utc_text(alt.wiederholung.naechster(jetzt, alt.uhrzeit, self.zone))
+            felder["naechster_versuch"] = None
+        zuweisung = ", ".join(f"{name} = ?" for name in felder)
+        with self._sperre, verbinden(self.datei) as db:
+            db.execute(
+                f"UPDATE erinnerungen SET {zuweisung} WHERE id = ?",
+                (*felder.values(), erinnerung_id),
+            )
+        log.info(
+            "%s #%s %s: „%s“",
+            ART_NAMEN[art],
+            alt.id,
+            "pausiert" if pausiert else "fortgesetzt",
+            alt.text,
+        )
+        self.wecken()
+        neu = self.holen(erinnerung_id, art)
+        assert neu is not None
+        return neu
 
     def schlummern(self, minuten: float, erinnerung_id: int | None = None) -> Erinnerung:
         """Stellt eine Erinnerung ``minuten`` später noch einmal zu.
@@ -369,7 +468,8 @@ class Zeitplaner:
             zeilen = db.execute(
                 """
                 SELECT * FROM erinnerungen
-                WHERE status = 'offen' AND COALESCE(naechster_versuch, faellig) <= ?
+                WHERE status = 'offen' AND pausiert = 0
+                    AND COALESCE(naechster_versuch, faellig) <= ?
                 ORDER BY faellig, id
                 """,
                 (_utc_text(jetzt),),
@@ -380,7 +480,7 @@ class Zeitplaner:
         with verbinden(self.datei) as db:
             zeile = db.execute(
                 "SELECT MIN(COALESCE(naechster_versuch, faellig)) AS naechste "
-                "FROM erinnerungen WHERE status = 'offen'"
+                "FROM erinnerungen WHERE status = 'offen' AND pausiert = 0"
             ).fetchone()
         return _aus_utc(zeile["naechste"], self.zone)
 
@@ -398,6 +498,10 @@ class Zeitplaner:
         jetzt = self.jetzt()
         anzahl = 0
         for erinnerung in self._faellige(jetzt):
+            if erinnerung.art == "routine":
+                if self._routine_ausloesen(erinnerung, jetzt):
+                    anzahl += 1
+                continue
             text = self.nachricht_fuer(erinnerung, jetzt)
             try:
                 kanal = await self.zustellung.senden(text, erinnerung.kanal)
@@ -411,6 +515,20 @@ class Zeitplaner:
             self._zugestellt(erinnerung, jetzt, kanal)
             anzahl += 1
         return anzahl
+
+    def _routine_ausloesen(self, routine: Erinnerung, jetzt: datetime) -> bool:
+        """Übergibt eine fällige Routine an die Hintergrund-Ausführung."""
+        if self.routine_ausloeser is None:
+            self._fehlschlag(routine, jetzt, "keine Hintergrund-Ausführung eingerichtet")
+            return False
+        try:
+            self.routine_ausloeser(routine, jetzt - routine.faellig > TOLERANZ)
+        except Exception:
+            log.exception("Routine #%s: konnte nicht eingereiht werden", routine.id)
+            self._fehlschlag(routine, jetzt, "Einreihen fehlgeschlagen")
+            return False
+        self._zugestellt(routine, jetzt, "hintergrund")
+        return True
 
     def _fehlschlag(self, erinnerung: Erinnerung, jetzt: datetime, grund: str) -> None:
         warte = WIEDERHOLUNGEN[min(erinnerung.versuche, len(WIEDERHOLUNGEN) - 1)]

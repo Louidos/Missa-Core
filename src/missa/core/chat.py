@@ -278,6 +278,18 @@ class ChatDienst:
             return ersatz
         return text or ersatz
 
+    async def hintergrund_ausfuehren(self, auftrag: str) -> str:
+        """Lässt Missa einen Auftrag mit Werkzeugen erledigen, ohne dass Louis dabei ist.
+
+        Für Routinen und die Nachtschicht. Die Anweisung ist **nicht** Louis' neue
+        Nachricht: Eingangsprüfer (z. B. die Senden-Sperre für Mails) sehen nichts,
+        und es wird kein Verlauf gespeichert.
+        """
+        vorbereitet = self.vorbereiten({"messages": [{"role": "user", "content": auftrag}]}, None)
+        vorbereitet.neue_nachricht = None
+        antwort = await self.antworten(vorbereitet)
+        return text_aus_inhalt(antwort["choices"][0]["message"].get("content"))
+
     # ------------------------------------------------------------------ ohne Streaming
 
     async def antworten(self, vorbereitet: Vorbereitet) -> dict[str, Any]:

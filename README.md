@@ -24,6 +24,9 @@ Talk nutzen dieselbe Logik.
   Missa kann dort auch von sich aus schreiben (z. B. Erinnerungen)
 - Fertig: Erinnerungen auf die Minute genau, auch wiederkehrend („jeden Montag um 7“),
   mit Nachholen nach einem Neustart (siehe docs/erinnerungen.md)
+- Fertig: Routinen per Gespräch („jeden Freitag um 17 Uhr Wochenrückblick“) und Nachtschicht
+  für lange Aufgaben (01:00–06:00, Ergebnis am Morgen), alles im Hintergrund, ohne den Chat
+  zu blockieren (siehe docs/routinen-nachtschicht.md)
 - Fertig: E-Mail-Entwürfe im eigenen Schreibstil (IMAP/SMTP), gesendet wird nur nach
   ausdrücklichem Ja – die Senden-Sperre steckt im Code (siehe docs/email.md)
 - Fertig: Geburtstage aus Nextcloud-Kontakte (vorher und am Tag) und Kontaktpflege für
@@ -52,6 +55,8 @@ Talk nutzen dieselbe Logik.
 - **[docs/pausen.md](docs/pausen.md)** – Pausen und Puffer im Kalender, Grenzwerte
 - **[docs/erinnerungen.md](docs/erinnerungen.md)** – Erinnerungen: was Missa versteht,
   Wiederholungen, Nachholen nach einem Neustart
+- **[docs/routinen-nachtschicht.md](docs/routinen-nachtschicht.md)** – Routinen per Gespräch,
+  Nachtschicht, Morgenbericht, Sicherheitsregeln im Hintergrund
 
 ## Installation
 

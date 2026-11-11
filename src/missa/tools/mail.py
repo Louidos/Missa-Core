@@ -38,7 +38,7 @@ from typing import TYPE_CHECKING, Any
 from zoneinfo import ZoneInfo
 
 from missa.core.datenbank import verbinden
-from missa.core.werkzeuge import Werkzeug, WerkzeugFehler, aktuelle_anfrage
+from missa.core.werkzeuge import Werkzeug, WerkzeugFehler, aktuelle_anfrage, im_hintergrund
 from missa.tools.mail_konto import MailFehler, MailKonto, text_aus_mail
 from missa.tools.schreibstil import Schreibstil
 
@@ -608,13 +608,20 @@ class MailDienst:
 
     def nachgang(self, vorbereitet: Vorbereitet) -> str | None:
         """Hängt alle in dieser Anfrage angelegten/geänderten Entwürfe wortwörtlich an."""
+        hintergrund = im_hintergrund.get()
         with self._sperre:
             ids = self._zu_zeigen.pop(vorbereitet.anfrage_id, [])
-            self._zuletzt_gezeigt[vorbereitet.sitzung or ""] = list(ids)
+            if not hintergrund:
+                self._zuletzt_gezeigt[vorbereitet.sitzung or ""] = list(ids)
         bloecke = []
         for nummer in ids:
             entwurf = self.holen(nummer)
             if entwurf is None or entwurf.status != "entwurf":
+                continue
+            if hintergrund:
+                # Routine/Nachtschicht: Louis hat den Entwurf nicht im Gespräch gesehen,
+                # also zählt er auch nicht als gezeigt – ein späteres „Ja“ sendet nichts.
+                bloecke.append(entwurf.anzeige(self.konto.ordner_entwuerfe))
                 continue
             with verbinden(self.datei) as db:
                 db.execute(
@@ -628,8 +635,8 @@ class MailDienst:
     async def eingang(self, vorbereitet: Vorbereitet) -> str | None:
         """Die Senden-Sperre: sendet nur auf eine eindeutige Zustimmung von Louis."""
         nachricht = vorbereitet.neue_nachricht
-        if not nachricht:
-            return None
+        if not nachricht or im_hintergrund.get():
+            return None  # nie aus einer Routine oder der Nachtschicht senden
         absicht = sende_absicht(nachricht)
         if absicht is None:
             return None

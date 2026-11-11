@@ -143,6 +143,7 @@ und das App-Passwort lässt sich jederzeit einzeln widerrufen.
 | `PAUSEN_MAX_STUNDEN` | `8` | nein | Ab so vielen Stunden Terminen gilt ein Tag als zu voll. |
 | `PAUSEN_WEGZEIT_MINUTEN` | `30` | nein | Mindest-Wegzeit zwischen Terminen an verschiedenen Orten. |
 | `PAUSEN_PRUEFZEIT` | `19:00` | nein | Abendliche Prüfung des nächsten Tages. |
+| `NACHTSCHICHT_VON` / `NACHTSCHICHT_BIS` | `01:00` / `06:00` | nein | Nachtfenster für lange Aufgaben; am Ende kommt der Morgenbericht. Im Gespräch geänderte Zeiten haben Vorrang (siehe [routinen-nachtschicht.md](routinen-nachtschicht.md)). |
 | `NC_TALK_ENABLED` | `false` | für Talk | Missa in Nextcloud Talk einschalten. |
 | `NC_TALK_BASE_URL` | – | für Talk | Nextcloud-Adresse wie `overwrite.cli.url` (Prüfung des Absenders). |
 | `NC_TALK_API_URL` | = `NC_TALK_BASE_URL` | nein | Adresse für Antworten an Nextcloud, falls ai01 sie intern anders erreicht. |

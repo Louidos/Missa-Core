@@ -7,6 +7,23 @@ die Versionsnummern folgen [Semantic Versioning](https://semver.org/lang/de/).
 
 ## Unveröffentlicht
 
+### Hinzugefügt
+
+- Zeitgenaue Erinnerungen, Routinen per Sprache und Nachtschicht für lange Aufgaben: „Jeden
+  Freitag um 17 Uhr Wochenrückblick“ legt eine Routine an, die Missa zur Zeit selbst mit
+  ihren Werkzeugen erledigt und dir das Ergebnis schickt – pausieren, fortsetzen und löschen
+  per Gespräch. „Mach das heute Nacht“ merkt lange Aufgaben für die Nachtschicht vor
+  (Standard 01:00–06:00, per Gespräch änderbar, z. B. „Nachtschicht von 2 bis 5“); das
+  Ergebnis kommt am Morgen als Nachricht und Missa erwähnt es im nächsten Gespräch. Alles
+  läuft im Hintergrund, der Chat bleibt frei, und verpasste Läufe werden nach einem Neustart
+  nachgeholt; Übersicht unter `GET /api/routinen` und `GET /api/nachtschicht` (#37)
+
+### Geändert
+
+- Erinnerungen, Routinen und Nachtaufgaben löscht Missa erst nach deinem ausdrücklichen Ja.
+  Was sie im Hintergrund (Routine, Nachtschicht) tut, kann nie eine Rückfrage bestätigen
+  oder eine E-Mail senden (#37)
+
 ## 0.3.0 – 2026-11-10
 
 ### Hinzugefügt

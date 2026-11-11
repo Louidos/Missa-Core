@@ -16,6 +16,10 @@ log = logging.getLogger(__name__)
 #: ID der laufenden Chat-Anfrage. Werkzeuge können damit erkennen, ob zwei
 #: Aufrufe aus derselben Anfrage stammen (z. B. für Bestätigungen).
 aktuelle_anfrage: ContextVar[str] = ContextVar("aktuelle_anfrage", default="")
+#: ``True``, solange Missa einen Auftrag im Hintergrund erledigt (Routine,
+#: Nachtschicht). Louis ist dann nicht im Gespräch: Rückfragen können nicht
+#: bestätigt werden, und Werkzeuge dürfen nichts Zerstörerisches tun.
+im_hintergrund: ContextVar[bool] = ContextVar("im_hintergrund", default=False)
 
 
 class WerkzeugFehler(Exception):

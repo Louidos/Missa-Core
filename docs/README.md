@@ -5,6 +5,7 @@
 - [update.md](update.md) – Update auf ai01 mit einem Befehl, Ersteinrichtung, Rücksprung
 - [nextcloud-talk.md](nextcloud-talk.md) – Missa in Nextcloud Talk: Einrichtung, Zugriff, Firewall
 - [erinnerungen.md](erinnerungen.md) – Erinnerungen: was Missa versteht, Nachholen nach Neustart, Zustellung
+- [routinen-nachtschicht.md](routinen-nachtschicht.md) – Routinen per Gespräch und Nachtschicht für lange Aufgaben
 - [kalender.md](kalender.md) – Kalender: ändern, Farben, Serien, eigene Kalender, Rückgängig, Einladungen
 - [email.md](email.md) – E-Mail-Entwürfe im eigenen Stil, Einrichtung, Senden-Sperre, Schreibstil
 - [kontakte.md](kontakte.md) – Geburtstage und Kontaktpflege für wichtige Personen

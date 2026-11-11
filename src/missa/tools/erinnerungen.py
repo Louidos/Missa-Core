@@ -13,6 +13,7 @@ from typing import Any
 from missa.core.werkzeuge import Werkzeug, WerkzeugFehler
 from missa.core.zeitangaben import Rueckfrage, Wiederholung, zeit_verstehen
 from missa.core.zeitplaner import Erinnerung, Zeitplaner, abstand_text, zeitpunkt_text
+from missa.tools.bestaetigung import Bestaetigungen, loeschen_pruefen
 
 
 def _id_lesen(wert: Any) -> int:
@@ -36,8 +37,11 @@ def _minuten_lesen(wert: Any) -> float:
 
 
 class ErinnerungsWerkzeuge:
-    def __init__(self, zeitplaner: Zeitplaner) -> None:
+    def __init__(
+        self, zeitplaner: Zeitplaner, bestaetigungen: Bestaetigungen | None = None
+    ) -> None:
         self.zeitplaner = zeitplaner
+        self.bestaetigungen = bestaetigungen or Bestaetigungen()
 
     def _bestaetigung(self, erinnerung: Erinnerung, vorsatz: str) -> str:
         jetzt = self.zeitplaner.jetzt()
@@ -105,8 +109,22 @@ class ErinnerungsWerkzeuge:
         erinnerung = self.zeitplaner.aendern(nummer, was, zeitpunkt, wiederholung, nachricht)
         return self._bestaetigung(erinnerung, "Erinnerung geändert")
 
-    def loeschen(self, erinnerung_id: int | str) -> str:
-        erinnerung = self.zeitplaner.loeschen(_id_lesen(erinnerung_id))
+    def loeschen(self, erinnerung_id: int | str, bestaetigt: bool = False) -> str:
+        nummer = _id_lesen(erinnerung_id)
+        erinnerung = self.zeitplaner.holen(nummer)
+        if erinnerung is None:
+            raise WerkzeugFehler(f"Eine Erinnerung #{nummer} gibt es nicht (mehr).")
+        if rueckfrage := loeschen_pruefen(
+            self.bestaetigungen,
+            f"erinnerung:{nummer}",
+            bool(bestaetigt),
+            erinnerung.zeile(),
+            "erinnerung_loeschen",
+            f"erinnerung_id={nummer}",
+        ):
+            return rueckfrage
+        self.zeitplaner.loeschen(nummer)
+        self.bestaetigungen.erledigt(f"erinnerung:{nummer}")
         return f"Erinnerung gelöscht:\n{erinnerung.zeile()}"
 
     def schlummern(self, minuten: Any = 10, erinnerung_id: int | str | None = None) -> str:
@@ -128,8 +146,10 @@ class ErinnerungsWerkzeuge:
         )
 
 
-def erinnerungs_werkzeuge(zeitplaner: Zeitplaner) -> list[Werkzeug]:
-    w = ErinnerungsWerkzeuge(zeitplaner)
+def erinnerungs_werkzeuge(
+    zeitplaner: Zeitplaner, bestaetigungen: Bestaetigungen | None = None
+) -> list[Werkzeug]:
+    w = ErinnerungsWerkzeuge(zeitplaner, bestaetigungen)
     wann_beschreibung = (
         "Zeitangabe so, wie Louis sie gesagt hat, z. B. „um 6:30“, „in 20 Minuten“, "
         "„morgen um 8“, „am Freitag um 14 Uhr“, „jeden Montag um 7“, „werktags um 6:30“ "
@@ -183,11 +203,17 @@ def erinnerungs_werkzeuge(zeitplaner: Zeitplaner) -> list[Werkzeug]:
         ),
         Werkzeug(
             "erinnerung_loeschen",
-            "Löscht eine geplante Erinnerung (Louis hat ausdrücklich darum gebeten).",
+            "Löscht eine geplante Erinnerung. Zuerst ohne bestaetigt aufrufen: dann wird nur "
+            "gemeldet, was gelöscht würde, und du fragst Louis. Erst nach seinem ausdrücklichen "
+            "Ja nochmals mit bestaetigt=true aufrufen.",
             {
                 "type": "object",
                 "properties": {
                     "erinnerung_id": {"type": "integer", "description": "ID der Erinnerung"},
+                    "bestaetigt": {
+                        "type": "boolean",
+                        "description": "Nur true nach Louis' ausdrücklichem Ja zum Löschen",
+                    },
                 },
                 "required": ["erinnerung_id"],
             },

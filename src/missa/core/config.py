@@ -75,6 +75,8 @@ class Einstellungen:
     pausen_max_stunden: float = 8.0
     pausen_wegzeit_minuten: int = 30
     pausen_pruefzeit: time = time(19, 0)
+    nachtschicht_von: time = time(1, 0)
+    nachtschicht_bis: time = time(6, 0)
 
     @property
     def talk_aktiv(self) -> bool:
@@ -229,6 +231,8 @@ class Einstellungen:
             pausen_max_stunden=kommazahl("PAUSEN_MAX_STUNDEN", 8.0),
             pausen_wegzeit_minuten=max(0, zahl("PAUSEN_WEGZEIT_MINUTEN", 30)),
             pausen_pruefzeit=uhrzeit("PAUSEN_PRUEFZEIT", "19:00"),
+            nachtschicht_von=uhrzeit("NACHTSCHICHT_VON", "01:00"),
+            nachtschicht_bis=uhrzeit("NACHTSCHICHT_BIS", "06:00"),
         )
 
     def pruefen(self) -> None:
@@ -241,6 +245,10 @@ class Einstellungen:
             raise KonfigurationsFehler("MISSA_PORT muss zwischen 1 und 65535 liegen")
         if self.llama_timeout <= 0:
             raise KonfigurationsFehler("LLAMA_TIMEOUT muss größer als 0 sein")
+        if self.nachtschicht_von == self.nachtschicht_bis:
+            raise KonfigurationsFehler(
+                "NACHTSCHICHT_VON und NACHTSCHICHT_BIS dürfen nicht gleich sein"
+            )
         try:
             ZoneInfo(self.timezone)
         except (ZoneInfoNotFoundError, ValueError) as fehler:
