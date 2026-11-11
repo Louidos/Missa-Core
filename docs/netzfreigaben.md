@@ -16,6 +16,9 @@ nur wb01. Jede Gruppe des Server-Updates trägt hier ein, was sie zusätzlich br
 | ai01 | öffentliche Adresse von cloud., git. und ki.louis-degiorgi.ch | TCP 443 | Erreichbarkeit: HTTPS-Antwort und Zertifikat prüfen | Server-Alarme | `ERREICHBARKEIT_DOMAINS` gesetzt |
 | ai01 | jeder Host aus `SSH_HOSTS` (z. B. wb01, int01, rp01 10.0.70.10) | TCP 22 | Container, Logs, Anmeldungen: SSH als `missa`, nur die Befehle aus `missa-befehl` | Container und Logs | `SSH_HOSTS` gesetzt |
 | ai01 | pve-id01 | TCP 22 | nur, wenn du Missa ausdrücklich auch auf dem Proxmox-Host einrichtest (`--proxmox-ja`) | Container und Logs | sonst nicht nötig |
+| jeder Host aus `SSH_HOSTS` | Paketquellen (deb.debian.org, security.debian.org bzw. Ubuntu-Spiegel) | TCP 80/443 | Updates: `apt-get update` und `apt-get -y upgrade` laufen auf dem Host selbst | Updates | Updates werden genutzt (meist schon erlaubt) |
+| ai01 | data.iana.org | TCP 443 | Domains: Liste der RDAP-Server (IANA) | Zertifikate und Domains | `RDAP_AKTIV=true` und Domains gesetzt |
+| ai01 | RDAP-Server der Endung (für `.ch`: rdap.nic.ch) | TCP 443 | Domains: Ablaufdatum abfragen – die einzige Abfrage nach außen dieser Prüfung | Zertifikate und Domains | `RDAP_AKTIV=true` und Domains gesetzt |
 
 Hinweise:
 

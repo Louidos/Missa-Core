@@ -19,6 +19,7 @@ dependencies = [
     "caldav>=3.0,<4",
     "icalendar>=6.1",
     "recurring-ical-events>=3.3",
+    "dnspython>=2.6",
 ]
 
 [project.scripts]

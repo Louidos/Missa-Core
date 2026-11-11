@@ -76,6 +76,7 @@ def create_app(
     server_waechter: Any = None,
     erreichbarkeit: Any = None,
     ssh_verbindung: Any = None,
+    zertifikate: Any = None,
 ) -> FastAPI:
     """Baut die App. Parameter außer ``einstellungen`` sind vor allem für Tests da."""
     from missa.channels.nextcloud_talk import TalkClient, talk_einrichten
@@ -93,7 +94,9 @@ def create_app(
         server_waechter_bauen,
         ssh_verbindung_bauen,
         talk_melder_bauen,
+        update_verwaltung_bauen,
         werkzeuge_laden,
+        zertifikats_waechter_bauen,
     )
     from missa.tools.erinnerungen import ErinnerungsWerkzeuge
     from missa.tools.gedaechtnis import KATEGORIEN, Gedaechtnis
@@ -168,7 +171,7 @@ def create_app(
     # Container, Logs und Anmeldungen auf anderen Hosts (SSH als „missa“, nur erlaubte Befehle).
     if ssh_verbindung is None:
         ssh_verbindung = ssh_verbindung_bauen(einstellungen)
-    container = fehlersuche = anmeldungen = None
+    container = fehlersuche = anmeldungen = updates = None
     if ssh_verbindung is not None:
         container = container_dienst_bauen(einstellungen, ssh_verbindung, alarme)
         fehlersuche = fehlersuche_bauen(
@@ -185,6 +188,19 @@ def create_app(
             timedelta(minutes=einstellungen.login_intervall_minuten),
             anmeldungen.pruefen,
         )
+        updates = update_verwaltung_bauen(
+            einstellungen,
+            ssh_verbindung,
+            alarme,
+            nextcloud.kalender if nextcloud is not None else None,
+            rechte,
+        )
+        zeitplaner.taeglich("updates", einstellungen.updates_pruefzeit, updates.taeglich_pruefen)
+        updates.nach_start()
+    if zertifikate is None:
+        zertifikate = zertifikats_waechter_bauen(einstellungen, alarme)
+    if zertifikate is not None:
+        zeitplaner.taeglich("zertifikate", einstellungen.zertifikate_pruefzeit, zertifikate.pruefen)
     if werkzeuge is None:
         werkzeuge = werkzeuge_laden(
             einstellungen,
@@ -204,6 +220,8 @@ def create_app(
             container=container,
             fehlersuche=fehlersuche,
             anmeldungen=anmeldungen,
+            updates=updates,
+            zertifikate=zertifikate,
         )
     else:
         werkzeuge.rechte = rechte
@@ -308,6 +326,8 @@ def create_app(
     app.state.erreichbarkeit = erreichbarkeit
     app.state.container = container
     app.state.anmeldungen = anmeldungen
+    app.state.updates = updates
+    app.state.zertifikate = zertifikate
 
     # -------------------------------------------------------------- Fehlerformat
 
@@ -536,6 +556,24 @@ def create_app(
             "anzahl": len(zeilen),
             "anmeldungen": [{**dict(z), "erfolg": bool(z["erfolg"])} for z in zeilen],
             "bekannte_ips": anmeldungen.bekannte(),
+        }
+
+    @app.get("/api/updates", dependencies=geschuetzt, tags=["Missa"])
+    async def updates_anzeigen() -> dict[str, Any]:
+        """Zuletzt erfasste Updates pro VM und das nächste Wartungsfenster (ohne neue Abfrage)."""
+        if updates is None:
+            return {"ssh": False, "hosts": [], "wartungsfenster": None}
+        fenster = updates.naechstes_fenster()
+        return {
+            "ssh": True,
+            "hosts": [s.als_dict() for h in updates.hosts if (s := updates.stand(h)) is not None],
+            "reihenfolge": updates.hosts,
+            "wartungsfenster": {
+                "beginn": fenster[0].isoformat(timespec="minutes"),
+                "ende": fenster[1].isoformat(timespec="minutes"),
+            }
+            if fenster
+            else None,
         }
 
     @app.post("/v1/chat/completions", dependencies=geschuetzt, tags=["OpenAI"])

@@ -439,6 +439,31 @@ curl "$MISSA/api/anmeldungen?tage=7" -H "Authorization: Bearer $KEY"
 
 Mehr dazu: [container-logs-logins.md](container-logs-logins.md).
 
+### `GET /api/updates` – anstehende Updates und Wartungsfenster
+
+Der zuletzt erfasste Stand pro VM (Missa prüft täglich) in der Reihenfolge, in der sie
+eingespielt würden (die eigene VM zuletzt), und das nächste Wartungsfenster. Nur lesend.
+
+```bash
+curl $MISSA/api/updates -H "Authorization: Bearer $KEY"
+```
+
+```json
+{
+  "ssh": true,
+  "hosts": [
+    {"host": "wb01", "geprueft": "2026-11-11T06:40:00+01:00", "anzahl": 3, "sicherheit": 2,
+     "pakete": [{"name": "openssl", "neu": "3.0.15-1~deb12u1", "alt": "3.0.14-1~deb12u2",
+                 "quellen": "stable-security", "sicherheit": true}],
+     "neustart": false, "neustart_pakete": [], "fehler": ""}
+  ],
+  "reihenfolge": ["int01", "wb01", "ai01"],
+  "wartungsfenster": {"beginn": "2026-11-14T10:00+01:00", "ende": "2026-11-14T11:00+01:00"}
+}
+```
+
+Mehr dazu: [updates-zertifikate.md](updates-zertifikate.md).
+
 ### `POST /channels/nextcloud-talk/webhook` – nur für Nextcloud Talk
 
 Kein Endpunkt für Apps: Hier liefert Nextcloud Talk Nachrichten an Missa (Bot-Webhook).
@@ -544,4 +569,6 @@ kennen – man fragt einfach in normaler Sprache.
 | Server-Alarme (nur wenn eine Monitoring-Quelle eingerichtet ist) | „Ruf mich an, wenn ai01 über 90 % ist“, „Wie ist die Auslastung von ai01?“, „Welche Alarm-Regeln gibt es?“, „Ruhezeit von 23 bis 6 Uhr“ | `server_werte_anzeigen`, `alarmregel_anlegen`, `alarmregeln_anzeigen`, `alarmregel_aendern`, `alarmregel_loeschen`, `alarme_anzeigen`, `alarm_einstellungen` |
 | Erreichbarkeit (nur wenn `ERREICHBARKEIT_DOMAINS` gesetzt ist) | „Ist git von außen erreichbar?“ | `erreichbarkeit_pruefen` |
 | Container und Logs (nur wenn `SSH_HOSTS` gesetzt ist) | „Welche Container laufen auf wb01?“, „Warum geht Nextcloud nicht?“, „Starte nextcloud neu“ (nur nach Ja) | `container_anzeigen`, `container_logs`, `container_neustarten`, `fehlersuche`, `journal_lesen` |
+| Updates (nur wenn `SSH_HOSTS` gesetzt ist) | „Welche Updates stehen an?“, „Plan ein Wartungsfenster“, „Spiel die Updates auf wb01 ein“ (nur nach Ja), „Starte wb01 neu“ (nur nach Ja) | `updates_anzeigen`, `wartungsfenster_vorschlagen`, `wartungsfenster_eintragen`, `updates_plan`, `updates_einspielen`, `host_neustarten` |
+| Zertifikate und Domains | „Wann laufen die Zertifikate ab?“ | `zertifikate_pruefen` |
 | Anmeldungen (nur wenn `SSH_HOSTS` gesetzt ist) | „Wer hat sich heute angemeldet?“, „10.0.30.5 ist mein Laptop“ | `anmeldungen_anzeigen`, `ip_als_bekannt_markieren`, `ip_nicht_mehr_bekannt`, `bekannte_ips_anzeigen`, `login_einstellungen` |

@@ -7,13 +7,16 @@
 #   bash missa-benutzer.sh --dry-run --schluessel "…"   # nur zeigen, was passieren würde
 #   bash missa-benutzer.sh --entfernen                  # alles wieder entfernen
 #   bash missa-benutzer.sh --nur-sudoers   # erzeugte Dateien nur anzeigen (auch --nur-befehl,
-#                                          # --nur-docker)
+#                                          # --nur-docker, --nur-update)
 #
 # Was „missa“ danach darf (und nicht mehr):
 #   - per SSH nur mit Missas Schlüssel und NUR das Programm /usr/local/lib/missa/missa-befehl
 #     (keine Shell, kein Terminal, keine Weiterleitungen: authorized_keys mit restrict,command=)
 #   - per sudo NUR das Programm /usr/local/lib/missa/missa-docker, und das kennt nur:
 #     docker ps, docker stats --no-stream (nur lesen), docker logs, docker restart
+#   - per sudo NUR das Programm /usr/local/lib/missa/missa-update, und das kennt nur:
+#     apt-get update, apt-get -y upgrade und reboot (Neustart nach 1 Minute)
+#   - die Liste anstehender Updates lesen (apt list --upgradable, ohne sudo)
 #   - Logs lesen (journalctl) über die Gruppe systemd-journal – ohne sudo, ohne Pager
 #   - optional die eine Nextcloud-Logdatei lesen (--nextcloud-log, per ACL nur diese Datei)
 # Auf dem Proxmox-Host nur mit --proxmox-ja (siehe docs/container-logs-logins.md).
@@ -25,6 +28,8 @@ HEIMAT="/var/lib/missa"
 BEFEHL_DATEI="/usr/local/lib/missa/missa-befehl"
 # Ort des sudo-Programms für Docker (änderbar nur für Tests).
 DOCKER_DATEI="${MISSA_DOCKER_DATEI:-/usr/local/lib/missa/missa-docker}"
+# Ort des sudo-Programms für Updates und Neustart (änderbar nur für Tests).
+UPDATE_DATEI="${MISSA_UPDATE_DATEI:-/usr/local/lib/missa/missa-update}"
 SUDOERS_DATEI="/etc/sudoers.d/missa"
 # Woran ein Proxmox-Host zu erkennen ist (änderbar nur für Tests).
 PVE_ORDNER="${PVE_ORDNER:-/etc/pve}"
@@ -63,6 +68,7 @@ while [[ $# -gt 0 ]]; do
         --nur-sudoers) AKTION="sudoers" ;;
         --nur-befehl) AKTION="befehl" ;;
         --nur-docker) AKTION="docker" ;;
+        --nur-update) AKTION="update" ;;
         -h | --help)
             hilfe
             exit 0
@@ -73,22 +79,67 @@ while [[ $# -gt 0 ]]; do
 done
 
 DOCKER="$(command -v docker || true)"
+APT_GET="$(command -v apt-get || true)"
+SHUTDOWN="$(command -v shutdown || true)"
 
 # --------------------------------------------------------------------- erzeugte Dateien
 
 sudoers_inhalt() {
     # Ohne Platzhalter und ohne Sonder-Optionen: gilt für sudo und sudo-rs gleich.
+    local programme=()
+    [[ -n "$DOCKER" ]] && programme+=("$DOCKER_DATEI")
+    [[ -n "$APT_GET" ]] && programme+=("$UPDATE_DATEI")
     cat <<EOF
 # Verwaltet von missa-benutzer.sh – nicht von Hand ändern (Änderungen gehen verloren).
-# Missa darf per sudo NUR $DOCKER_DATEI ausführen. Dieses Programm kennt nur
-# docker ps, docker stats --no-stream, docker logs und docker restart.
+# Missa darf per sudo NUR diese Programme ausführen:
+#   $DOCKER_DATEI – docker ps, docker stats --no-stream, docker logs, docker restart
+#   $UPDATE_DATEI – apt-get update, apt-get -y upgrade, reboot
 # Logs liest missa über die Gruppe systemd-journal, dafür braucht es kein sudo.
 EOF
-    if [[ -n "$DOCKER" ]]; then
-        echo "$BENUTZER ALL=(root) NOPASSWD: $DOCKER_DATEI"
+    if ((${#programme[@]})); then
+        local liste
+        liste="$(printf '%s, ' "${programme[@]}")"
+        echo "$BENUTZER ALL=(root) NOPASSWD: ${liste%, }"
     else
-        echo "# Docker ist auf diesem Host nicht installiert – keine sudo-Rechte."
+        echo "# Weder Docker noch apt-get auf diesem Host – keine sudo-Rechte."
     fi
+}
+
+update_inhalt() {
+    sed -e "s|@APT_GET@|${APT_GET}|" -e "s|@SHUTDOWN@|${SHUTDOWN}|" <<'UPDATE'
+#!/usr/bin/env bash
+# missa-update – Updates und Neustart, die missa per sudo (als root) auslösen darf.
+# Verwaltet von missa-benutzer.sh. Kennt nur: update, upgrade, reboot – ohne weitere Angaben.
+set -euo pipefail
+export PATH="/usr/sbin:/usr/bin:/sbin:/bin"
+export DEBIAN_FRONTEND=noninteractive LC_ALL=C.UTF-8
+APT_GET="@APT_GET@"
+SHUTDOWN="@SHUTDOWN@"
+
+fehler() {
+    echo "missa-update: $*" >&2
+    exit 64
+}
+
+[[ $# -eq 1 ]] || fehler "genau eine Angabe erwartet: update, upgrade oder reboot"
+case "$1" in
+    update)
+        [[ -x "$APT_GET" ]] || fehler "apt-get fehlt auf diesem Host"
+        exec "$APT_GET" update
+        ;;
+    upgrade)
+        [[ -x "$APT_GET" ]] || fehler "apt-get fehlt auf diesem Host"
+        # Geänderte Konfigurationsdateien bleiben, wie sie sind (keine Rückfragen).
+        exec "$APT_GET" -y -o Dpkg::Options::=--force-confdef -o Dpkg::Options::=--force-confold upgrade
+        ;;
+    reboot)
+        # Neustart in 1 Minute, damit Missa die Antwort noch bekommt.
+        [[ -x "$SHUTDOWN" ]] || fehler "shutdown fehlt auf diesem Host"
+        exec "$SHUTDOWN" -r +1 "Neustart durch Missa (nach Louis' Ja)"
+        ;;
+    *) fehler "nicht erlaubt: $1" ;;
+esac
+UPDATE
 }
 
 docker_inhalt() {
@@ -128,7 +179,8 @@ DOCKER
 
 befehl_inhalt() {
     # Platzhalter werden beim Einrichten durch die Werte dieses Hosts ersetzt.
-    sed -e "s|@DOCKER_DATEI@|${DOCKER_DATEI}|" -e "s|@NEXTCLOUD_LOG@|${NEXTCLOUD_LOG}|" <<'BEFEHL'
+    sed -e "s|@DOCKER_DATEI@|${DOCKER_DATEI}|" -e "s|@UPDATE_DATEI@|${UPDATE_DATEI}|" \
+        -e "s|@NEXTCLOUD_LOG@|${NEXTCLOUD_LOG}|" <<'BEFEHL'
 #!/usr/bin/env bash
 # missa-befehl – die einzigen Befehle, die Missa per SSH auf diesem Host ausführen kann.
 # Verwaltet von missa-benutzer.sh. Läuft als Benutzer missa (nicht als root).
@@ -136,6 +188,7 @@ set -euo pipefail
 export PATH="${MISSA_TEST_PATH:-/usr/sbin:/usr/bin:/sbin:/bin}"
 export SYSTEMD_PAGER="" PAGER="cat" SYSTEMD_COLORS=0 LC_ALL=C.UTF-8
 DOCKER="@DOCKER_DATEI@"
+UPDATE="@UPDATE_DATEI@"
 NEXTCLOUD_LOG="@NEXTCLOUD_LOG@"
 MAX_ZEILEN=5000
 
@@ -207,6 +260,28 @@ case "$befehl" in
             esac
         done
         exec journalctl "${optionen[@]}"
+        ;;
+    apt-update | apt-upgrade | neustart)
+        [[ -x "$UPDATE" ]] || fehler "Updates sind auf diesem Host nicht eingerichtet"
+        ((anzahl == 0)) || fehler "$befehl hat keine Angaben"
+        case "$befehl" in
+            apt-update) exec sudo -n "$UPDATE" update 2>&1 ;;
+            apt-upgrade) exec sudo -n "$UPDATE" upgrade 2>&1 ;;
+            neustart) exec sudo -n "$UPDATE" reboot 2>&1 ;;
+        esac
+        ;;
+    apt-liste)
+        ((anzahl == 0)) || fehler "apt-liste hat keine Angaben"
+        exec apt list --upgradable 2>/dev/null
+        ;;
+    neustart-noetig)
+        ((anzahl == 0)) || fehler "neustart-noetig hat keine Angaben"
+        if [[ -e /var/run/reboot-required ]]; then
+            echo "ja"
+            cat /var/run/reboot-required.pkgs 2>/dev/null || true
+        else
+            echo "nein"
+        fi
         ;;
     nextcloud-log)
         [[ -n "$NEXTCLOUD_LOG" ]] || fehler "kein Nextcloud-Log eingerichtet (--nextcloud-log)"
@@ -283,6 +358,9 @@ einrichten() {
     if [[ -n "$DOCKER" ]]; then
         datei_schreiben "$DOCKER_DATEI" 0755 root:root "$(docker_inhalt)"
     fi
+    if [[ -n "$APT_GET" ]]; then
+        datei_schreiben "$UPDATE_DATEI" 0755 root:root "$(update_inhalt)"
+    fi
 
     local heimat
     heimat="$(getent passwd "$BENUTZER" | cut -d: -f6 || true)"
@@ -325,7 +403,7 @@ EOF
 
 entfernen() {
     pruefungen
-    aendern rm -f "$SUDOERS_DATEI" "$BEFEHL_DATEI" "$DOCKER_DATEI"
+    aendern rm -f "$SUDOERS_DATEI" "$BEFEHL_DATEI" "$DOCKER_DATEI" "$UPDATE_DATEI"
     if id "$BENUTZER" >/dev/null 2>&1; then
         aendern userdel --remove "$BENUTZER"
     fi
@@ -337,6 +415,7 @@ case "$AKTION" in
     sudoers) sudoers_inhalt ;;
     befehl) befehl_inhalt ;;
     docker) docker_inhalt ;;
+    update) update_inhalt ;;
     entfernen) entfernen ;;
     *) einrichten ;;
 esac

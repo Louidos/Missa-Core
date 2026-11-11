@@ -115,6 +115,20 @@ class Einstellungen:
     nextcloud_log_host: str = ""
     nextcloud_log_quelle: str = ""
     fehlersuche_dienste: str = ""
+    update_hosts: tuple[str, ...] = ()
+    updates_pruefzeit: time = time(6, 40)
+    updates_eigener_host: str = "ai01"
+    wartung_tage: str = "Sa,So"
+    wartung_von: time = time(10, 0)
+    wartung_bis: time = time(17, 0)
+    wartung_dauer_minuten: int = 60
+    zertifikat_domains: tuple[str, ...] = ()
+    domain_namen: tuple[str, ...] = ()
+    dns_erwartet: str = ""
+    zertifikat_warnung_tage: tuple[int, ...] = (21, 7)
+    zertifikate_pruefzeit: time = time(7, 10)
+    rdap_aktiv: bool = True
+    rdap_bootstrap_url: str = "https://data.iana.org/rdap/dns.json"
 
     @property
     def notfall_datei(self) -> Path:
@@ -172,6 +186,20 @@ class Einstellungen:
     def ssh_konfiguriert(self) -> bool:
         """``True``, wenn mindestens ein Host für SSH eingetragen ist (``SSH_HOSTS``)."""
         return bool(self.ssh_hosts.strip())
+
+    @property
+    def zertifikat_domain_liste(self) -> tuple[str, ...]:
+        """Domains für die Zertifikatsprüfung (Standard: die der Erreichbarkeit)."""
+        return self.zertifikat_domains or self.erreichbarkeit_domains
+
+    @property
+    def domain_namen_liste(self) -> tuple[str, ...]:
+        """Registrierte Domains für RDAP (Standard: aus den Zertifikats-Domains abgeleitet)."""
+        if self.domain_namen:
+            return self.domain_namen
+        from missa.integrationen.domains import registrierte_domain
+
+        return tuple(dict.fromkeys(registrierte_domain(d) for d in self.zertifikat_domain_liste))
 
     @property
     def stil_datei(self) -> Path:
@@ -267,6 +295,14 @@ class Einstellungen:
             )
 
         ca_datei = env.get("PROXMOX_CA_DATEI", "").strip()
+        try:
+            warn_tage = tuple(
+                sorted({int(t) for t in liste("ZERTIFIKAT_WARNUNG_TAGE")}, reverse=True)
+            ) or (21, 7)
+        except ValueError as fehler:
+            raise KonfigurationsFehler(
+                "ZERTIFIKAT_WARNUNG_TAGE muss Zahlen enthalten, z. B. 21,7"
+            ) from fehler
 
         return cls(
             host=wert("MISSA_HOST", cls.host),
@@ -361,6 +397,20 @@ class Einstellungen:
             nextcloud_log_host=env.get("NEXTCLOUD_LOG_HOST", "").strip().casefold(),
             nextcloud_log_quelle=env.get("NEXTCLOUD_LOG_QUELLE", "").strip(),
             fehlersuche_dienste=env.get("FEHLERSUCHE_DIENSTE", "").strip(),
+            update_hosts=liste("UPDATE_HOSTS"),
+            updates_pruefzeit=uhrzeit("UPDATES_PRUEFZEIT", "06:40"),
+            updates_eigener_host=wert("UPDATES_EIGENER_HOST", "ai01").casefold(),
+            wartung_tage=wert("WARTUNG_TAGE", "Sa,So"),
+            wartung_von=uhrzeit("WARTUNG_VON", "10:00"),
+            wartung_bis=uhrzeit("WARTUNG_BIS", "17:00"),
+            wartung_dauer_minuten=max(15, zahl("WARTUNG_DAUER_MINUTEN", 60)),
+            zertifikat_domains=liste("ZERTIFIKAT_DOMAINS"),
+            domain_namen=liste("DOMAIN_NAMEN"),
+            dns_erwartet=env.get("DNS_ERWARTET", "").strip(),
+            zertifikat_warnung_tage=warn_tage,
+            zertifikate_pruefzeit=uhrzeit("ZERTIFIKATE_PRUEFZEIT", "07:10"),
+            rdap_aktiv=wert("RDAP_AKTIV", "true").casefold() in WAHR,
+            rdap_bootstrap_url=wert("RDAP_BOOTSTRAP_URL", cls.rdap_bootstrap_url),
         )
 
     def pruefen(self) -> None:
@@ -377,6 +427,8 @@ class Einstellungen:
             raise KonfigurationsFehler(
                 "NACHTSCHICHT_VON und NACHTSCHICHT_BIS dürfen nicht gleich sein"
             )
+        if self.wartung_von >= self.wartung_bis:
+            raise KonfigurationsFehler("WARTUNG_VON muss vor WARTUNG_BIS liegen")
         if self.erreichbarkeit_stufe not in ("info", "wichtig", "notfall"):
             raise KonfigurationsFehler("ERREICHBARKEIT_STUFE muss info, wichtig oder notfall sein")
         try:
@@ -387,6 +439,11 @@ class Einstellungen:
             hosts_lesen(self.ssh_hosts)
             dienste_lesen(self.fehlersuche_dienste)
             NextcloudLog.aus_text(self.nextcloud_log_host, self.nextcloud_log_quelle)
+            from missa.integrationen.domains import erwartet_lesen
+            from missa.tools.updates import wochentage_lesen
+
+            wochentage_lesen(self.wartung_tage)
+            erwartet_lesen(self.dns_erwartet)
         except ValueError as fehler:
             raise KonfigurationsFehler(str(fehler)) from fehler
         try:

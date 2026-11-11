@@ -163,6 +163,12 @@ und das App-Passwort lässt sich jederzeit einzeln widerrufen.
 | `LOGIN_AUTOMATISCH_BENUTZER` / `LOGIN_BEKANNTE_IPS` | `missa` / leer | nein | Automatische Benutzer (keine Zeit-Hinweise); IPs, die als bekannt gelten. |
 | `LOGIN_NACHT_VON` / `LOGIN_NACHT_BIS` | `00:00` / `05:00` | nein | Ungewohnte Zeit, solange es wenig Verlauf gibt. |
 | `NEXTCLOUD_LOG_HOST` / `NEXTCLOUD_LOG_QUELLE` | leer | nein | Nextcloud-Log für Logins und Fehlersuche: `datei` oder `journal[:Kennung]`. |
+| `UPDATE_HOSTS` / `UPDATES_PRUEFZEIT` / `UPDATES_EIGENER_HOST` | leer (= alle) / `06:40` / `ai01` | nein | Update-Verwaltung; die eigene VM kommt beim Einspielen zuletzt. |
+| `WARTUNG_TAGE` / `WARTUNG_VON` / `WARTUNG_BIS` / `WARTUNG_DAUER_MINUTEN` | `Sa,So` / `10:00` / `17:00` / `60` | nein | Wann Missa Wartungsfenster vorschlägt. |
+| `ZERTIFIKAT_DOMAINS` / `DOMAIN_NAMEN` | leer (= Erreichbarkeits-Domains bzw. daraus abgeleitet) | nein | Zertifikate und Domain-Ablauf (RDAP). |
+| `ZERTIFIKAT_WARNUNG_TAGE` / `ZERTIFIKATE_PRUEFZEIT` | `21,7` / `07:10` | nein | Warnschwellen in Tagen und tägliche Prüfzeit. |
+| `DNS_ERWARTET` | leer | nein | Erwartete DNS-Einträge als „Name Typ Wert; …“. |
+| `RDAP_AKTIV` / `RDAP_BOOTSTRAP_URL` | `true` / IANA-Liste | nein | Ablaufdatum der Domains per RDAP (einzige Abfrage nach außen). |
 | `FEHLERSUCHE_DIENSTE` | leer | nein | Zuordnung Dienst → Host und Container/Units, z. B. `nextcloud:int01:nextcloud-app,nextcloud-db`. |
 | `NC_TALK_ENABLED` | `false` | für Talk | Missa in Nextcloud Talk einschalten. |
 | `NC_TALK_BASE_URL` | – | für Talk | Nextcloud-Adresse wie `overwrite.cli.url` (Prüfung des Absenders). |
