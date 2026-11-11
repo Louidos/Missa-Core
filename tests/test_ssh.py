@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import asyncio
 import os
-import re
 import shutil
 import subprocess
 from pathlib import Path
@@ -95,8 +94,10 @@ def fakes(tmp_path: Path) -> Path:
     return ordner
 
 
-def erzeugen(fakes: Path, *argumente: str) -> str:
+def erzeugen(fakes: Path, *argumente: str, wrapper: Path | None = None) -> str:
     umgebung = {**os.environ, "PATH": f"{fakes}:{os.environ['PATH']}"}
+    if wrapper is not None:
+        umgebung["MISSA_DOCKER_DATEI"] = str(wrapper)
     ergebnis = subprocess.run(
         ["bash", str(SCRIPT), *argumente], capture_output=True, text=True, env=umgebung, check=True
     )
@@ -104,19 +105,40 @@ def erzeugen(fakes: Path, *argumente: str) -> str:
 
 
 @pytest.fixture
-def befehl(tmp_path: Path, fakes: Path) -> Path:
+def wrapper(tmp_path: Path, fakes: Path) -> Path:
+    """Das erzeugte missa-docker (ruft das gefälschte docker mit absolutem Pfad auf)."""
+    datei = tmp_path / "missa-docker"
+    datei.write_text(erzeugen(fakes, "--nur-docker"), encoding="utf-8")
+    datei.chmod(0o755)
+    return datei
+
+
+@pytest.fixture
+def befehl(tmp_path: Path, fakes: Path, wrapper: Path) -> Path:
     datei = tmp_path / "missa-befehl"
     datei.write_text(
-        erzeugen(fakes, "--nextcloud-log", "/var/log/nextcloud/nextcloud.log", "--nur-befehl"),
+        erzeugen(
+            fakes,
+            "--nextcloud-log",
+            "/var/log/nextcloud/nextcloud.log",
+            "--nur-befehl",
+            wrapper=wrapper,
+        ),
         encoding="utf-8",
     )
     datei.chmod(0o755)
     return datei
 
 
-def ausfuehren(befehl: Path, fakes: Path, ssh_befehl: str) -> tuple[int, list[str], str]:
+def protokoll_lesen(fakes: Path) -> list[str]:
     protokoll = fakes.parent / "aufrufe.log"
+    aufrufe = protokoll.read_text(encoding="utf-8").splitlines() if protokoll.exists() else []
     protokoll.unlink(missing_ok=True)
+    return aufrufe
+
+
+def ausfuehren(befehl: Path, fakes: Path, ssh_befehl: str) -> tuple[int, list[str], str]:
+    protokoll_lesen(fakes)
     umgebung = {
         "SSH_ORIGINAL_COMMAND": ssh_befehl,
         "MISSA_TEST_PATH": f"{fakes}:/usr/bin:/bin",
@@ -125,17 +147,16 @@ def ausfuehren(befehl: Path, fakes: Path, ssh_befehl: str) -> tuple[int, list[st
     ergebnis = subprocess.run(
         ["bash", str(befehl)], capture_output=True, text=True, env=umgebung, check=False
     )
-    aufrufe = protokoll.read_text(encoding="utf-8").splitlines() if protokoll.exists() else []
-    return ergebnis.returncode, aufrufe, ergebnis.stderr
+    return ergebnis.returncode, protokoll_lesen(fakes), ergebnis.stderr
 
 
 @pytest.mark.parametrize(
     ("ssh_befehl", "erwartet"),
     [
-        ("docker-ps", "sudo -n {d} ps --all --no-trunc --format {{{{json .}}}}"),
-        ("docker-stats", "sudo -n {d} stats --no-stream --no-trunc --format {{{{json .}}}}"),
-        ("docker-logs nextcloud 50", "sudo -n {d} logs --tail 50 --timestamps nextcloud"),
-        ("docker-restart nextcloud", "sudo -n {d} restart nextcloud"),
+        ("docker-ps", "sudo -n {w} ps"),
+        ("docker-stats", "sudo -n {w} stats"),
+        ("docker-logs nextcloud 50", "sudo -n {w} logs nextcloud 50"),
+        ("docker-restart nextcloud", "sudo -n {w} restart nextcloud"),
         (
             "journal unit=caddy.service prio=3 seit=@1700000000 zeilen=100",
             "journalctl --no-pager --quiet -o short-iso -n 500 -u caddy.service -p 3 "
@@ -151,10 +172,10 @@ def ausfuehren(befehl: Path, fakes: Path, ssh_befehl: str) -> tuple[int, list[st
         ("nextcloud-log 200", "tail -n 200 -- /var/log/nextcloud/nextcloud.log"),
     ],
 )  # fmt: skip
-def test_missa_befehl_fuehrt_erlaubtes_aus(befehl, fakes, ssh_befehl, erwartet):
+def test_missa_befehl_fuehrt_erlaubtes_aus(befehl, fakes, wrapper, ssh_befehl, erwartet):
     code, aufrufe, fehler = ausfuehren(befehl, fakes, ssh_befehl)
     assert code == 0, fehler
-    assert aufrufe == [erwartet.format(d=fakes / "docker")]
+    assert aufrufe == [erwartet.format(w=wrapper)]
 
 
 @pytest.mark.parametrize(
@@ -187,7 +208,7 @@ def test_missa_befehl_lehnt_alles_andere_ab(befehl, fakes, ssh_befehl):
     assert "missa-befehl:" in fehler
 
 
-# ----------------------------------------------------------------------------- sudoers
+# ----------------------------------------------------------------------------- sudo
 
 
 def sudoers_regeln(inhalt: str) -> list[str]:
@@ -212,46 +233,67 @@ def sudoers_regeln(inhalt: str) -> list[str]:
     return erlaubt
 
 
-def erlaubt(regeln: list[str], befehl: str) -> bool:
-    """Wie sudo: ``*`` passt auf beliebige Zeichen (auch Leerzeichen)."""
-    for regel in regeln:
-        muster = "^" + ".*".join(re.escape(teil) for teil in regel.split("*")) + "$"
-        if re.match(muster, befehl):
-            return True
-    return False
+def wrapper_ausfuehren(wrapper: Path, fakes: Path, *argumente: str) -> tuple[int, list[str]]:
+    protokoll_lesen(fakes)
+    ergebnis = subprocess.run(
+        ["bash", str(wrapper), *argumente], capture_output=True, text=True, check=False
+    )
+    return ergebnis.returncode, protokoll_lesen(fakes)
 
 
-def test_sudoers_erlaubt_nur_docker_ps_stats_logs_restart(fakes):
+def test_sudoers_erlaubt_nur_missa_docker(fakes):
+    """sudo darf nur das eine Programm – ohne Platzhalter, gültig für sudo und sudo-rs."""
     inhalt = erzeugen(fakes, "--nur-sudoers")
-    regeln = sudoers_regeln(inhalt)
-    d = fakes / "docker"
-    assert regeln == [
-        f"{d} ps --all --no-trunc --format {{{{json .}}}}",
-        f"{d} stats --no-stream --no-trunc --format {{{{json .}}}}",
-        f"{d} logs --tail * --timestamps *",
-        f"{d} restart *",
-    ]
-    for ok in (
-        f"{d} ps --all --no-trunc --format {{{{json .}}}}",
-        f"{d} logs --tail 50 --timestamps nextcloud",
-        f"{d} restart nextcloud",
-    ):
-        assert erlaubt(regeln, ok), ok
-    for verboten in (
-        "/bin/sh",
-        "/bin/bash -i",
-        "/usr/bin/journalctl --vacuum-time=1s",
-        "/usr/bin/apt-get install x",
-        "/usr/bin/systemctl stop caddy",
-        f"{d} exec -it nextcloud sh",
-        f"{d} run --rm -v /:/host alpine",
-        f"{d} ps -a",
-        f"{d} rm -f nextcloud",
-        f"{d} cp nextcloud:/etc/shadow /tmp",
-        "/usr/bin/vim /etc/sudoers",
-    ):
-        assert not erlaubt(regeln, verboten), verboten
-    assert "NOPASSWD: ALL" not in inhalt and "journalctl" not in inhalt.split("Defaults")[1]
+    assert sudoers_regeln(inhalt) == ["/usr/local/lib/missa/missa-docker"]
+    regeln = [z for z in inhalt.splitlines() if z and not z.startswith("#")]
+    assert regeln == ["missa ALL=(root) NOPASSWD: /usr/local/lib/missa/missa-docker"]
+    assert "*" not in "".join(regeln) and "ALL\n" not in inhalt and "NOPASSWD: ALL" not in inhalt
+
+
+@pytest.mark.parametrize(
+    ("argumente", "erwartet"),
+    [
+        (["ps"], "docker ps --all --no-trunc --format {{json .}}"),
+        (["stats"], "docker stats --no-stream --no-trunc --format {{json .}}"),
+        (["logs", "nextcloud", "50"], "docker logs --tail 50 --timestamps nextcloud"),
+        (["logs", "nextcloud", "0050"], "docker logs --tail 50 --timestamps nextcloud"),
+        (["restart", "nextcloud"], "docker restart nextcloud"),
+    ],
+)
+def test_missa_docker_kann_nur_ps_stats_logs_restart(wrapper, fakes, argumente, erwartet):
+    code, aufrufe = wrapper_ausfuehren(wrapper, fakes, *argumente)
+    assert code == 0
+    assert aufrufe == [erwartet]
+
+
+@pytest.mark.parametrize(
+    "argumente",
+    [
+        [],
+        ["exec", "-it", "nextcloud", "sh"],
+        ["run", "--rm", "-v", "/:/host", "alpine"],
+        ["rm", "-f", "nextcloud"],
+        ["cp", "nextcloud:/etc/shadow", "/tmp"],
+        ["ps", "-a"],
+        ["ps", "--format", "{{.Names}}"],
+        ["stats", "nextcloud"],
+        ["logs", "nextcloud"],
+        ["logs", "x;id", "5"],
+        ["logs", "--follow", "5"],
+        ["logs", "nextcloud", "99999"],
+        ["logs", "nextcloud", "5", "--details"],
+        ["restart"],
+        ["restart", "a", "b"],
+        ["restart", "-t0"],
+        ["restart", "../x"],
+        ["--host", "tcp://evil", "ps"],
+        ["system", "prune", "-af"],
+    ],
+)
+def test_missa_docker_lehnt_alles_andere_ab(wrapper, fakes, argumente):
+    code, aufrufe = wrapper_ausfuehren(wrapper, fakes, *argumente)
+    assert code == 64
+    assert aufrufe == []
 
 
 def test_sudoers_ohne_docker_ohne_rechte(tmp_path):
@@ -335,8 +377,11 @@ def test_authorized_keys_bindet_an_missa_befehl():
 
 
 @pytest.mark.skipif(shutil.which("shellcheck") is None, reason="shellcheck nicht installiert")
-def test_missa_befehl_besteht_shellcheck(befehl):
+def test_erzeugte_programme_bestehen_shellcheck(befehl, wrapper):
     ergebnis = subprocess.run(
-        ["shellcheck", "-s", "bash", str(befehl)], capture_output=True, text=True, check=False
+        ["shellcheck", "-s", "bash", str(befehl), str(wrapper)],
+        capture_output=True,
+        text=True,
+        check=False,
     )
     assert ergebnis.returncode == 0, ergebnis.stdout

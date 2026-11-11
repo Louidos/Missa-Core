@@ -144,13 +144,17 @@ Was das Script einrichtet (siehe `--nur-sudoers` und `--nur-befehl`):
   gebunden: keine Shell, kein Terminal, keine Weiterleitungen. `missa-befehl` kennt nur
   `pruefen`, `docker-ps`, `docker-stats`, `docker-logs`, `docker-restart`, `journal`, `ssh-log`
   und `nextcloud-log` und prüft jede Angabe.
-- `/etc/sudoers.d/missa` (mit `visudo -c` geprüft) erlaubt per sudo **nur** diese Befehle:
+- `/etc/sudoers.d/missa` (mit `visudo -c` geprüft) erlaubt per sudo **nur ein Programm**,
+  `/usr/local/lib/missa/missa-docker` (root, `0755`). Es prüft jede Angabe und kennt nur:
   - `docker ps --all --no-trunc --format {{json .}}`
   - `docker stats --no-stream --no-trunc --format {{json .}}` (nur lesen, für CPU und RAM)
-  - `docker logs --tail … --timestamps …`
-  - `docker restart …`
+  - `docker logs --tail <1–5000> --timestamps <name>`
+  - `docker restart <name>`
 
-  Nichts sonst: kein `docker exec`, kein `docker run`, keine Shell, kein `journalctl` per sudo.
+  Nichts sonst: kein `docker exec`, kein `docker run`, kein `docker rm`, keine Shell, kein
+  `journalctl` per sudo. Die sudoers-Zeile hat keine Platzhalter und funktioniert darum mit
+  dem klassischen sudo genauso wie mit sudo-rs (Standard ab Ubuntu 25.10), das Platzhalter
+  in Argumenten nicht erlaubt.
 - Logs (journalctl) liest `missa` über die Gruppe **systemd-journal**, ohne sudo. Das ist
   sicherer als `sudo journalctl`: Dort könnte der Pager eine Root-Shell öffnen, und
   `--vacuum` könnte Logs löschen.
