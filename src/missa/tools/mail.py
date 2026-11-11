@@ -109,7 +109,10 @@ SENDEN = frozenset(
     [
         "senden",
         "absenden",
+        "sende",
         "abschicken",
+        "verschick",
+        "verschicke",
         "verschicken",
         "versenden",
         "schick",
@@ -181,6 +184,12 @@ FUELL = frozenset(
         "nun",
         "nr",
         "nummer",
+        "diese",
+        "dieser",
+        "dieses",
+        "diesen",
+        "der",
+        "dem",
     ]
 )
 
@@ -268,9 +277,9 @@ class Entwurf:
             "",
             zitat,
             "",
-            f"**Soll ich das abschicken?** Antworte „Ja, abschicken“ (oder „senden #{self.id}“) "
-            "– ohne dein ausdrückliches Ja geht nichts raus. Ändere ich vorher noch etwas, "
-            "frage ich dich nochmal.",
+            "**Soll ich das abschicken?** Antworte „Ja, abschicken“ oder „Schick die Mail ab“ "
+            f"(oder „senden #{self.id}“) – ohne deine ausdrückliche Zustimmung geht nichts raus. "
+            "Ändere ich vorher noch etwas, frage ich dich nochmal.",
         ]
         return "\n".join(teile)
 

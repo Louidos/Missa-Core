@@ -111,7 +111,7 @@ NEIN = frozenset(
         "weiß",
     ]
 )
-#: Wörter, die eine Zustimmung ausdrücken.
+#: Kurze Zustimmungen.
 JA = frozenset(
     [
         "ja",
@@ -140,12 +140,43 @@ JA = frozenset(
         "unbedingt",
         "logo",
         "go",
+        "tu",
+        "tus",
+    ]
+)
+#: Ausdrückliche Aufträge, die genauso zählen wie ein Ja („lösch es“, „schick die Mail ab“).
+AUFTRAG = frozenset(
+    [
         "lösch",
         "lösche",
         "löschen",
+        "löscht",
         "weg",
-        "tu",
-        "tus",
+        "entfern",
+        "entferne",
+        "entfernen",
+        "streich",
+        "streiche",
+        "streichen",
+        "vergiss",
+        "vergessen",
+        "verwirf",
+        "verwerfen",
+        "schick",
+        "schicke",
+        "schicken",
+        "sende",
+        "senden",
+        "absenden",
+        "abschicken",
+        "verschick",
+        "verschicke",
+        "verschicken",
+        "raus",
+        "ausführen",
+        "durchführen",
+        "erledige",
+        "erledigen",
     ]
 )
 #: Längere Nachrichten sind keine knappe Zustimmung mehr.
@@ -153,18 +184,23 @@ MAX_ZUSTIMMUNG_WOERTER = 12
 
 
 def ist_zustimmung(text: str | None) -> bool:
-    """``True`` für eine knappe, eindeutige Zustimmung wie „Ja“ oder „Ja, lösch es“.
+    """``True`` für eine knappe, eindeutige Zustimmung oder einen ausdrücklichen Auftrag.
 
-    Alles mit Verneinung, Zögern oder viel Text („Ja, aber erst morgen …“) zählt nicht.
+    Zählt: „Ja“, „Okay, mach“, aber genauso „Lösch es“, „Entferne den Termin“ oder
+    „Schick die Mail ab“. Alles mit Verneinung, Zögern oder viel Text („Ja, aber erst
+    morgen …“, „Lösch es lieber nicht“) zählt nicht – ebenso wenig Fragen („Lösch es?“) und
+    „Vergiss es“, das meist „lass es“ heißt.
     """
-    if not text:
-        return False
+    if not text or text.strip().endswith("?"):
+        return False  # eine Frage ist keine Zustimmung
     woerter = re.findall(r"[a-zäöüß]+", text.casefold())
     if not woerter or len(woerter) > MAX_ZUSTIMMUNG_WOERTER:
         return False
     if any(w in NEIN for w in woerter) or "aber" in woerter:
         return False
-    return any(w in JA for w in woerter)
+    if woerter in (["vergiss", "es"], ["vergiss", "es", "einfach"], ["ach", "vergiss", "es"]):
+        return False
+    return any(w in JA or w in AUFTRAG for w in woerter)
 
 
 NOTFALL_MUSTER = re.compile(r"\bnot[\s-]*(?:fall|aus)[\s-]*stop+\b", re.IGNORECASE)
@@ -490,13 +526,13 @@ class Rechte:
     def rueckfrage_text(self, werkzeug: str, beschreibung: str) -> str:
         minuten = f"{self.gueltigkeit / 60:g}"
         return (
-            f"NICHT AUSGEFÜHRT – {werkzeug} ist zerstörerisch und braucht Louis' ausdrückliches "
-            "Ja zu genau dieser Aktion.\n"
+            f"NICHT AUSGEFÜHRT – {werkzeug} ist zerstörerisch und braucht Louis' ausdrückliche "
+            "Zustimmung zu genau dieser Aktion.\n"
             f"Was passieren würde:\n{beschreibung.strip()}\n"
             "Frag Louis klar und ruhig, ob du das wirklich tun sollst, und sag dabei genau, was "
             f"passiert. Erst wenn er in seiner nächsten Nachricht (innerhalb von {minuten} "
-            f"Minuten) ausdrücklich Ja sagt, rufe {werkzeug} mit genau denselben Angaben noch "
-            "einmal auf."
+            "Minuten) zustimmt – mit „Ja“ oder einem klaren Auftrag wie „Lösch es“ oder "
+            f"„Schick sie ab“ –, rufe {werkzeug} mit genau denselben Angaben noch einmal auf."
         )
 
     # -------------------------------------------------------------- Notfall
