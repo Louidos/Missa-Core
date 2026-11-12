@@ -1,0 +1,20 @@
+# Verwaltet von Missa (playbooks/minecraft.yml)
+[Unit]
+Description=Minecraft-Server
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+User=minecraft
+Group=minecraft
+WorkingDirectory={{ minecraft_ordner }}
+ExecStart=/usr/bin/java -Xms1G -Xmx{{ minecraft_ram_mb }}M -jar server.jar nogui
+# Nach „stop“ per RCON startet systemd den Server wieder (so geht ein Neustart über RCON).
+Restart=always
+RestartSec=10
+NoNewPrivileges=true
+ProtectSystem=full
+PrivateTmp=true
+
+[Install]
+WantedBy=multi-user.target

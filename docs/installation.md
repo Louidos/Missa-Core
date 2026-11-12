@@ -172,6 +172,14 @@ und das App-Passwort lässt sich jederzeit einzeln widerrufen.
 | `HOMELAB_INTERVALL_MINUTEN` | `60` | nein | So oft liest Missa VMs, IPs und VLANs aus Proxmox (braucht `PROXMOX_*`). |
 | `FIREWALL_LOG_DATEI` / `FIREWALL_BERICHT_ZEIT` | leer / `07:30` | nein | ZyWALL-Logs (von rsyslog) und tägliche Zusammenfassung, siehe [homelab-firewall.md](homelab-firewall.md). |
 | `FIREWALL_SCAN_PORTS` / `FIREWALL_BLOCK_GRENZE` | `15` / `100` | nein | Schwellen für Port-Scans und gehäufte Blocks. |
+| `PROXMOX_VM_TOKEN_ID` / `PROXMOX_VM_TOKEN_SECRET` | `missa@pve!vms` / leer | nein | Token für Missas eigene VMs (nur Pool missa), siehe [proxmox-vms.md](proxmox-vms.md). |
+| `VM_NODE` / `VM_TEMPLATE_ID` / `VM_STORAGE` / `VM_POOL` / `VM_ID_BEREICH` | `pve-id01` / leer / `local-lvm` / `missa` / `200-249` | nein | Wo und woraus VMs entstehen. |
+| `VM_BRIDGE` / `VM_DISK` / `VM_NETZE` | `vmbr0` / `scsi0` / leer | nein | Netz und Disk; `VM_NETZE` = erlaubte VLANs mit IP-Bereich und Gateway. |
+| `VM_MAX_CPU` / `VM_MAX_RAM_GB` / `VM_MAX_DISK_GB` | `4` / `8` / `64` | nein | Grenzen pro VM. |
+| `VM_POOL_MAX_CPU` / `VM_POOL_MAX_RAM_GB` / `VM_POOL_MAX_DISK_GB` | `8` / `16` / `200` | nein | Grenzen für den ganzen Pool. |
+| `VM_BENUTZER` / `VM_NAMESERVER` / `VM_VERWALTUNG_IP` | `missa` / leer / leer | nein | Cloud-Init-Benutzer, DNS und die IP von ai01 für die Firewall der neuen VMs. |
+| `ANSIBLE_PLAYBOOK` / `PLAYBOOK_ORDNER` | automatisch / `playbooks/` | nein | Ansible auf ai01 und Ordner mit den Playbooks. |
+| `MINECRAFT_RCON_PASSWORT` | leer | nein | RCON-Passwort; leer = Missa erzeugt eins. |
 | `FEHLERSUCHE_DIENSTE` | leer | nein | Zuordnung Dienst → Host und Container/Units, z. B. `nextcloud:int01:nextcloud-app,nextcloud-db`. |
 | `NC_TALK_ENABLED` | `false` | für Talk | Missa in Nextcloud Talk einschalten. |
 | `NC_TALK_BASE_URL` | – | für Talk | Nextcloud-Adresse wie `overwrite.cli.url` (Prüfung des Absenders). |

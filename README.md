@@ -55,7 +55,11 @@ Talk nutzen dieselbe Logik.
 - Fertig: Homelab-Wissen und Firewall-Logs – Missa kennt alle VMs mit IP und VLAN aus
   Proxmox („Welche IP hat rp01?“), meldet neue VMs und geänderte IPs und fasst die
   ZyWALL-Logs täglich zusammen (nur lesend, siehe docs/homelab-firewall.md)
-- In Arbeit (Server-Update): Proxmox-VMs, Caddy und Minecraft, Git-Überblick
+- Fertig: Proxmox-VMs – „Richte einen Minecraft-Server ein“ zeigt einen Plan, nach Ja
+  klont Missa eine VM aus dem Cloud-Init-Template und richtet sie per Ansible ein; harte
+  Grenzen pro VM und Pool, Stoppen und Löschen nur im eigenen Pool
+  (siehe docs/proxmox-vms.md)
+- In Arbeit (Server-Update): Caddy und Minecraft, Git-Überblick
 - Später als eigene Aufträge: Telefon, Push, Smart Home
 - Änderungen im Detail: [CHANGELOG.md](CHANGELOG.md)
 
@@ -88,6 +92,7 @@ Talk nutzen dieselbe Logik.
 - **[docs/netzfreigaben.md](docs/netzfreigaben.md)** – welche Verbindungen ai01 braucht
 - **[docs/container-logs-logins.md](docs/container-logs-logins.md)** – Container, Fehlersuche
   in Logs, Login-Überwachung und der Benutzer `missa` auf den Hosts
+- **[docs/proxmox-vms.md](docs/proxmox-vms.md)** – VMs auf Zuruf erstellen und einrichten
 - **[docs/homelab-firewall.md](docs/homelab-firewall.md)** – Homelab-Wissen und
   Firewall-Logs
 - **[docs/updates-zertifikate.md](docs/updates-zertifikate.md)** – Updates, Wartungsfenster,
@@ -165,6 +170,7 @@ Das Skript führt `ruff check`, `ruff format --check` und `pytest` aus – genau
 | `tests/`   | Tests (pytest)                                            |
 | `scripts/` | Hilfsskripte                                              |
 | `scripts/einrichten/` | Einrichtungs-Scripts für andere Hosts (von Hand ausführen) |
+| `playbooks/` | Ansible-Playbooks zum Einrichten neuer VMs (mit Katalog) |
 | `docs/`    | Dokumentation                                             |
 | `config/`  | Beispiel-Konfiguration (keine echten Geheimnisse!)        |
 | `deploy/`  | systemd-Unit                                              |

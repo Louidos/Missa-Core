@@ -1,0 +1,137 @@
+# Minecraft-Server (Vanilla, Vanilla+-tauglich): Java, Server-Jar in der gewünschten Version,
+# Datapacks-Ordner, Whitelist, RCON nur von ai01, systemd-Dienst mit Neustart nach „stop“.
+# Variablen (von Missa gesetzt): minecraft_version (latest oder z. B. 1.21.4), minecraft_ram_mb,
+# rcon_passwort, rcon_erlaubt_von, optional minecraft_server_url (z. B. Fabric-Server-Jar).
+- name: Minecraft-Server einrichten
+  hosts: all
+  become: true
+  vars:
+    minecraft_version: latest
+    minecraft_ram_mb: 3072
+    minecraft_ordner: /opt/minecraft
+    minecraft_port: 25565
+    rcon_port: 25575
+    rcon_erlaubt_von: any
+    minecraft_motd: Missas Minecraft-Server
+    minecraft_max_spieler: 10
+    minecraft_schwierigkeit: normal
+    minecraft_server_url: ""
+    manifest_url: https://piston-meta.mojang.com/mc/game/version_manifest_v2.json
+  tasks:
+    - name: Java 21 installieren
+      ansible.builtin.apt:
+        name: openjdk-21-jre-headless
+        state: present
+      register: java21
+      ignore_errors: true
+
+    - name: Java 17 als Ersatz (ältere Debian-Versionen, nur für Minecraft < 1.20.5)
+      ansible.builtin.apt:
+        name: openjdk-17-jre-headless
+        state: present
+      when: java21 is failed
+
+    - name: Benutzer minecraft
+      ansible.builtin.user:
+        name: minecraft
+        system: true
+        home: "{{ minecraft_ordner }}"
+        shell: /usr/sbin/nologin
+
+    - name: Ordner anlegen
+      ansible.builtin.file:
+        path: "{{ item }}"
+        state: directory
+        owner: minecraft
+        group: minecraft
+        mode: "0750"
+      loop:
+        - "{{ minecraft_ordner }}"
+        - "{{ minecraft_ordner }}/world"
+        - "{{ minecraft_ordner }}/world/datapacks"
+
+    - name: Versionsliste von Mojang holen
+      ansible.builtin.uri:
+        url: "{{ manifest_url }}"
+        return_content: true
+      register: manifest
+      when: minecraft_server_url == ""
+
+    - name: Gewünschte Version finden
+      ansible.builtin.set_fact:
+        mc_version: "{{ manifest.json.latest.release if minecraft_version == 'latest' else minecraft_version }}"
+      when: minecraft_server_url == ""
+
+    - name: Details der Version holen
+      ansible.builtin.uri:
+        url: "{{ (manifest.json.versions | selectattr('id', 'equalto', mc_version) | first).url }}"
+        return_content: true
+      register: version_details
+      when: minecraft_server_url == ""
+
+    - name: Server-Jar (Vanilla) herunterladen und prüfen
+      ansible.builtin.get_url:
+        url: "{{ version_details.json.downloads.server.url }}"
+        dest: "{{ minecraft_ordner }}/server.jar"
+        checksum: "sha1:{{ version_details.json.downloads.server.sha1 }}"
+        owner: minecraft
+        group: minecraft
+        mode: "0640"
+      when: minecraft_server_url == ""
+      notify: Minecraft neu starten
+
+    - name: Eigenes Server-Jar herunterladen (z. B. Fabric für Vanilla+)
+      ansible.builtin.get_url:
+        url: "{{ minecraft_server_url }}"
+        dest: "{{ minecraft_ordner }}/server.jar"
+        owner: minecraft
+        group: minecraft
+        mode: "0640"
+      when: minecraft_server_url != ""
+      notify: Minecraft neu starten
+
+    - name: EULA akzeptieren (https://aka.ms/MinecraftEULA)
+      ansible.builtin.copy:
+        dest: "{{ minecraft_ordner }}/eula.txt"
+        content: "eula=true\n"
+        owner: minecraft
+        group: minecraft
+        mode: "0640"
+
+    - name: server.properties schreiben (Whitelist an, RCON an)
+      ansible.builtin.template:
+        src: templates/server.properties.j2
+        dest: "{{ minecraft_ordner }}/server.properties"
+        owner: minecraft
+        group: minecraft
+        mode: "0600"
+      notify: Minecraft neu starten
+
+    - name: systemd-Dienst
+      ansible.builtin.template:
+        src: templates/minecraft.service.j2
+        dest: /etc/systemd/system/minecraft.service
+        mode: "0644"
+      notify: Minecraft neu starten
+
+    - name: Dienst einschalten und starten
+      ansible.builtin.systemd_service:
+        name: minecraft
+        enabled: true
+        state: started
+        daemon_reload: true
+
+    - name: Firewall – Spiel-Port für alle
+      ansible.builtin.command: "ufw allow {{ minecraft_port }}/tcp"
+      changed_when: false
+
+    - name: Firewall – RCON nur von ai01
+      ansible.builtin.command: "ufw allow from {{ rcon_erlaubt_von }} to any port {{ rcon_port }} proto tcp"
+      changed_when: false
+
+  handlers:
+    - name: Minecraft neu starten
+      ansible.builtin.systemd_service:
+        name: minecraft
+        state: restarted
+        daemon_reload: true

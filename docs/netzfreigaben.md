@@ -17,6 +17,10 @@ nur wb01. Jede Gruppe des Server-Updates trägt hier ein, was sie zusätzlich br
 | ai01 | jeder Host aus `SSH_HOSTS` (z. B. wb01, int01, rp01 10.0.70.10) | TCP 22 | Container, Logs, Anmeldungen: SSH als `missa`, nur die Befehle aus `missa-befehl` | Container und Logs | `SSH_HOSTS` gesetzt |
 | ai01 | pve-id01 | TCP 22 | nur, wenn du Missa ausdrücklich auch auf dem Proxmox-Host einrichtest (`--proxmox-ja`) | Container und Logs | sonst nicht nötig |
 | jeder Host aus `SSH_HOSTS` | Paketquellen (deb.debian.org, security.debian.org bzw. Ubuntu-Spiegel) | TCP 80/443 | Updates: `apt-get update` und `apt-get -y upgrade` laufen auf dem Host selbst | Updates | Updates werden genutzt (meist schon erlaubt) |
+| ai01 | pve-id01 (`PROXMOX_URL`) | TCP 8006 | Eigene VMs: anlegen, einrichten, starten, stoppen, löschen – Token nur für den Pool missa | Proxmox-VMs | `PROXMOX_VM_TOKEN_*` gesetzt (gleiche Freigabe wie oben) |
+| ai01 | neue VMs in den VLANs aus `VM_NETZE` | TCP 22 | Ansible richtet die VM ein (SSH als `VM_BENUTZER`) | Proxmox-VMs | VMs werden genutzt |
+| neue VMs | Paketquellen und piston-meta/piston-data.mojang.com | TCP 80/443 | Updates, Java und das Minecraft-Server-Jar | Proxmox-VMs | VMs werden genutzt |
+| Spieler (LAN bzw. außen) | Minecraft-VM | TCP 25565 | Minecraft spielen (von außen nur mit Portweiterleitung in der ZyWALL) | Proxmox-VMs | Minecraft läuft |
 | ZyWALL | ai01 | UDP 514 | Firewall-Logs per Syslog an rsyslog auf ai01 (Missa liest die Datei) | Homelab-Wissen und Firewall | `FIREWALL_LOG_DATEI` gesetzt |
 | ai01 | data.iana.org | TCP 443 | Domains: Liste der RDAP-Server (IANA) | Zertifikate und Domains | `RDAP_AKTIV=true` und Domains gesetzt |
 | ai01 | RDAP-Server der Endung (für `.ch`: rdap.nic.ch) | TCP 443 | Domains: Ablaufdatum abfragen – die einzige Abfrage nach außen dieser Prüfung | Zertifikate und Domains | `RDAP_AKTIV=true` und Domains gesetzt |

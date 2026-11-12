@@ -20,6 +20,7 @@ dependencies = [
     "icalendar>=6.1",
     "recurring-ical-events>=3.3",
     "dnspython>=2.6",
+    "pyyaml>=6",
 ]
 
 [project.scripts]
@@ -29,6 +30,10 @@ missa-core = "missa.core.__main__:main"
 dev = [
     "pytest>=8",
     "ruff>=0.6",
+]
+# Für das Einrichten neuer VMs per Playbook (auf ai01): pip install ".[vms]"
+vms = [
+    "ansible-core>=2.16",
 ]
 
 [tool.hatch.build.targets.wheel]

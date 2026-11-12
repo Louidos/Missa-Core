@@ -134,6 +134,28 @@ class Einstellungen:
     firewall_bericht_zeit: time = time(7, 30)
     firewall_scan_ports: int = 15
     firewall_block_grenze: int = 100
+    proxmox_vm_token_id: str = ""
+    proxmox_vm_token_secret: str = ""
+    vm_node: str = ""
+    vm_template_id: int = 0
+    vm_storage: str = "local-lvm"
+    vm_pool: str = "missa"
+    vm_id_bereich: str = "200-249"
+    vm_bridge: str = "vmbr0"
+    vm_disk: str = "scsi0"
+    vm_netze: str = ""
+    vm_max_cpu: int = 4
+    vm_max_ram_gb: int = 8
+    vm_max_disk_gb: int = 64
+    vm_pool_max_cpu: int = 8
+    vm_pool_max_ram_gb: int = 16
+    vm_pool_max_disk_gb: int = 200
+    vm_benutzer: str = "missa"
+    vm_nameserver: str = ""
+    vm_verwaltung_ip: str = ""
+    ansible_playbook: str = ""
+    playbook_ordner: Path | None = None
+    minecraft_rcon_passwort: str = ""
 
     @property
     def notfall_datei(self) -> Path:
@@ -150,6 +172,8 @@ class Einstellungen:
             self.mail_password,
             self.monitoring_token,
             self.proxmox_token_secret,
+            self.proxmox_vm_token_secret,
+            self.minecraft_rcon_passwort,
         ]
         with contextlib.suppress(OSError):
             werte.append(self.llama_api_key_file.read_text(encoding="utf-8").strip())
@@ -205,6 +229,28 @@ class Einstellungen:
         from missa.integrationen.domains import registrierte_domain
 
         return tuple(dict.fromkeys(registrierte_domain(d) for d in self.zertifikat_domain_liste))
+
+    @property
+    def vms_konfiguriert(self) -> bool:
+        """``True``, wenn Missa eigene VMs anlegen darf (VM-Token, Host, Template und Netze)."""
+        return bool(
+            self.proxmox_url
+            and self.proxmox_vm_token_id
+            and self.proxmox_vm_token_secret
+            and self.vm_node
+            and self.vm_template_id
+            and self.vm_netze
+        )
+
+    @property
+    def playbooks(self) -> Path:
+        """Ordner mit den Playbooks (Standard: playbooks/ im Code von Missa-Core)."""
+        if self.playbook_ordner is not None:
+            return self.playbook_ordner
+        for kandidat in (Path("/opt/missa/app/playbooks"), Path(__file__).parents[3] / "playbooks"):
+            if kandidat.is_dir():
+                return kandidat
+        return Path("/opt/missa/app/playbooks")
 
     @property
     def stil_datei(self) -> Path:
@@ -301,6 +347,7 @@ class Einstellungen:
 
         ca_datei = env.get("PROXMOX_CA_DATEI", "").strip()
         fw_datei = env.get("FIREWALL_LOG_DATEI", "").strip()
+        pb_ordner = env.get("PLAYBOOK_ORDNER", "").strip()
         try:
             warn_tage = tuple(
                 sorted({int(t) for t in liste("ZERTIFIKAT_WARNUNG_TAGE")}, reverse=True)
@@ -422,6 +469,28 @@ class Einstellungen:
             firewall_bericht_zeit=uhrzeit("FIREWALL_BERICHT_ZEIT", "07:30"),
             firewall_scan_ports=max(3, zahl("FIREWALL_SCAN_PORTS", 15)),
             firewall_block_grenze=max(1, zahl("FIREWALL_BLOCK_GRENZE", 100)),
+            proxmox_vm_token_id=env.get("PROXMOX_VM_TOKEN_ID", "").strip(),
+            proxmox_vm_token_secret=env.get("PROXMOX_VM_TOKEN_SECRET", "").strip(),
+            vm_node=env.get("VM_NODE", "").strip(),
+            vm_template_id=max(0, zahl("VM_TEMPLATE_ID", 0)),
+            vm_storage=wert("VM_STORAGE", cls.vm_storage),
+            vm_pool=wert("VM_POOL", cls.vm_pool),
+            vm_id_bereich=wert("VM_ID_BEREICH", cls.vm_id_bereich),
+            vm_bridge=wert("VM_BRIDGE", cls.vm_bridge),
+            vm_disk=wert("VM_DISK", cls.vm_disk),
+            vm_netze=env.get("VM_NETZE", "").strip(),
+            vm_max_cpu=max(1, zahl("VM_MAX_CPU", 4)),
+            vm_max_ram_gb=max(1, zahl("VM_MAX_RAM_GB", 8)),
+            vm_max_disk_gb=max(1, zahl("VM_MAX_DISK_GB", 64)),
+            vm_pool_max_cpu=max(1, zahl("VM_POOL_MAX_CPU", 8)),
+            vm_pool_max_ram_gb=max(1, zahl("VM_POOL_MAX_RAM_GB", 16)),
+            vm_pool_max_disk_gb=max(1, zahl("VM_POOL_MAX_DISK_GB", 200)),
+            vm_benutzer=wert("VM_BENUTZER", cls.vm_benutzer),
+            vm_nameserver=env.get("VM_NAMESERVER", "").strip(),
+            vm_verwaltung_ip=env.get("VM_VERWALTUNG_IP", "").strip(),
+            ansible_playbook=env.get("ANSIBLE_PLAYBOOK", "").strip(),
+            playbook_ordner=Path(pb_ordner) if pb_ordner else None,
+            minecraft_rcon_passwort=env.get("MINECRAFT_RCON_PASSWORT", "").strip(),
         )
 
     def pruefen(self) -> None:
@@ -455,6 +524,11 @@ class Einstellungen:
 
             wochentage_lesen(self.wartung_tage)
             erwartet_lesen(self.dns_erwartet)
+            from missa.integrationen.proxmox_vms import bereich_lesen
+            from missa.tools.vms import netze_lesen
+
+            bereich_lesen(self.vm_id_bereich)
+            netze_lesen(self.vm_netze)
         except ValueError as fehler:
             raise KonfigurationsFehler(str(fehler)) from fehler
         try:

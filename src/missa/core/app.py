@@ -79,6 +79,7 @@ def create_app(
     zertifikate: Any = None,
     homelab: Any = None,
     firewall: Any = None,
+    vms: Any = None,
 ) -> FastAPI:
     """Baut die App. Parameter außer ``einstellungen`` sind vor allem für Tests da."""
     from missa.channels.nextcloud_talk import TalkClient, talk_einrichten
@@ -99,6 +100,7 @@ def create_app(
         ssh_verbindung_bauen,
         talk_melder_bauen,
         update_verwaltung_bauen,
+        vm_verwaltung_bauen,
         werkzeuge_laden,
         zertifikats_waechter_bauen,
     )
@@ -221,6 +223,9 @@ def create_app(
         zeitplaner.taeglich(
             "firewall-bericht", einstellungen.firewall_bericht_zeit, firewall.taeglich_berichten
         )
+    # Eigene VMs im Pool missa (Proxmox mit Schreibrechten, nur dort).
+    if vms is None:
+        vms = vm_verwaltung_bauen(einstellungen, alarme, rechte, homelab, server_transport)
     if werkzeuge is None:
         werkzeuge = werkzeuge_laden(
             einstellungen,
@@ -244,6 +249,7 @@ def create_app(
             zertifikate=zertifikate,
             homelab=homelab,
             firewall=firewall,
+            vms=vms,
         )
     else:
         werkzeuge.rechte = rechte
@@ -324,6 +330,8 @@ def create_app(
         hintergrund.starten()
         yield
         await hintergrund.stoppen()
+        if vms is not None:
+            await vms.warten()
         await zeitplaner.stoppen()
         await llama.schliessen()
         if talk_client is not None:
@@ -354,6 +362,7 @@ def create_app(
     app.state.zertifikate = zertifikate
     app.state.homelab = homelab
     app.state.firewall = firewall
+    app.state.vms = vms
 
     # -------------------------------------------------------------- Fehlerformat
 
@@ -613,6 +622,13 @@ def create_app(
             "stand": stand.isoformat(timespec="seconds") if stand else None,
             "vms": [e.als_dict() for e in homelab.eintraege()],
         }
+
+    @app.get("/api/vms", dependencies=geschuetzt, tags=["Missa"])
+    async def vms_anzeigen() -> dict[str, Any]:
+        """Aufträge für Missas eigene VMs (ohne neue Proxmox-Abfrage)."""
+        if vms is None:
+            return {"vms": False, "auftraege": []}
+        return {"vms": True, "pool": vms.proxmox.pool, "auftraege": vms._auftraege()[:50]}
 
     @app.post("/v1/chat/completions", dependencies=geschuetzt, tags=["OpenAI"])
     async def chat_completions(
