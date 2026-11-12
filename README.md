@@ -16,7 +16,10 @@ Talk nutzen dieselbe Logik.
   dem Eintragen erkannt, Farben, Kategorien, Erinnerungen, Serien mit Ausnahmen, eigene Kalender –
   alles protokolliert und rückgängig machbar; Einladungen nur nach Rückfrage
   (siehe docs/kalender.md)
-- Fertig: Nextcloud-Aufgaben (anzeigen, erstellen, abhaken, nach Bestätigung löschen)
+- Fertig: Nextcloud-Aufgaben (anzeigen, erstellen, abhaken, nach Bestätigung löschen); Missa
+  erkennt To-dos im Gespräch („muss noch Rail-Kit bestellen“) und legt sie an
+- Fertig: Nextcloud Notes (anlegen, ergänzen, suchen) und Dateien (suchen, lesen; schreiben
+  nur im eigenen Ordner `Missa/`, nie löschen) – siehe docs/nextcloud-dateien.md
 - Fertig: Gedächtnis (merken, erinnern, vergessen; passende Fakten automatisch im Kontext;
   Übersicht unter `GET /api/gedaechtnis`)
 - Fertig: systemd-Dienst, Installationsanleitung und API-Doku
@@ -87,6 +90,8 @@ Talk nutzen dieselbe Logik.
 - **[docs/email.md](docs/email.md)** – E-Mail-Entwürfe im eigenen Stil: Einrichtung
   (`MAIL_*`), Senden-Sperre, Schreibstil-Profil
 - **[docs/kontakte.md](docs/kontakte.md)** – Geburtstage und Kontaktpflege
+- **[docs/nextcloud-dateien.md](docs/nextcloud-dateien.md)** – To-dos aus Gesprächen, Notizen und
+  Dateisuche in Nextcloud, eigener Ordner `Missa/`
 - **[docs/pausen.md](docs/pausen.md)** – Pausen und Puffer im Kalender, Grenzwerte
 - **[docs/erinnerungen.md](docs/erinnerungen.md)** – Erinnerungen: was Missa versteht,
   Wiederholungen, Nachholen nach einem Neustart

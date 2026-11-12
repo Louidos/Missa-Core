@@ -24,6 +24,7 @@ if TYPE_CHECKING:
     from missa.tools.anmeldungen import LoginWaechter
     from missa.tools.caddy import CaddyVerwaltung
     from missa.tools.container import ContainerDienst
+    from missa.tools.dateien import Dateien
     from missa.tools.erreichbarkeit import ErreichbarkeitsWaechter
     from missa.tools.fehlersuche import Fehlersuche
     from missa.tools.firewall import FirewallLog
@@ -34,6 +35,7 @@ if TYPE_CHECKING:
     from missa.tools.mail import MailDienst
     from missa.tools.minecraft import MinecraftVerwaltung
     from missa.tools.nextcloud import NextcloudVerbindung
+    from missa.tools.notizen import Notizen
     from missa.tools.pausen import PausenWaechter
     from missa.tools.prompts import ClaudePrompts
     from missa.tools.server_alarme import ServerWaechter
@@ -52,6 +54,8 @@ class NextcloudDienste:
     verbindung: NextcloudVerbindung
     kalender: Kalender | None = None
     adressbuch: Adressbuch | None = None
+    notizen: Notizen | None = None
+    dateien: Dateien | None = None
 
 
 def nextcloud_dienste_bauen(einstellungen: Einstellungen) -> NextcloudDienste:
@@ -83,7 +87,24 @@ def nextcloud_dienste_bauen(einstellungen: Einstellungen) -> NextcloudDienste:
         einstellungen.nextcloud_app_password,
         einstellungen.nextcloud_adressbuch,
     )
-    return NextcloudDienste(verbindung, kalender, adressbuch)
+    from missa.tools.dateien import Dateien
+    from missa.tools.notizen import Notizen
+
+    notizen = Notizen(
+        einstellungen.nextcloud_url,
+        einstellungen.nextcloud_user,
+        einstellungen.nextcloud_app_password,
+        einstellungen.zone,
+        einstellungen.nextcloud_notizen_kategorie,
+    )
+    dateien = Dateien(
+        einstellungen.nextcloud_url,
+        einstellungen.nextcloud_user,
+        einstellungen.nextcloud_app_password,
+        einstellungen.zone,
+        einstellungen.nextcloud_dateien_ordner or "Missa",
+    )
+    return NextcloudDienste(verbindung, kalender, adressbuch, notizen, dateien)
 
 
 def werkzeuge_laden(
@@ -309,6 +330,16 @@ def werkzeuge_laden(
                 kasten.hinzufuegen(werkzeug)
         else:
             log.warning("NEXTCLOUD_AUFGABEN_LISTE ist leer – Aufgaben-Werkzeuge sind aus")
+        if nextcloud.notizen is not None:
+            from missa.tools.notizen import notizen_werkzeuge
+
+            for werkzeug in notizen_werkzeuge(nextcloud.notizen):
+                kasten.hinzufuegen(werkzeug)
+        if nextcloud.dateien is not None:
+            from missa.tools.dateien import dateien_werkzeuge
+
+            for werkzeug in dateien_werkzeuge(nextcloud.dateien):
+                kasten.hinzufuegen(werkzeug)
     elif einstellungen.nextcloud_url or einstellungen.nextcloud_user:
         log.warning(
             "Nextcloud ist unvollständig konfiguriert (NEXTCLOUD_URL, NEXTCLOUD_USER und "

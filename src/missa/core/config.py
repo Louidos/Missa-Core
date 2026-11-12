@@ -64,6 +64,8 @@ class Einstellungen:
     mail_ordner_gesendet: str = "Sent"
     mail_stil_datei: Path | None = None
     nextcloud_adressbuch: str = ""
+    nextcloud_notizen_kategorie: str = "Missa"
+    nextcloud_dateien_ordner: str = "Missa"
     kontakte_geburtstag_vorlauf: int = 3
     kontakte_pruefzeit: time = time(8, 0)
     pausen_aktiv: bool = True
@@ -453,6 +455,12 @@ class Einstellungen:
             mail_ordner_gesendet=wert("MAIL_ORDNER_GESENDET", cls.mail_ordner_gesendet),
             mail_stil_datei=Path(stil) if stil else None,
             nextcloud_adressbuch=env.get("NEXTCLOUD_ADRESSBUCH", "").strip(),
+            nextcloud_notizen_kategorie=env.get(
+                "NEXTCLOUD_NOTIZEN_KATEGORIE", cls.nextcloud_notizen_kategorie
+            ).strip(),
+            nextcloud_dateien_ordner=wert(
+                "NEXTCLOUD_DATEIEN_ORDNER", cls.nextcloud_dateien_ordner
+            ).strip("/ "),
             kontakte_geburtstag_vorlauf=max(0, zahl("KONTAKTE_GEBURTSTAG_VORLAUF", 3)),
             kontakte_pruefzeit=uhrzeit("KONTAKTE_PRUEFZEIT", "08:00"),
             pausen_aktiv=wert("PAUSEN_AKTIV", "true").casefold() in WAHR,

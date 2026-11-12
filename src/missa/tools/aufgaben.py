@@ -145,6 +145,12 @@ class Aufgaben:
             raise WerkzeugFehler("Die Aufgabe braucht einen Titel.")
         stufe = prioritaet_lesen(prioritaet)
         termin = zeitpunkt_lesen(faellig, self.zone, "faellig") if faellig else None
+        gleich = " ".join(titel.split()).casefold()
+        with self.verbindung.fehler_abfangen("Aufgaben lesen"):
+            for _, komponente in self._alle(mit_erledigten=False):
+                if " ".join(text_feld(komponente, "summary").split()).casefold() == gleich:
+                    _, zeile = self._beschreiben(komponente)
+                    return f"Diese Aufgabe gibt es schon (nichts doppelt angelegt):\n{zeile}"
 
         aufgabe = icalendar.Todo()
         aufgabe.add("uid", neue_uid())
@@ -266,7 +272,10 @@ def aufgaben_werkzeuge(
         ),
         Werkzeug(
             "aufgabe_erstellen",
-            "Legt eine neue Aufgabe in Louis' Nextcloud-Aufgabenliste an.",
+            "Legt eine neue Aufgabe in Louis' Nextcloud-Aufgabenliste an – auch von dir aus, "
+            "wenn Louis nebenbei sagt, dass er etwas noch tun muss („muss noch Rail-Kit "
+            "bestellen“). Erwähne das dann kurz in deiner Antwort, damit er widersprechen kann. "
+            "Doppelte werden nicht angelegt.",
             {
                 "type": "object",
                 "properties": {

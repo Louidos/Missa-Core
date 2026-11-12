@@ -20,3 +20,4 @@
 - [caddy-minecraft.md](caddy-minecraft.md) – Subdomains in Caddy vorbereiten (aktiv nach Ja) und Minecraft per RCON verwalten
 - [git-github-prompts.md](git-github-prompts.md) – Git-Server (Issues, Pull Requests, alte Branches), GitHub nur lesend, Claude-Code-Prompts nach Vorlage
 - [updates-zertifikate.md](updates-zertifikate.md) – Updates pro VM, Wartungsfenster, Einspielen nach Ja, Zertifikate, Domains (RDAP), DNS
+- [nextcloud-dateien.md](nextcloud-dateien.md) – To-dos aus Gesprächen, Notizen (Notes) und Dateisuche (WebDAV), eigener Ordner
