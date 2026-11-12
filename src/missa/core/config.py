@@ -160,6 +160,17 @@ class Einstellungen:
     caddy_domain: str = ""
     minecraft_rcon_host: str = ""
     minecraft_rcon_port: int = 25575
+    git_server_url: str = ""
+    git_server_token: str = ""
+    git_server_besitzer: str = ""
+    git_server_ca_datei: Path | None = None
+    git_alte_branches_tage: int = 14
+    github_token: str = ""
+    github_konto: str = ""
+    github_repos: tuple[str, ...] = ()
+    github_api_url: str = "https://api.github.com"
+    github_intervall_minuten: int = 30
+    prompt_vorlage: Path | None = None
 
     @property
     def notfall_datei(self) -> Path:
@@ -178,6 +189,8 @@ class Einstellungen:
             self.proxmox_token_secret,
             self.proxmox_vm_token_secret,
             self.minecraft_rcon_passwort,
+            self.git_server_token,
+            self.github_token,
         ]
         with contextlib.suppress(OSError):
             werte.append(self.llama_api_key_file.read_text(encoding="utf-8").strip())
@@ -235,6 +248,16 @@ class Einstellungen:
         return tuple(dict.fromkeys(registrierte_domain(d) for d in self.zertifikat_domain_liste))
 
     @property
+    def git_server_konfiguriert(self) -> bool:
+        """``True``, wenn Adresse und Token des eigenen Git-Servers gesetzt sind."""
+        return bool(self.git_server_url and self.git_server_token)
+
+    @property
+    def github_konfiguriert(self) -> bool:
+        """``True``, wenn ein (nur lesendes) GitHub-Token gesetzt ist."""
+        return bool(self.github_token)
+
+    @property
     def caddy_konfiguriert(self) -> bool:
         """``True``, wenn Missa Subdomains in Caddy vorbereiten darf (Host und Domain)."""
         return bool(self.caddy_host and self.caddy_domain)
@@ -265,6 +288,19 @@ class Einstellungen:
             if kandidat.is_dir():
                 return kandidat
         return Path("/opt/missa/app/playbooks")
+
+    @property
+    def prompt_vorlage_datei(self) -> Path:
+        """Vorlage für Claude-Code-Prompts (Standard: config/prompts/claude-code.md)."""
+        if self.prompt_vorlage is not None:
+            return self.prompt_vorlage
+        for kandidat in (
+            Path("/opt/missa/app/config/prompts/claude-code.md"),
+            Path(__file__).parents[3] / "config" / "prompts" / "claude-code.md",
+        ):
+            if kandidat.is_file():
+                return kandidat
+        return Path("/opt/missa/app/config/prompts/claude-code.md")
 
     @property
     def stil_datei(self) -> Path:
@@ -362,6 +398,8 @@ class Einstellungen:
         ca_datei = env.get("PROXMOX_CA_DATEI", "").strip()
         fw_datei = env.get("FIREWALL_LOG_DATEI", "").strip()
         pb_ordner = env.get("PLAYBOOK_ORDNER", "").strip()
+        git_ca = env.get("GIT_SERVER_CA_DATEI", "").strip()
+        vorlage = env.get("PROMPT_VORLAGE", "").strip()
         try:
             warn_tage = tuple(
                 sorted({int(t) for t in liste("ZERTIFIKAT_WARNUNG_TAGE")}, reverse=True)
@@ -509,6 +547,17 @@ class Einstellungen:
             caddy_domain=env.get("CADDY_DOMAIN", "").strip().casefold().strip("."),
             minecraft_rcon_host=env.get("MINECRAFT_RCON_HOST", "").strip(),
             minecraft_rcon_port=zahl("MINECRAFT_RCON_PORT", 25575),
+            git_server_url=env.get("GIT_SERVER_URL", "").strip().rstrip("/"),
+            git_server_token=env.get("GIT_SERVER_TOKEN", "").strip(),
+            git_server_besitzer=env.get("GIT_SERVER_BESITZER", "").strip(),
+            git_server_ca_datei=Path(git_ca) if git_ca else None,
+            git_alte_branches_tage=max(1, zahl("GIT_ALTE_BRANCHES_TAGE", 14)),
+            github_token=env.get("GITHUB_TOKEN", "").strip(),
+            github_konto=env.get("GITHUB_KONTO", "").strip(),
+            github_repos=liste("GITHUB_REPOS"),
+            github_api_url=wert("GITHUB_API_URL", cls.github_api_url).rstrip("/"),
+            github_intervall_minuten=max(5, zahl("GITHUB_INTERVALL_MINUTEN", 30)),
+            prompt_vorlage=Path(vorlage) if vorlage else None,
         )
 
     def pruefen(self) -> None:
@@ -554,6 +603,15 @@ class Einstellungen:
                 )
             if not 0 < self.minecraft_rcon_port < 65536:
                 raise ValueError("MINECRAFT_RCON_PORT muss zwischen 1 und 65535 liegen")
+            if self.git_server_url and not self.git_server_url.startswith(("https://", "http://")):
+                raise ValueError("GIT_SERVER_URL muss mit https:// beginnen")
+            from missa.integrationen.github import repo_pruefen
+
+            for repo in self.github_repos:
+                try:
+                    repo_pruefen(repo)
+                except Exception as fehler:
+                    raise ValueError(f"GITHUB_REPOS: {fehler}") from fehler
         except ValueError as fehler:
             raise KonfigurationsFehler(str(fehler)) from fehler
         try:

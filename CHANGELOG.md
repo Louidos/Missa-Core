@@ -9,6 +9,16 @@ die Versionsnummern folgen [Semantic Versioning](https://semver.org/lang/de/).
 
 ### Hinzugefügt
 
+- Überblick über eigene Repos, Issues anlegen und Claude-Code-Prompts aus groben Ideen:
+  Missa erkennt den eigenen Git-Server (Gitea oder Forgejo), legt auf Zuruf Issues an
+  („Leg im Repo Missa-Core ein Issue an: …“), fasst offene Pull Requests zusammen und
+  meldet einmal pro Woche Branches ohne Commit seit 14 Tagen. Auf GitHub (Konto
+  Louidos, Token nur lesend) meldet sie fehlgeschlagene Actions-Builds als `wichtig`
+  sowie neue Releases und Issues als `info`. Aus einer groben Idee macht sie einen
+  Claude-Code-Prompt nach der Vorlage `config/prompts/claude-code.md` (immer mit
+  „Repo-Aufbau und Arbeitsweise“ und pro Gruppe Ziel, Aufgaben, Fertig-wenn,
+  CHANGELOG-Zeile und Commit), zeigt ihn und legt ihn erst nach deinem Ja als Issue
+  an; siehe docs/git-github-prompts.md (#60)
 - Subdomains in Caddy vorbereiten mit Freigabe und Minecraft-Verwaltung per RCON:
   „Mach spiel.louis-degiorgi.ch auf 10.0.70.120:8080“ zeigt den fertigen Caddy-Eintrag
   und sagt, ob noch ein DNS-Eintrag fehlt. Erst nach deinem Ja schreibt Missa die Datei
