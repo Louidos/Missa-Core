@@ -9,6 +9,12 @@ die Versionsnummern folgen [Semantic Versioning](https://semver.org/lang/de/).
 
 ### Hinzugefügt
 
+- Erinnerungen an Geburtstage und lange nicht angerufene Kontakte, E-Mail-Entwürfe im eigenen
+  Stil: „Wann hab ich Oma zuletzt angerufen?“ nennt Datum und Art des letzten Kontakts,
+  „hab heute Oma angerufen“ vermerkt Missa von selbst, und „Oma ist mir wichtig“ reicht – dann
+  erinnert sie nach 30 Tagen ohne Kontakt (`KONTAKTE_ABSTAND_TAGE`). Für die spätere Telefonie
+  gibt es `POST /api/kontakte/kontakt` (findet die Person über die Telefonnummer).
+  Mail-Entwürfe bleiben Entwürfe, bis du Ja sagst (#67)
 - To-dos aus Gesprächen, Notizen und Dateisuche in Nextcloud: Sagst du nebenbei „muss noch
   Rail-Kit bestellen“, legt Missa die Aufgabe in Nextcloud Tasks an und sagt es kurz (doppelte
   legt sie nicht an). „Schreib dir auf, dass …“ ergibt eine Notiz in Nextcloud Notes; Notizen
@@ -16,7 +22,6 @@ die Versionsnummern folgen [Semantic Versioning](https://semver.org/lang/de/).
   nach Namen, Text- und Markdown-Dateien liest sie vor. Schreiben darf Missa nur in ihrem
   eigenen Ordner `Missa/` (bestehende Dateien ergänzt sie nur), gelöscht wird nie etwas.
   Neu: `NEXTCLOUD_NOTIZEN_KATEGORIE`, `NEXTCLOUD_DATEIEN_ORDNER` (#65)
-
 - Kalender: volle Bearbeitung inkl. Farben, Hinweise zu Pausen, Puffern und Doppelbuchungen:
   Überschneidet sich ein neuer Termin mit einem anderen (in irgendeinem Kalender) oder
   bleiben bei verschiedenen Orten weniger als 30 Minuten, sagt Missa das **bevor** sie
@@ -28,6 +33,9 @@ die Versionsnummern folgen [Semantic Versioning](https://semver.org/lang/de/).
 
 ### Geändert
 
+- Geburtstags-Erinnerungen gibt es jetzt nur für wichtige Kontakte, am Vortag und am Morgen
+  des Tages (vorher: alle Kontakte, 3 Tage vorher). Wie früher: `KONTAKTE_GEBURTSTAGE=alle`
+  und `KONTAKTE_GEBURTSTAG_VORLAUF=3` (#67)
 - Bestehende Termine löscht oder verschiebt Missa nur noch nach deinem Ja (neues Werkzeug
   `termin_verschieben`; Farbe, Titel & Co. ändert sie weiter sofort) (#63)
 - Puffer- und Pausenblöcke trägt Missa nicht mehr ungefragt ein: Am Abend schlägt sie sie

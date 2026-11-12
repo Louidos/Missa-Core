@@ -4,9 +4,13 @@
 - **Wichtige Personen** markiert Louis im Chat („Oma mindestens alle 3 Wochen“). Wann er
   sich zuletzt gemeldet hat, kommt aus Mails (automatisch) oder aus dem Chat („hab gerade
   mit Oma telefoniert“); Anrufe kommen später dazu.
-- **Täglicher Auftrag** (``KONTAKTE_PRUEFZEIT``): legt für Geburtstage im Zeitplaner eine
-  Erinnerung einige Tage vorher und eine am Tag selbst an und erinnert freundlich, wenn
-  der gewünschte Abstand überschritten ist – mit einem freien Zeitpunkt aus dem Kalender.
+- **Täglicher Auftrag** (``KONTAKTE_PRUEFZEIT``): legt für Geburtstage (Standard: nur
+  wichtiger Kontakte) im Zeitplaner eine Erinnerung am Vortag und eine am Morgen des Tages
+  an und erinnert freundlich, wenn der gewünschte Abstand (Standard 30 Tage) überschritten
+  ist – mit einem freien Zeitpunkt aus dem Kalender.
+- **Letzter Kontakt** kommt aus dem Chat, aus Mails oder – später – von der Telefonie:
+  :meth:`Kontaktpflege.kontakt_von_aussen` (bzw. ``POST /api/kontakte/kontakt``) findet die
+  Person auch über die Telefonnummer.
 """
 
 from __future__ import annotations
@@ -266,6 +270,34 @@ def abstand_lesen(text: Any) -> int:
     raise WerkzeugFehler(f"„{text}“ verstehe ich nicht als Abstand (z. B. „3 Wochen“).")
 
 
+def telefon_schluessel(nummer: str) -> str:
+    """Vergleichbare Form einer Telefonnummer: die letzten 9 Ziffern (+41 79 … = 079 …)."""
+    ziffern = re.sub(r"\D", "", str(nummer))
+    return ziffern[-9:] if len(ziffern) >= 9 else ziffern
+
+
+KONTAKT_SATZ = re.compile(
+    r"\b(?:hab|habe|hatte)\s+(?P<wann>heute|gerade|eben|gestern|vorhin)?\s*"
+    r"(?:(?:mit|bei)\s+)?(?:der\s+|dem\s+|meiner\s+|meinem\s+)?(?P<name>[A-ZÄÖÜ][\wäöüß-]+)"
+    r"\s+(?:\w+\s+){0,2}(?P<art>angerufen|telefoniert|getroffen|geschrieben|besucht)",
+)
+KONTAKT_ARTEN = {
+    "angerufen": "Anruf",
+    "telefoniert": "Anruf",
+    "getroffen": "Treffen",
+    "besucht": "Treffen",
+    "geschrieben": "Nachricht",
+}
+
+
+def kontakt_satz(text: str) -> tuple[str, str, str] | None:
+    """(Name, wann, Art) aus „hab heute Oma angerufen“ – oder ``None``."""
+    if (treffer := KONTAKT_SATZ.search(str(text))) is None or str(text).rstrip().endswith("?"):
+        return None
+    wann = "gestern" if treffer.group("wann") == "gestern" else "heute"
+    return treffer.group("name"), wann, KONTAKT_ARTEN[treffer.group("art")]
+
+
 def abstand_text(tage: int) -> str:
     if tage % 30 == 0 and tage >= 30:
         monate = tage // 30
@@ -402,9 +434,11 @@ class Kontaktpflege:
         zeitplaner: Zeitplaner,
         adressbuch: Adressbuch | None = None,
         kalender: Kalender | None = None,
-        vorlauf_tage: int = 3,
+        vorlauf_tage: int = 1,
         pruefzeit: time = time(8, 0),
         uhr: Callable[[], datetime] | None = None,
+        nur_wichtige_geburtstage: bool = True,
+        standard_abstand: int = 30,
     ) -> None:
         self.datei = datei
         self.zone = zone
@@ -413,6 +447,8 @@ class Kontaktpflege:
         self.kalender = kalender
         self.vorlauf_tage = max(0, vorlauf_tage)
         self.pruefzeit = pruefzeit
+        self.nur_wichtige_geburtstage = nur_wichtige_geburtstage
+        self.standard_abstand = max(1, standard_abstand)
         self._uhr = uhr or (lambda: datetime.now(zone))
         #: Lässt Missa Erinnerungen in ihrem Charakter formulieren (Auftrag, Ersatztext).
         self.formulierer: Formulierer | None = None
@@ -542,8 +578,8 @@ class Kontaktpflege:
             zeilen.append(f"- {datum_lang(tag)}: {kontakt.name}{zusatz}")
         return f"Geburtstage in den nächsten {tage} Tagen:\n" + "\n".join(zeilen)
 
-    def wichtig_markieren(self, name: str, abstand: Any) -> str:
-        tage = abstand_lesen(abstand)
+    def wichtig_markieren(self, name: str, abstand: Any = None) -> str:
+        tage = self.standard_abstand if abstand in (None, "") else abstand_lesen(abstand)
         if tage < 1:
             raise WerkzeugFehler("Der Abstand muss mindestens einen Tag betragen.")
         eintrag = self._eintrag(name)
@@ -596,6 +632,77 @@ class Kontaktpflege:
         if eintrag.letzter_kontakt and eintrag.letzter_kontakt > tag:
             return
         self._setzen(eintrag.schluessel, letzter_kontakt=tag.isoformat(), letzte_art=art)
+
+    def letzter_kontakt(self, name: str) -> str:
+        """„Wann hab ich Oma zuletzt angerufen?“"""
+        try:
+            eintrag = self._eintrag(name, anlegen=False)
+        except WerkzeugFehler:
+            eintrag = None
+        if eintrag is None or eintrag.letzter_kontakt is None:
+            return (
+                f"Zu {name} habe ich keinen Kontakt vermerkt. Sag mir einfach Bescheid, wenn ihr "
+                "euch gemeldet habt („hab heute mit … telefoniert“)."
+            )
+        tage = (self.jetzt().date() - eintrag.letzter_kontakt).days
+        wann = "heute" if tage == 0 else "gestern" if tage == 1 else f"vor {tage} Tagen"
+        art = f" ({eintrag.letzte_art})" if eintrag.letzte_art else ""
+        text = (
+            f"Zuletzt Kontakt mit {eintrag.name}: {datum_lang(eintrag.letzter_kontakt)}{art} – "
+            f"{wann}."
+        )
+        if eintrag.abstand_tage and tage > eintrag.abstand_tage:
+            text += f" Das ist länger als gewünscht ({abstand_text(eintrag.abstand_tage)})."
+        return text
+
+    def kontakt_von_aussen(
+        self,
+        telefon: str | None = None,
+        email: str | None = None,
+        name: str | None = None,
+        zeitpunkt: datetime | None = None,
+        art: str = "Anruf",
+    ) -> Pflege | None:
+        """Vermerkt einen Kontakt aus einer anderen Quelle (Telefonie, App).
+
+        Die Person wird über Telefonnummer, E-Mail oder Namen im Adressbuch gefunden.
+        Gibt den aktualisierten Eintrag zurück – oder ``None``, wenn niemand passt.
+        """
+        tag = (zeitpunkt or self.jetzt()).astimezone(self.zone).date()
+        kontakt = None
+        if telefon and self.adressbuch is not None:
+            gesucht = telefon_schluessel(telefon)
+            kontakt = next(
+                (
+                    k
+                    for k in self.adressbuch.kontakte()
+                    if gesucht and any(telefon_schluessel(t) == gesucht for t in k.telefon)
+                ),
+                None,
+            )
+        if kontakt is None and email and self.adressbuch is not None:
+            kontakt = next(iter(self.adressbuch.suchen(email.strip())), None)
+        anzeige = kontakt.name if kontakt is not None else (name or "").strip()
+        if not anzeige:
+            log.info("Kontakt von außen (%s) passt zu niemandem im Adressbuch", art)
+            return None
+        eintrag = self._eintrag(anzeige)
+        self._eintragen_kontakt(eintrag, tag, art)
+        log.info("Kontakt mit %s am %s vermerkt (%s)", eintrag.name, tag.isoformat(), art)
+        return self._eintrag(anzeige, anlegen=False)
+
+    def kontext(self, frage: str) -> str | None:
+        """Hinweis an das Modell, wenn Louis erzählt, dass er jemanden angerufen hat."""
+        from missa.core.werkzeuge import im_hintergrund
+
+        if im_hintergrund.get() or (satz := kontakt_satz(frage)) is None:
+            return None
+        name, wann, art = satz
+        return (
+            "## Kontakt vermerken\n"
+            f"Louis hat erzählt, dass er Kontakt mit {name} hatte ({art}, {wann}). Vermerke das "
+            f"mit kontakt_gemeldet (name={name}, wann={wann}, art={art}) und bestätige es kurz."
+        )
 
     def wichtige_anzeigen(self) -> str:
         eintraege = self.alle()
@@ -655,8 +762,13 @@ class Kontaktpflege:
         jetzt = self.jetzt()
         heute = jetzt.date()
         anzahl = 0
+        wichtige = self.alle(nur_wichtige=True)
         for kontakt in self.adressbuch.kontakte():
             if kontakt.geburtstag is None:
+                continue
+            if self.nur_wichtige_geburtstage and not any(
+                e.schluessel == kontakt.schluessel or kontakt.passt(e.name) for e in wichtige
+            ):
                 continue
             tag = naechster_geburtstag(kontakt.geburtstag, heute)
             abstand = (tag - heute).days
@@ -825,15 +937,19 @@ def kontakt_werkzeuge(pflege: Kontaktpflege) -> list[Werkzeug]:
         ),
         Werkzeug(
             "kontakt_wichtig_markieren",
-            "Markiert eine Person als wichtig: Missa erinnert, wenn Louis sich länger als den "
-            "Abstand nicht gemeldet hat („Oma mindestens alle 3 Wochen“).",
+            "Markiert eine Person als wichtig: Missa erinnert an ihren Geburtstag (am Vortag "
+            "und am Morgen) und daran, wenn Louis sich länger als den Abstand nicht gemeldet "
+            "hat („Oma mindestens alle 3 Wochen“; ohne Angabe 30 Tage).",
             {
                 "type": "object",
                 "properties": {
                     "name": name,
-                    "abstand": {"type": "string", "description": "z. B. „3 Wochen“, „monatlich“"},
+                    "abstand": {
+                        "type": "string",
+                        "description": "z. B. „3 Wochen“, „monatlich“; weglassen = 30 Tage",
+                    },
                 },
-                "required": ["name", "abstand"],
+                "required": ["name"],
             },
             pflege.wichtig_markieren,
             stufe=Stufe.SCHREIBEN,
@@ -848,7 +964,7 @@ def kontakt_werkzeuge(pflege: Kontaktpflege) -> list[Werkzeug]:
         Werkzeug(
             "kontakt_gemeldet",
             "Vermerkt, dass Louis Kontakt mit einer Person hatte "
-            "(„hab gerade mit Oma telefoniert“).",
+            "(„hab gerade mit Oma telefoniert“, „hab heute Oma angerufen“ → art=Anruf).",
             {
                 "type": "object",
                 "properties": {
@@ -863,6 +979,14 @@ def kontakt_werkzeuge(pflege: Kontaktpflege) -> list[Werkzeug]:
             },
             pflege.gemeldet,
             stufe=Stufe.SCHREIBEN,
+        ),
+        Werkzeug(
+            "letzter_kontakt",
+            "Sagt, wann Louis zuletzt Kontakt mit einer Person hatte („Wann hab ich Oma "
+            "zuletzt angerufen?“) – mit Datum und Art (Anruf, Mail, Treffen).",
+            {"type": "object", "properties": {"name": name}, "required": ["name"]},
+            pflege.letzter_kontakt,
+            stufe=Stufe.LESEN,
         ),
         Werkzeug(
             "wichtige_kontakte_anzeigen",

@@ -33,8 +33,9 @@ Talk nutzen dieselbe Logik.
   zu blockieren (siehe docs/routinen-nachtschicht.md)
 - Fertig: E-Mail-Entwürfe im eigenen Schreibstil (IMAP/SMTP), gesendet wird nur nach
   ausdrücklichem Ja – die Senden-Sperre steckt im Code (siehe docs/email.md)
-- Fertig: Geburtstage aus Nextcloud-Kontakte (vorher und am Tag) und Kontaktpflege für
-  wichtige Personen mit Vorschlag eines freien Zeitpunkts (siehe docs/kontakte.md)
+- Fertig: Geburtstage wichtiger Kontakte (am Vortag und am Morgen), Kontaktpflege mit
+  Hinweis nach 30 Tagen ohne Kontakt, „Wann hab ich X zuletzt angerufen?“ und ein Anschluss
+  für die spätere Telefonie (siehe docs/kontakte.md)
 - Fertig: Pausen und Puffer – Missa prüft den Kalender jeden Abend und bei jeder neuen
   Terminanlage (Standard: 15 Min. Puffer, Pause nach 3 Std.), schlägt Puffer- und
   Pausenblöcke vor und trägt sie erst nach deinem Ja ein; Regeln per Gespräch änderbar

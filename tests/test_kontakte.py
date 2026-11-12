@@ -274,6 +274,7 @@ def pflege(tmp_path, planer, adressbuch, kalender, uhr) -> Kontaktpflege:
         vorlauf_tage=3,
         pruefzeit=time(8, 0),
         uhr=uhr,
+        nur_wichtige_geburtstage=False,  # die alten Tests prüfen alle Geburtstage
     )
 
 
@@ -458,6 +459,7 @@ def test_werkzeuge(pflege):
         "kontakt_wichtig_markieren",
         "kontakt_nicht_mehr_wichtig",
         "kontakt_gemeldet",
+        "letzter_kontakt",
         "wichtige_kontakte_anzeigen",
     ]
     ergebnis = asyncio.run(
