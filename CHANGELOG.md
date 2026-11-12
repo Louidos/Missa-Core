@@ -7,6 +7,8 @@ die Versionsnummern folgen [Semantic Versioning](https://semver.org/lang/de/).
 
 ## Unveröffentlicht
 
+## 0.9.0 – 2026-11-12
+
 ### Hinzugefügt
 
 - Fragen zur eigenen Doku mit Quellenangabe und Zusammenfassungen von PDFs, Mails und
