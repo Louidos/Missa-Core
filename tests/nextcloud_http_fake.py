@@ -25,12 +25,13 @@ class FakeNextcloudHttp:
         self.ordner: set[str] = {""}
         self.notizen: dict[int, dict[str, Any]] = {}
         self.anfragen: list[tuple[str, str]] = []
+        self.zeiten: dict[str, str] = {}
         self.transport = httpx.MockTransport(self._bearbeiten)
 
     # -------------------------------------------------------------- Hilfen
 
-    def datei(self, pfad: str, inhalt: str) -> None:
-        self.dateien[pfad] = inhalt.encode()
+    def datei(self, pfad: str, inhalt: str | bytes) -> None:
+        self.dateien[pfad] = inhalt.encode() if isinstance(inhalt, str) else inhalt
         teile = pfad.split("/")[:-1]
         for ende in range(1, len(teile) + 1):
             self.ordner.add("/".join(teile[:ende]))
@@ -61,7 +62,7 @@ class FakeNextcloudHttp:
         return (
             f"<d:response><d:href>{href}</d:href><d:propstat><d:prop>"
             f"<d:displayname>{pfad.rsplit('/', 1)[-1]}</d:displayname>{groesse}"
-            f"<d:getlastmodified>{GEAENDERT}</d:getlastmodified>"
+            f"<d:getlastmodified>{self.zeiten.get(pfad, GEAENDERT)}</d:getlastmodified>"
             f"<d:resourcetype>{typ}</d:resourcetype></d:prop></d:propstat></d:response>"
         )
 

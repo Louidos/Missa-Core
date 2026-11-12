@@ -27,6 +27,9 @@ im_hintergrund: ContextVar[bool] = ContextVar("im_hintergrund", default=False)
 #: ``True``, während ein zerstörerisches Werkzeug läuft, das Louis über die zentrale
 #: Rechte-Schicht ausdrücklich bestätigt hat (siehe :mod:`missa.core.rechte`).
 zentral_freigegeben: ContextVar[bool] = ContextVar("zentral_freigegeben", default=False)
+#: Louis' neue Nachricht der laufenden Anfrage (``None`` im Hintergrund). Werkzeuge prüfen
+#: damit z. B., dass eine URL wirklich von Louis kommt und nicht vom Modell erfunden ist.
+louis_nachricht: ContextVar[str | None] = ContextVar("louis_nachricht", default=None)
 
 
 class Stufe(StrEnum):
@@ -201,6 +204,7 @@ class Werkzeugkasten:
 
         marke = aktuelle_anfrage.set(anfrage_id)
         freigabe = zentral_freigegeben.set(bestaetigt)
+        von_louis = louis_nachricht.set(None if im_hintergrund.get() else nachricht)
         try:
             ergebnis = await self._aufrufen(werkzeug, argumente)
         except WerkzeugFehler as fehler:
@@ -211,6 +215,7 @@ class Werkzeugkasten:
             protokoll("fehlgeschlagen", str(fehler) or type(fehler).__name__, argumente, bestaetigt)
             return f"Fehler beim Ausführen von {name}: {fehler or type(fehler).__name__}"
         finally:
+            louis_nachricht.reset(von_louis)
             zentral_freigegeben.reset(freigabe)
             aktuelle_anfrage.reset(marke)
 

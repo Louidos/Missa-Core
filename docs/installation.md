@@ -133,6 +133,8 @@ und das App-Passwort lässt sich jederzeit einzeln widerrufen.
 | `NEXTCLOUD_AUFGABEN_LISTE` | – | für Aufgaben | Anzeigename der Liste in der App „Aufgaben“. |
 | `NEXTCLOUD_ADRESSBUCH` | – (alle) | nein | Adressbuch für Geburtstage und Kontaktpflege (Anzeigename, z. B. `Kontakte`). |
 | `NEXTCLOUD_NOTIZEN_KATEGORIE` | `Missa` | nein | Kategorie in Nextcloud Notes für neue Notizen (leer = ohne). |
+| `NEXTCLOUD_DOKU_ORDNER` | – | nein | Ordner mit Projektdoku und Notizen für den lokalen Doku-Index, kommagetrennt (z. B. `Doku,Notes`); siehe [doku-wissen.md](doku-wissen.md). |
+| `DOKU_INDEX_ZEIT` | `02:30` | nein | Tägliche Aktualisierung des Doku-Index. |
 | `NEXTCLOUD_DATEIEN_ORDNER` | `Missa` | nein | Missas eigener Ordner in Nextcloud-Dateien – nur dort schreibt sie (siehe [nextcloud-dateien.md](nextcloud-dateien.md)). |
 | `KONTAKTE_GEBURTSTAG_VORLAUF` | `1` | nein | So viele Tage vor einem Geburtstag erinnert Missa (zusätzlich am Morgen des Tages); `0` = nur am Tag. |
 | `KONTAKTE_GEBURTSTAGE` | `wichtige` | nein | Geburtstags-Erinnerungen für `wichtige` Kontakte oder für `alle`. |

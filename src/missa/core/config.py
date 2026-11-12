@@ -66,6 +66,8 @@ class Einstellungen:
     nextcloud_adressbuch: str = ""
     nextcloud_notizen_kategorie: str = "Missa"
     nextcloud_dateien_ordner: str = "Missa"
+    nextcloud_doku_ordner: tuple[str, ...] = ()
+    doku_index_zeit: time = time(2, 30)
     kontakte_geburtstag_vorlauf: int = 1
     kontakte_alle_geburtstage: bool = False
     kontakte_abstand_tage: int = 30
@@ -469,6 +471,12 @@ class Einstellungen:
             nextcloud_notizen_kategorie=env.get(
                 "NEXTCLOUD_NOTIZEN_KATEGORIE", cls.nextcloud_notizen_kategorie
             ).strip(),
+            nextcloud_doku_ordner=tuple(
+                teil.strip().strip("/")
+                for teil in env.get("NEXTCLOUD_DOKU_ORDNER", "").split(",")
+                if teil.strip().strip("/")
+            ),
+            doku_index_zeit=uhrzeit("DOKU_INDEX_ZEIT", "02:30"),
             nextcloud_dateien_ordner=wert(
                 "NEXTCLOUD_DATEIEN_ORDNER", cls.nextcloud_dateien_ordner
             ).strip("/ "),

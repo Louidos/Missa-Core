@@ -9,6 +9,14 @@ die Versionsnummern folgen [Semantic Versioning](https://semver.org/lang/de/).
 
 ### Hinzugefügt
 
+- Fragen zur eigenen Doku mit Quellenangabe und Zusammenfassungen von PDFs, Mails und
+  Webseiten: Missa indexiert deine Projektdokus und Notizen aus `NEXTCLOUD_DOKU_ORDNER` lokal
+  (täglich aktualisiert) und beantwortet „Welche IP hat rp01?“ mit Antwort und Dateiname –
+  steht es nicht drin, sagt sie „weiß ich nicht“ statt zu raten. „Fass mir das zusammen:
+  <Link>“, ein PDF aus Nextcloud oder eine lange Mail fasst sie kurz zusammen und beantwortet
+  Rückfragen dazu; lange Texte verarbeitet sie in Stücken im Hintergrund, sehr lange in der
+  Nachtschicht. Webseiten ruft sie nur auf, wenn du ihr den Link selbst schickst (#71)
+
 - Langzeitgedächtnis, Lernen aus Korrekturen und tägliche Sicherung mit Wiederherstellung:
   Missa findet auch frühere Gespräche wieder („was hab ich dir vorgestern über den Server
   erzählt?“), merkt sich Vorlieben, Entscheidungen und Projekte mit Datum und ersetzt ähnliche
