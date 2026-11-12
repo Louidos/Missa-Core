@@ -7,6 +7,8 @@ die Versionsnummern folgen [Semantic Versioning](https://semver.org/lang/de/).
 
 ## Unveröffentlicht
 
+## 0.8.0 – 2026-11-12
+
 ### Hinzugefügt
 
 - Überblick über eigene Repos, Issues anlegen und Claude-Code-Prompts aus groben Ideen:
