@@ -138,6 +138,7 @@ def einstellungen(tmp_path: Path, charakter_datei: Path) -> Einstellungen:
         daten=tmp_path / "daten",
         llama_url="http://llama.test",
         llama_api_key_file=tmp_path / "llama.key",
+        backup_ordner_einstellung=tmp_path / "backup",
     )
 
 

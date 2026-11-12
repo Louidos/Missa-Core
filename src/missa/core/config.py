@@ -84,6 +84,10 @@ class Einstellungen:
     pausen_pruefzeit: time = time(19, 0)
     nachtschicht_von: time = time(1, 0)
     nachtschicht_bis: time = time(6, 0)
+    backup_aktiv: bool = True
+    backup_ordner_einstellung: Path | None = None
+    backup_behalten: int = 14
+    backup_zeit: time = time(3, 30)
     bestaetigung_minuten: int = 10
     monitoring_url: str = ""
     monitoring_token: str = ""
@@ -331,6 +335,11 @@ class Einstellungen:
         )
 
     @property
+    def backup_ordner(self) -> Path:
+        """Ordner für Backups: ``MISSA_BACKUP_ORDNER`` oder ``MISSA_DATEN/backup``."""
+        return self.backup_ordner_einstellung or self.daten / "backup"
+
+    @property
     def datenbank(self) -> Path:
         """SQLite-Datei für Verlauf und Gedächtnis."""
         return self.daten / "missa.db"
@@ -481,6 +490,12 @@ class Einstellungen:
             pausen_pruefzeit=uhrzeit("PAUSEN_PRUEFZEIT", "19:00"),
             nachtschicht_von=uhrzeit("NACHTSCHICHT_VON", "01:00"),
             nachtschicht_bis=uhrzeit("NACHTSCHICHT_BIS", "06:00"),
+            backup_aktiv=wert("MISSA_BACKUP_AKTIV", "true").casefold() in WAHR,
+            backup_ordner_einstellung=Path(env["MISSA_BACKUP_ORDNER"].strip())
+            if env.get("MISSA_BACKUP_ORDNER", "").strip()
+            else None,
+            backup_behalten=max(1, zahl("MISSA_BACKUP_BEHALTEN", 14)),
+            backup_zeit=uhrzeit("MISSA_BACKUP_ZEIT", "03:30"),
             bestaetigung_minuten=max(1, zahl("MISSA_BESTAETIGUNG_MINUTEN", 10)),
             monitoring_url=env.get("MONITORING_URL", "").strip(),
             monitoring_token=env.get("MONITORING_TOKEN", "").strip(),

@@ -9,6 +9,16 @@ die Versionsnummern folgen [Semantic Versioning](https://semver.org/lang/de/).
 
 ### Hinzugefügt
 
+- Langzeitgedächtnis, Lernen aus Korrekturen und tägliche Sicherung mit Wiederherstellung:
+  Missa findet auch frühere Gespräche wieder („was hab ich dir vorgestern über den Server
+  erzählt?“), merkt sich Vorlieben, Entscheidungen und Projekte mit Datum und ersetzt ähnliche
+  alte Einträge, statt sie doppelt zu führen. Auf „Das war falsch, …“ speichert sie die
+  Korrektur und antwortet beim nächsten Mal richtig. „Vergiss das mit dem Kaffee“ löscht nach
+  deinem Ja alle Fakten und Gesprächsnachrichten zum Thema endgültig. Jede Nacht um 03:30
+  entsteht ein Backup (Gedächtnis, Charakter, Regeln, Routinen, Konfiguration ohne
+  Geheimnisse) in `MISSA_DATEN/backup`, die neuesten 14 bleiben; zurückspielen mit
+  `sudo scripts/wiederherstellen.sh` (#69)
+
 - Erinnerungen an Geburtstage und lange nicht angerufene Kontakte, E-Mail-Entwürfe im eigenen
   Stil: „Wann hab ich Oma zuletzt angerufen?“ nennt Datum und Art des letzten Kontakts,
   „hab heute Oma angerufen“ vermerkt Missa von selbst, und „Oma ist mir wichtig“ reicht – dann

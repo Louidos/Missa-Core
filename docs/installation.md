@@ -149,6 +149,10 @@ und das App-Passwort lässt sich jederzeit einzeln widerrufen.
 | `PAUSEN_MAX_STUNDEN` | `8` | nein | Ab so vielen Stunden Terminen gilt ein Tag als zu voll. |
 | `PAUSEN_WEGZEIT_MINUTEN` | `30` | nein | Mindestabstand zwischen Terminen an verschiedenen Orten (keine Wegzeit-Dienste, nur diese Regel). |
 | `PAUSEN_PRUEFZEIT` | `19:00` | nein | Abendliche Prüfung des nächsten Tages. |
+| `MISSA_BACKUP_AKTIV` | `true` | nein | Tägliches Backup ein/aus (siehe [sicherung.md](sicherung.md)). |
+| `MISSA_BACKUP_ORDNER` | `MISSA_DATEN/backup` | nein | Ordner für Backups; ein anderer Ordner muss in der systemd-Unit unter `ReadWritePaths` stehen. |
+| `MISSA_BACKUP_BEHALTEN` | `14` | nein | So viele Backups bleiben liegen. |
+| `MISSA_BACKUP_ZEIT` | `03:30` | nein | Uhrzeit des täglichen Backups. |
 | `NACHTSCHICHT_VON` / `NACHTSCHICHT_BIS` | `01:00` / `06:00` | nein | Nachtfenster für lange Aufgaben; am Ende kommt der Morgenbericht. Im Gespräch geänderte Zeiten haben Vorrang (siehe [routinen-nachtschicht.md](routinen-nachtschicht.md)). |
 | `MONITORING_URL` / `MONITORING_TOKEN` | leer | nein | Eigenes Monitoring-Tool (JSON, Format in [monitoring.md](monitoring.md)); leer = aus. |
 | `HOMEPAGE_URL` | leer | nein | Homepage-Dashboard: Status der Dienste mit `siteMonitor`; leer = aus. |
