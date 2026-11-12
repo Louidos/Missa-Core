@@ -23,6 +23,9 @@ Talk nutzen dieselbe Logik.
 - Fertig: Langzeitgedächtnis (merken mit Datum, erinnern, vergessen – auch ganze Themen
   samt Gesprächen; frühere Gespräche durchsuchbar; lernt aus Korrekturen und ersetzt alte
   Einträge statt sie doppelt zu führen; Übersicht unter `GET /api/gedaechtnis`)
+- Fertig: Fragen zur eigenen Doku mit Quellenangabe (lokaler Index über Nextcloud-Ordner, ohne
+  Treffer „weiß ich nicht“) und Zusammenfassungen von PDFs, Mails und Webseiten, lange Texte
+  in Stücken im Hintergrund oder in der Nachtschicht (siehe docs/doku-wissen.md)
 - Fertig: Tägliches Backup (Gedächtnis, Charakter, Regeln, Routinen, Konfiguration ohne
   Geheimnisse, 14 behalten) und Wiederherstellen per Script (siehe docs/sicherung.md)
 - Fertig: systemd-Dienst, Installationsanleitung und API-Doku
@@ -94,6 +97,8 @@ Talk nutzen dieselbe Logik.
 - **[docs/email.md](docs/email.md)** – E-Mail-Entwürfe im eigenen Stil: Einrichtung
   (`MAIL_*`), Senden-Sperre, Schreibstil-Profil
 - **[docs/kontakte.md](docs/kontakte.md)** – Geburtstage und Kontaktpflege
+- **[docs/doku-wissen.md](docs/doku-wissen.md)** – Fragen zur eigenen Doku mit Quelle,
+  Zusammenfassungen von PDFs, Mails und Webseiten
 - **[docs/gedaechtnis.md](docs/gedaechtnis.md)** – Langzeitgedächtnis, Korrekturen, Vergessen
 - **[docs/sicherung.md](docs/sicherung.md)** – tägliches Backup, Wiederherstellen mit
   `sudo scripts/wiederherstellen.sh`

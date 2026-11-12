@@ -26,6 +26,8 @@ if TYPE_CHECKING:
     from missa.tools.caddy import CaddyVerwaltung
     from missa.tools.container import ContainerDienst
     from missa.tools.dateien import Dateien
+    from missa.tools.doku import DokuIndex
+    from missa.tools.dokumente import Dokumente
     from missa.tools.erreichbarkeit import ErreichbarkeitsWaechter
     from missa.tools.fehlersuche import Fehlersuche
     from missa.tools.firewall import FirewallLog
@@ -121,6 +123,8 @@ def werkzeuge_laden(
     pausen: PausenWaechter | None = None,
     hintergrund: Hintergrund | None = None,
     sicherung: Sicherung | None = None,
+    doku: DokuIndex | None = None,
+    dokumente: Dokumente | None = None,
     rechte: Rechte | None = None,
     protokoll: Aktionsprotokoll | None = None,
     alarme: Alarme | None = None,
@@ -166,6 +170,18 @@ def werkzeuge_laden(
         from missa.tools.erinnerungen import erinnerungs_werkzeuge
 
         for werkzeug in erinnerungs_werkzeuge(zeitplaner, bestaetigungen):
+            kasten.hinzufuegen(werkzeug)
+
+    if doku is not None:
+        from missa.tools.doku import doku_werkzeuge
+
+        for werkzeug in doku_werkzeuge(doku):
+            kasten.hinzufuegen(werkzeug)
+
+    if dokumente is not None:
+        from missa.tools.dokumente import dokument_werkzeuge
+
+        for werkzeug in dokument_werkzeuge(dokumente):
             kasten.hinzufuegen(werkzeug)
 
     if sicherung is not None:

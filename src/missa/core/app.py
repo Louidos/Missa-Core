@@ -186,6 +186,30 @@ def create_app(
         pausen = pausen_waechter_bauen(einstellungen, zeitplaner, nextcloud.kalender)
     if pausen is not None:
         zeitplaner.taeglich("pausen", einstellungen.pausen_pruefzeit, pausen.abends_pruefen)
+    from missa.tools.dokumente import Dokumente
+
+    doku = None
+    if (
+        nextcloud is not None
+        and nextcloud.dateien is not None
+        and einstellungen.nextcloud_doku_ordner
+    ):
+        from missa.tools.doku import DokuIndex
+
+        doku = DokuIndex(
+            einstellungen.datenbank,
+            nextcloud.dateien,
+            list(einstellungen.nextcloud_doku_ordner),
+            einstellungen.zone,
+        )
+        zeitplaner.taeglich("doku-index", einstellungen.doku_index_zeit, doku.taeglich)
+    dokumente = Dokumente(
+        einstellungen.datenbank,
+        einstellungen.zone,
+        dateien=nextcloud.dateien if nextcloud is not None else None,
+        mail_konto=mail_dienst.konto if mail_dienst is not None else None,
+        hintergrund=hintergrund,
+    )
     # Server-Alarme: Stufen, Ruhezeit und Ruhefenster gelten für alle Meldungen.
     alarme = alarme_bauen(einstellungen, zeitplaner)
     if server_waechter is None and einstellungen.server_monitoring_konfiguriert:
@@ -287,6 +311,8 @@ def create_app(
             pausen=pausen,
             hintergrund=hintergrund,
             sicherung=sicherung,
+            doku=doku,
+            dokumente=dokumente,
             rechte=rechte,
             protokoll=protokoll,
             alarme=alarme,
@@ -332,6 +358,10 @@ def create_app(
         kontext_quellen.append(homelab.kontext)
     if kontaktpflege is not None:
         kontext_quellen.append(kontaktpflege.kontext)
+    if doku is not None:
+        kontext_quellen.append(doku.kontext)
+    if "zusammenfassen" in werkzeuge:
+        kontext_quellen.append(dokumente.kontext)
     if "aufgabe_erstellen" in werkzeuge:
         from missa.tools.todo_erkennung import aufgaben_hinweis
 
@@ -372,6 +402,7 @@ def create_app(
         return await dienst.hintergrund_ausfuehren(auftrag.auftrag_fuer_missa())
 
     hintergrund.ausfuehrer = hintergrund_ausfuehren
+    dokumente.formulierer = dienst.formulieren
     gestartet = int(time.time())
 
     @asynccontextmanager
@@ -410,6 +441,8 @@ def create_app(
     app.state.zeitplaner = zeitplaner
     app.state.hintergrund = hintergrund
     app.state.sicherung = sicherung
+    app.state.doku = doku
+    app.state.dokumente = dokumente
     app.state.mail = mail_dienst
     app.state.kontaktpflege = kontaktpflege
     app.state.pausen = pausen

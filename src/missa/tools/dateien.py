@@ -261,6 +261,17 @@ class Dateien:
             raise WerkzeugFehler(f"„{pfad}“ nicht lesbar ({antwort.status_code})")
         return antwort.content[:MAX_BYTES].decode("utf-8", errors="replace")
 
+    def bytes_holen(self, pfad: str, max_bytes: int = 20_000_000) -> bytes:
+        """Rohdaten einer Datei (z. B. PDF zum Zusammenfassen), höchstens ``max_bytes``."""
+        antwort = self._anfrage("GET", str(pfad).strip("/"))
+        if antwort.status_code == 404:
+            raise WerkzeugFehler(f"Die Datei „{pfad}“ gibt es nicht. Such sie mit dateien_suchen.")
+        if antwort.status_code >= 400:
+            raise WerkzeugFehler(f"„{pfad}“ nicht lesbar ({antwort.status_code})")
+        if len(antwort.content) > max_bytes:
+            raise WerkzeugFehler(f"„{pfad}“ ist zu groß (über {max_bytes // 1_000_000} MB).")
+        return antwort.content
+
     def alle_textdateien(self, ordner: str) -> list[dict[str, Any]]:
         """Alle Textdateien unter ``ordner`` (rekursiv per PROPFIND, für den Index)."""
         ergebnis: list[dict[str, Any]] = []

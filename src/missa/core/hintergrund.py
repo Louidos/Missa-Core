@@ -212,6 +212,8 @@ class Hintergrund:
         self._uhr = uhr or zeitplaner.jetzt
         #: Übergibt Aufträge an Missa (setzt die App: ChatDienst.hintergrund_ausfuehren).
         self.ausfuehrer: Ausfuehrer | None = None
+        #: Eigene Ausführung je Herkunft (z. B. „zusammenfassung“ für lange Dokumente).
+        self.handler: dict[str, Ausfuehrer] = {}
         self._task: asyncio.Task[None] | None = None
         self._loop: asyncio.AbstractEventLoop | None = None
         self._wecker: asyncio.Event | None = None
@@ -427,11 +429,12 @@ class Hintergrund:
         )
         log.info("Hintergrund-Auftrag #%s startet (Versuch %d)", auftrag.id, versuche)
         try:
-            if self.ausfuehrer is None:
+            ausfuehrer = self.handler.get(auftrag.herkunft, self.ausfuehrer)
+            if ausfuehrer is None:
                 raise RuntimeError("keine Ausführung eingerichtet")
             marke = im_hintergrund.set(True)
             try:
-                ergebnis = (await self.ausfuehrer(auftrag)).strip()
+                ergebnis = (await ausfuehrer(auftrag)).strip()
             finally:
                 im_hintergrund.reset(marke)
             if not ergebnis:
@@ -478,11 +481,17 @@ class Hintergrund:
     def _abschliessen(self, auftrag: HintergrundAuftrag) -> None:
         """Ergebnis melden: Routinen sofort, Nachtaufgaben im Morgenbericht."""
         if auftrag.zustellen:
+            zeichen = "📄" if auftrag.herkunft == "zusammenfassung" else "🔁"
             if auftrag.status == "fertig":
-                text = f"🔁 {auftrag.titel}\n\n{auftrag.ergebnis}"
+                text = f"{zeichen} {auftrag.titel}\n\n{auftrag.ergebnis}"
+            elif auftrag.herkunft == "zusammenfassung":
+                text = (
+                    f"{zeichen} „{auftrag.titel}“ konnte ich leider nicht zusammenfassen "
+                    f"({auftrag.fehler})."
+                )
             else:
                 text = (
-                    f"🔁 Deine Routine „{auftrag.titel}“ konnte ich leider nicht ausführen "
+                    f"{zeichen} Deine Routine „{auftrag.titel}“ konnte ich leider nicht ausführen "
                     f"({auftrag.fehler}). Beim nächsten Mal versuche ich es wieder."
                 )
             self.zeitplaner.anlegen(
