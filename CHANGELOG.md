@@ -7,6 +7,25 @@ die Versionsnummern folgen [Semantic Versioning](https://semver.org/lang/de/).
 
 ## Unveröffentlicht
 
+### Hinzugefügt
+
+- Kalender: volle Bearbeitung inkl. Farben, Hinweise zu Pausen, Puffern und Doppelbuchungen:
+  Überschneidet sich ein neuer Termin mit einem anderen (in irgendeinem Kalender) oder
+  bleiben bei verschiedenen Orten weniger als 30 Minuten, sagt Missa das **bevor** sie
+  einträgt und schlägt eine freie Zeit vor. Nach 3 Stunden Terminen am Stück weist sie auf
+  eine fehlende Pause hin – beim Eintragen, in der Tagesübersicht („Was habe ich morgen?“)
+  und am Vorabend. Puffer, Pausenregel und Abstand bei Ortswechsel lassen sich im Gespräch
+  ändern („Mach 20 Minuten Puffer“) und bleiben gespeichert; neu dazu `PAUSEN_NACH_STUNDEN`
+  und `PAUSEN_PAUSE_MINUTEN` (#63)
+
+### Geändert
+
+- Bestehende Termine löscht oder verschiebt Missa nur noch nach deinem Ja (neues Werkzeug
+  `termin_verschieben`; Farbe, Titel & Co. ändert sie weiter sofort) (#63)
+- Puffer- und Pausenblöcke trägt Missa nicht mehr ungefragt ein: Am Abend schlägt sie sie
+  vor, und erst auf „Ja, trag ein“ landen sie im Kalender „Pausen“. Der Standard-Puffer ist
+  jetzt 15 statt 10 Minuten (#63)
+
 ## 0.8.0 – 2026-11-12
 
 ### Hinzugefügt

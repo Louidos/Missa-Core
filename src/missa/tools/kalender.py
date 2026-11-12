@@ -1,11 +1,17 @@
 """Werkzeuge für den Nextcloud-Kalender: volle Kontrolle für Missa.
 
-Missa darf im Kalender alles ohne Rückfrage: Termine anlegen, ändern,
-verschieben und löschen, Farben (``COLOR``), Kategorien, Erinnerungen
-(``VALARM``), Wiederholungen (``RRULE`` mit einzelnen Ausnahmen), ganztägige
-Termine und eigene Kalender (anlegen, umbenennen, einfärben).
+Missa darf im Kalender Termine anlegen und ändern, Farben (``COLOR``), Kategorien,
+Erinnerungen (``VALARM``), Wiederholungen (``RRULE`` mit einzelnen Ausnahmen),
+ganztägige Termine und eigene Kalender (anlegen, umbenennen, einfärben).
 
 Dafür gilt:
+
+- **Bestehende Termine löschen oder verschieben nur nach Rückfrage:** ``termin_loeschen``
+  und ``termin_verschieben`` sind ``zerstoererisch`` und laufen erst nach Louis' Ja
+  (zentrale Rechte-Schicht, zusätzlich hier im Code).
+- **Konflikte vor dem Eintragen:** Überschneidet ein neuer (oder verschobener) Termin
+  einen bestehenden oder fehlt die Zeit für einen Ortswechsel, meldet Missa das
+  *bevor* sie einträgt und schlägt eine freie Zeit vor (``vor_pruefungen``).
 
 - **Protokoll:** Jede Änderung wird mit Zustand vorher/nachher gespeichert und
   lässt sich mit ``kalender_rueckgaengig`` zurücknehmen.
@@ -30,7 +36,7 @@ from caldav.lib import error as caldav_fehler
 
 from missa.core.prompt import datum_lang
 from missa.core.werkzeuge import Stufe, Werkzeug, WerkzeugFehler
-from missa.tools.bestaetigung import Bestaetigungen, zustimmung_pruefen
+from missa.tools.bestaetigung import Bestaetigungen, loeschen_pruefen, zustimmung_pruefen
 from missa.tools.farben import Farbsystem, farbe_lesen, farbe_name
 from missa.tools.kalender_protokoll import KalenderProtokoll
 from missa.tools.nextcloud import (
@@ -52,6 +58,8 @@ from missa.tools.nextcloud import (
 
 #: Längster Zeitraum, den termine_anzeigen auf einmal liefert.
 MAX_TAGE = 366
+#: Bis zu so vielen Tagen bekommt termine_anzeigen Hinweise zu Pausen und Konflikten.
+UEBERSICHT_TAGE = 2
 #: Zeitfenster, in dem ein Termin über seine kurze ID gesucht wird.
 SUCHFENSTER_ZURUECK = timedelta(days=366)
 SUCHFENSTER_VOR = timedelta(days=2 * 366)
@@ -65,6 +73,9 @@ KOSMETISCH = frozenset({"farbe", "kategorien", "erinnerungen"})
 #: Wird nach jeder Terminänderung mit dem betroffenen Tag aufgerufen (z. B. Pausen-Prüfung).
 #: Erhält den Tag und die UID des geänderten Termins.
 NachPruefung = Callable[[date, str | None], str | None]
+#: Wird vor dem Eintragen/Verschieben aufgerufen: (Beginn, Ende, Titel, Ort, UID des
+#: Termins selbst oder None). Ein Text bedeutet: Konflikt – erst nach Rückfrage eintragen.
+VorPruefung = Callable[[datetime, datetime, str, str, str | None], str | None]
 
 
 @dataclass(frozen=True)
@@ -305,6 +316,7 @@ class Kalender:
         self.protokoll = protokoll
         self.farbsystem = farbsystem
         self.nach_pruefungen: list[NachPruefung] = []
+        self.vor_pruefungen: list[VorPruefung] = []
 
     # -------------------------------------------------------------- Zugriff
 
@@ -344,6 +356,26 @@ class Kalender:
                 except Exception:  # Hinweise dürfen die Änderung nie scheitern lassen
                     continue
         return ("\n\n" + "\n".join(hinweise)) if hinweise else ""
+
+    def _vorpruefen(
+        self,
+        beginn: date | datetime,
+        schluss: date | datetime,
+        titel: str,
+        ort: str | None,
+        uid: str | None,
+    ) -> str:
+        """Konflikte (Doppelbuchung, zu knapper Ortswechsel) vor dem Eintragen."""
+        if not isinstance(beginn, datetime) or not isinstance(schluss, datetime):
+            return ""  # ganztägige Termine blockieren keine Uhrzeit
+        hinweise = []
+        for pruefung in self.vor_pruefungen:
+            try:
+                if text := pruefung(beginn, schluss, titel, ort or "", uid):
+                    hinweise.append(text)
+            except Exception:  # eine kaputte Prüfung darf das Eintragen nicht verhindern
+                continue
+        return "\n".join(hinweise)
 
     # -------------------------------------------------------------- Anzeige
 
@@ -413,7 +445,15 @@ class Kalender:
             return f"Keine Termine {namen} für {zeitraum}."
         eintraege.sort(key=lambda eintrag: eintrag[0])
         zeilen = "\n".join(zeile for _, zeile in eintraege)
-        return f"Termine {namen} für {zeitraum}:\n{zeilen}"
+        text = f"Termine {namen} für {zeitraum}:\n{zeilen}"
+        if (letzter_tag - start.date()).days < UEBERSICHT_TAGE:
+            # Tagesübersicht: auf Pausen, Puffer und Konflikte hinweisen.
+            tage = [
+                start.date() + timedelta(days=n)
+                for n in range((letzter_tag - start.date()).days + 1)
+            ]
+            text += self._nachpruefen(None, *tage)
+        return text
 
     def belegungen(
         self, start: datetime, ende: datetime, kalender: list[str] | None = None
@@ -604,6 +644,22 @@ class Kalender:
             self._wiederholung_setzen(termin, wiederholung)
         _, zeile = self._beschreiben(termin)
 
+        if konflikt := self._vorpruefen(beginn, schluss, titel, ort, None):
+            pruefsumme = hashlib.sha1(f"{name}|{titel}|{beginn}|{schluss}".encode()).hexdigest()
+            sperre = zustimmung_pruefen(
+                self.bestaetigungen,
+                "konflikt:" + pruefsumme,
+                bool(bestaetigt),
+                f"Geplant: {zeile[2:]}\n{konflikt}",
+                "termin_eintragen",
+                "gleiche Parameter",
+                "NICHTS EINGETRAGEN – der Termin kollidiert mit dem Kalender. Sag Louis, womit, "
+                "und frag, ob du ihn trotzdem so eintragen oder lieber die vorgeschlagene Zeit "
+                "nehmen sollst:",
+            )
+            if sperre:
+                return sperre
+
         if adressen:
             sperre = self._einladung_pruefen(
                 "neu", f"{titel}|{beginn}", zeile, adressen, bool(bestaetigt), "termin_eintragen"
@@ -751,6 +807,104 @@ class Kalender:
         self,
         termin_id: str,
         titel: str | None = None,
+        ort: str | None = None,
+        notiz: str | None = None,
+        farbe: str | None = None,
+        kategorien: Any = None,
+        erinnerungen: Any = None,
+        wiederholung: str | None = None,
+        nur_am: str | None = None,
+        teilnehmer: Any = None,
+        kalender: str | None = None,
+        bestaetigt: bool = False,
+        start: str | None = None,
+        ende: str | None = None,
+        ganztaegig: bool | None = None,
+    ) -> str:
+        """Ändert alles außer der Zeit. Verschieben geht nur über :meth:`termin_verschieben`."""
+        if start or ende or ganztaegig is not None:
+            raise WerkzeugFehler(
+                "Die Zeit eines bestehenden Termins zu ändern heißt verschieben – dafür gibt es "
+                "termin_verschieben (Louis muss vorher zustimmen). Andere Angaben (Titel, Ort, "
+                "Farbe …) kannst du hier ohne Zeitangaben ändern."
+            )
+        return self._aendern(
+            termin_id,
+            titel=titel,
+            ort=ort,
+            notiz=notiz,
+            farbe=farbe,
+            kategorien=kategorien,
+            erinnerungen=erinnerungen,
+            wiederholung=wiederholung,
+            nur_am=nur_am,
+            teilnehmer=teilnehmer,
+            kalender=kalender,
+            bestaetigt=bestaetigt,
+        )
+
+    def termin_verschieben(
+        self,
+        termin_id: str,
+        start: str,
+        ende: str | None = None,
+        ganztaegig: bool | None = None,
+        nur_am: str | None = None,
+        kalender: str | None = None,
+        bestaetigt: bool = False,
+    ) -> str:
+        """Verschiebt einen bestehenden Termin – nur nach Louis' Zustimmung.
+
+        Ohne ``bestaetigt`` (bzw. ohne frühere Rückfrage) passiert nichts: Es kommt
+        eine Beschreibung mit vorher/nachher, Konflikten und betroffenen Personen.
+        """
+        if not start:
+            raise WerkzeugFehler("Wohin soll der Termin? start fehlt.")
+        name, _objekt, haupt = self._termin_finden(termin_id, kalender)
+        uid = text_feld(haupt, "uid")
+        _, zeile_vorher = self._beschreiben(haupt)
+        alt_start = haupt["dtstart"].dt
+        dauer = ende_berechnen(haupt, alt_start) - alt_start
+        beginn, schluss = self._zeiten(start, ende, ganztaegig, dauer)
+        teile = [
+            f"Termin: {zeile_vorher[2:]}" + (f" (nur das Vorkommen am {nur_am})" if nur_am else ""),
+            f"Neu: {zeitraum_text(beginn, schluss)}",
+        ]
+        if konflikt := self._vorpruefen(
+            beginn, schluss, text_feld(haupt, "summary"), text_feld(haupt, "location"), uid
+        ):
+            teile.append(konflikt)
+        if personen := _teilnehmer(haupt):
+            teile.append(
+                f"Betroffene Personen (bekommen eine E-Mail von Nextcloud): {', '.join(personen)}"
+            )
+        schluessel = f"verschieben:{uid}|{beginn}|{schluss}|{nur_am or ''}"
+        if sperre := zustimmung_pruefen(
+            self.bestaetigungen,
+            schluessel,
+            bool(bestaetigt),
+            "\n".join(teile),
+            "termin_verschieben",
+            "gleiche Parameter",
+            "NOCH NICHT VERSCHOBEN – bestehende Termine verschiebe ich nur nach Rückfrage. "
+            "Frag Louis, ob du ihn so verschieben sollst:",
+        ):
+            return sperre
+        self.bestaetigungen.erledigt(schluessel)
+        return self._aendern(
+            termin_id,
+            start=start,
+            ende=ende,
+            ganztaegig=ganztaegig,
+            nur_am=nur_am,
+            kalender=name,
+            zeit_freigegeben=True,
+        )
+
+    def _aendern(
+        self,
+        termin_id: str,
+        titel: str | None = None,
         start: str | None = None,
         ende: str | None = None,
         ort: str | None = None,
@@ -764,6 +918,7 @@ class Kalender:
         teilnehmer: Any = None,
         kalender: str | None = None,
         bestaetigt: bool = False,
+        zeit_freigegeben: bool = False,
     ) -> str:
         name, objekt, haupt = self._termin_finden(termin_id, kalender)
         uid = text_feld(haupt, "uid")
@@ -848,7 +1003,12 @@ class Kalender:
         _, zeile = self._beschreiben(ziel)
 
         betroffen = sorted(set(alte_teilnehmer) | set(neue_teilnehmer))
-        if betroffen and not geaendert <= KOSMETISCH:
+        # Beim Verschieben hat Louis den betroffenen Personen schon zugestimmt.
+        if (
+            betroffen
+            and not geaendert <= KOSMETISCH
+            and not (zeit_freigegeben and geaendert == {"zeit"})
+        ):
             sperre = self._einladung_pruefen(
                 "aendern", uid, zeile, betroffen, bool(bestaetigt), "termin_aendern"
             )
@@ -897,8 +1057,26 @@ class Kalender:
                 bool(bestaetigt),
                 "termin_loeschen",
             )
-            if sperre:
-                return sperre
+        else:
+            schluessel = f"termin-loeschen:{uid}|{nur_am or ''}"
+            sperre = loeschen_pruefen(
+                self.bestaetigungen,
+                schluessel,
+                bool(bestaetigt),
+                zeile
+                + (f" (nur am {nur_am})" if nur_am else "")
+                + (
+                    "\n(wiederkehrend – alle Wiederholungen)"
+                    if haupt.get("rrule") is not None and not nur_am
+                    else ""
+                ),
+                "termin_loeschen",
+                f"termin_id={termin_id}" + (f", nur_am={nur_am}" if nur_am else ""),
+            )
+            if not sperre:
+                self.bestaetigungen.erledigt(schluessel)
+        if sperre:
+            return sperre
 
         if nur_am:
             if haupt.get("rrule") is None:
@@ -1181,7 +1359,8 @@ def kalender_werkzeuge(
         },
         "bestaetigt": {
             "type": "boolean",
-            "description": "Nur true, wenn Louis E-Mails an Teilnehmer ausdrücklich zugestimmt hat",
+            "description": "Nur true, wenn Louis nach deiner Rückfrage ausdrücklich zugestimmt "
+            "hat (Einladungen an Teilnehmer, Termin trotz Konflikt eintragen)",
         },
     }
     termin_id = {"type": "string", "description": "ID des Termins aus termine_anzeigen"}
@@ -1223,7 +1402,9 @@ def kalender_werkzeuge(
             "termin_eintragen",
             "Trägt einen Termin ein. Ohne Ende dauert er eine Stunde; nur ein Datum ohne "
             "Uhrzeit ergibt einen ganztägigen Termin. Farbe, Kategorien, Erinnerungen und "
-            "Wiederholung gehen gleich mit." + selbststaendig,
+            "Wiederholung gehen gleich mit. Überschneidet er einen bestehenden Termin (oder "
+            "reicht die Zeit für einen Ortswechsel nicht), wird NICHTS eingetragen: Sag Louis "
+            "den Konflikt und den Vorschlag und frag ihn." + selbststaendig,
             {
                 "type": "object",
                 "properties": {
@@ -1243,19 +1424,18 @@ def kalender_werkzeuge(
         ),
         Werkzeug(
             "termin_aendern",
-            "Ändert oder verschiebt einen Termin: nur die Angaben mitschicken, die sich ändern. "
-            "Neuer start ohne ende verschiebt den Termin und behält die Dauer. Mit nur_am wird "
-            "bei einer Serie nur dieses eine Vorkommen geändert." + selbststaendig,
+            "Ändert Titel, Ort, Notiz, Farbe, Kategorien, Erinnerungen, Wiederholung oder "
+            "Teilnehmer eines Termins: nur die Angaben mitschicken, die sich ändern. Mit nur_am "
+            "wird bei einer Serie nur dieses eine Vorkommen geändert. Die Uhrzeit ändert "
+            "termin_verschieben." + selbststaendig,
             {
                 "type": "object",
                 "properties": {
                     "termin_id": termin_id,
                     "titel": {"type": "string", "description": "Neuer Titel"},
-                    "start": {"type": "string", "description": f"Neuer Beginn ({zeitangabe})"},
-                    "ende": {"type": "string", "description": f"Neues Ende ({zeitangabe})"},
                     "nur_am": nur_am,
                     "kalender": kalender_param,
-                    **eigenschaften,
+                    **{k: v for k, v in eigenschaften.items() if k != "ganztaegig"},
                 },
                 "required": ["termin_id"],
             },
@@ -1263,11 +1443,31 @@ def kalender_werkzeuge(
             stufe=Stufe.SCHREIBEN,
         ),
         Werkzeug(
+            "termin_verschieben",
+            "Verschiebt einen bestehenden Termin auf eine andere Zeit (neuer start ohne ende "
+            "behält die Dauer; mit nur_am nur ein Vorkommen einer Serie). Läuft erst nach "
+            "Louis' Zustimmung: Zuerst kommt eine Beschreibung mit vorher/nachher und "
+            "Konflikten, die du ihm zeigst.",
+            {
+                "type": "object",
+                "properties": {
+                    "termin_id": termin_id,
+                    "start": {"type": "string", "description": f"Neuer Beginn ({zeitangabe})"},
+                    "ende": {"type": "string", "description": f"Neues Ende ({zeitangabe})"},
+                    "ganztaegig": eigenschaften["ganztaegig"],
+                    "nur_am": nur_am,
+                    "kalender": kalender_param,
+                },
+                "required": ["termin_id", "start"],
+            },
+            k.termin_verschieben,
+            stufe=Stufe.ZERSTOERERISCH,
+        ),
+        Werkzeug(
             "termin_loeschen",
-            "Löscht einen Termin (oder mit nur_am nur ein Vorkommen einer Serie). Wird "
-            "protokolliert und lässt sich mit kalender_rueckgaengig zurückholen. Nur bei "
-            "Terminen mit Teilnehmern (die eine Absage-Mail bekämen) erst Louis fragen."
-            + selbststaendig,
+            "Löscht einen Termin (oder mit nur_am nur ein Vorkommen einer Serie). Läuft erst "
+            "nach Louis' Zustimmung; danach lässt er sich mit kalender_rueckgaengig "
+            "zurückholen.",
             {
                 "type": "object",
                 "properties": {
@@ -1279,7 +1479,7 @@ def kalender_werkzeuge(
                 "required": ["termin_id"],
             },
             k.termin_loeschen,
-            stufe=Stufe.SCHREIBEN,
+            stufe=Stufe.ZERSTOERERISCH,
         ),
         Werkzeug(
             "kalender_anzeigen",

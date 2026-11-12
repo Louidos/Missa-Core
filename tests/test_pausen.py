@@ -22,7 +22,8 @@ from tests.test_zeitplaner import FakeKanal, Uhr
 
 ZONE = ZoneInfo("Europe/Zurich")
 TAG = date(2026, 11, 11)  # Mittwoch
-REGELN = PausenRegeln()
+# Die alten Tests rechnen mit 10 Min. Puffer (Standard ist seit Gruppe 2: 15 Min.).
+REGELN = PausenRegeln(puffer=timedelta(minutes=10))
 
 
 def um(stunde: int, minute: int = 0, tag: date = TAG) -> datetime:
@@ -210,10 +211,24 @@ def drei_hintereinander(sammlung: FakeSammlung) -> None:
         )
 
 
-def test_abends_werden_puffer_eingetragen_und_gemeldet(waechter, dav, persoenlich, planer, kanal):
+def test_abends_nur_vorschlag_und_erst_nach_ja_eingetragen(
+    waechter, dav, persoenlich, planer, kanal
+):
     drei_hintereinander(persoenlich)
     text = asyncio.run(waechter.abends_pruefen())
+    # Nichts ungefragt eingetragen.
+    assert not any(s.name == "Pausen" for s in dav.sammlungen)
+    assert "liegen direkt hintereinander" in (text or "")
+    asyncio.run(planer.faellige_zustellen())
+    [nachricht] = kanal.nachrichten
+    assert nachricht.startswith("☕ Kurzer Blick auf morgen (Mi 11.11.2026):")
+    assert "Mein Vorschlag:" in nachricht and "Soll ich dir das" in nachricht
 
+    # Louis: „Ja, trag ein“ → Missa ruft tag_pruefen mit eintragen=true auf.
+    aktuelle_anfrage.set("anfrage-2")
+    werkzeug = pausen_werkzeuge(waechter)[0]
+    erledigt = werkzeug.funktion("2026-11-11", eintragen=True)
+    assert "Eingetragen im Kalender „Pausen“" in erledigt
     pausen = next(s for s in dav.sammlungen if s.name == "Pausen")
     assert pausen.farbe == "#40E0D0"  # türkis
     bloecke = sorted(
@@ -227,22 +242,13 @@ def test_abends_werden_puffer_eingetragen_und_gemeldet(waechter, dav, persoenlic
         assert str(komponente["x-missa-art"]) in ("puffer", "mittag")
         assert str(komponente["color"]) == "turquoise"
 
-    assert "liegen direkt hintereinander" in (text or "")
-    asyncio.run(planer.faellige_zustellen())
-    [nachricht] = kanal.nachrichten
-    assert nachricht.startswith("☕ Kurzer Blick auf morgen (Mi 11.11.2026):")
-    assert "Ich habe dir im Kalender „Pausen“ eingetragen" in nachricht
-
-    # Zweiter Lauf trägt nichts doppelt ein.
-    anzahl = len(pausen.objekte)
-    asyncio.run(waechter.abends_pruefen())
-    assert len(pausen.objekte) == anzahl
-
 
 def test_eingetragene_bloecke_sind_rueckgaengig_machbar(waechter, kalender, dav, persoenlich):
     persoenlich.hinzufuegen(ereignis("k1", "Kurs", um(9), um(12)))
     persoenlich.hinzufuegen(ereignis("k2", "Kurs 2", um(12, 30), um(17)))
     asyncio.run(waechter.abends_pruefen())
+    aktuelle_anfrage.set("anfrage-2")
+    pausen_werkzeuge(waechter)[0].funktion("2026-11-11", eintragen=True)
     pausen = next(s for s in dav.sammlungen if s.name == "Pausen")
     [mittag] = pausen.objekte
     assert mittag.icalendar_component["dtstart"].dt == um(12)
@@ -276,17 +282,23 @@ def test_verschieben_prueft_auch(kalender, waechter, persoenlich):
 
     persoenlich.hinzufuegen(ereignis("a", "Sitzung", um(10), um(11)))
     persoenlich.hinzufuegen(ereignis("b", "Telefonat", um(15), um(15, 30)))
-    text = kalender.termin_aendern(kurz_id("b"), start="2026-11-11T11:00")
+    kalender.termin_verschieben(kurz_id("b"), start="2026-11-11T11:00")
+    aktuelle_anfrage.set("anfrage-2")  # Louis: „Ja“
+    text = kalender.termin_verschieben(kurz_id("b"), start="2026-11-11T11:00", bestaetigt=True)
     assert "PAUSEN-HINWEIS" in text
 
 
 def test_werkzeug_tag_pruefen(waechter, persoenlich, dav):
     drei_hintereinander(persoenlich)
-    [werkzeug] = pausen_werkzeuge(waechter)
+    werkzeug = pausen_werkzeuge(waechter)[0]
     vorschau = werkzeug.funktion("2026-11-11")
     assert "Pausen-Prüfung für Mittwoch, 11. November 2026" in vorschau
-    assert "Vorschlag (mit eintragen=true" in vorschau
+    assert "Vorschlag:" in vorschau and "Frag Louis" in vorschau
     assert not any(s.name == "Pausen" for s in dav.sammlungen)
+    # Im selben Zug eintragen geht nicht – erst nach Louis' Antwort.
+    assert "NOCH NICHTS EINGETRAGEN" in werkzeug.funktion("2026-11-11", eintragen=True)
+    assert not any(s.name == "Pausen" for s in dav.sammlungen)
+    aktuelle_anfrage.set("anfrage-2")
     erledigt = werkzeug.funktion("2026-11-11", eintragen=True)
     assert "Eingetragen im Kalender „Pausen“" in erledigt
 

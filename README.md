@@ -11,8 +11,9 @@ Talk nutzen dieselbe Logik.
 - Version: 0.8.0 (2026-11-12)
 - Fertig: OpenAI-kompatible API (`/v1/chat/completions`, `/v1/models`, `/health`)
   mit Charakter, Werkzeug-Schleife und Gesprächsverlauf
-- Fertig: Nextcloud-Kalender mit voller Kontrolle: Termine anlegen, ändern, verschieben,
-  löschen, Farben, Kategorien, Erinnerungen, Serien mit Ausnahmen, eigene Kalender –
+- Fertig: Nextcloud-Kalender mit voller Kontrolle: Termine anlegen, ändern, verschieben und
+  löschen (diese beiden nur nach Ja), Doppelbuchungen und zu knappe Ortswechsel werden vor
+  dem Eintragen erkannt, Farben, Kategorien, Erinnerungen, Serien mit Ausnahmen, eigene Kalender –
   alles protokolliert und rückgängig machbar; Einladungen nur nach Rückfrage
   (siehe docs/kalender.md)
 - Fertig: Nextcloud-Aufgaben (anzeigen, erstellen, abhaken, nach Bestätigung löschen)
@@ -32,7 +33,8 @@ Talk nutzen dieselbe Logik.
 - Fertig: Geburtstage aus Nextcloud-Kontakte (vorher und am Tag) und Kontaktpflege für
   wichtige Personen mit Vorschlag eines freien Zeitpunkts (siehe docs/kontakte.md)
 - Fertig: Pausen und Puffer – Missa prüft den Kalender jeden Abend und bei jeder neuen
-  Terminanlage, trägt Puffer- und Pausenblöcke selbst ein und schlägt Alternativen vor
+  Terminanlage (Standard: 15 Min. Puffer, Pause nach 3 Std.), schlägt Puffer- und
+  Pausenblöcke vor und trägt sie erst nach deinem Ja ein; Regeln per Gespräch änderbar
   (siehe docs/pausen.md)
 - Fertig: Rechte-Schicht – jedes Werkzeug hat eine Stufe (lesen, schreiben, zerstörerisch),
   Zerstörerisches nur nach deinem ausdrücklichen Ja (gilt 10 Minuten), lückenloses

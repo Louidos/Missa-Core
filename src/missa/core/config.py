@@ -69,7 +69,9 @@ class Einstellungen:
     pausen_aktiv: bool = True
     pausen_kalender: str = "Pausen"
     pausen_farbe: str = "türkis"
-    pausen_puffer_minuten: int = 10
+    pausen_puffer_minuten: int = 15
+    pausen_nach_stunden: float = 3.0
+    pausen_pause_minuten: int = 15
     pausen_mittag_minuten: int = 30
     pausen_mittag_von: time = time(11, 30)
     pausen_mittag_bis: time = time(14, 0)
@@ -318,6 +320,8 @@ class Einstellungen:
             mittag_bis=self.pausen_mittag_bis,
             max_stunden=self.pausen_max_stunden,
             wegzeit=timedelta(minutes=self.pausen_wegzeit_minuten),
+            pause_nach=timedelta(hours=self.pausen_nach_stunden),
+            pause_dauer=timedelta(minutes=self.pausen_pause_minuten),
             kalender=self.pausen_kalender,
             farbe=self.pausen_farbe,
         )
@@ -454,7 +458,9 @@ class Einstellungen:
             pausen_aktiv=wert("PAUSEN_AKTIV", "true").casefold() in WAHR,
             pausen_kalender=wert("PAUSEN_KALENDER", cls.pausen_kalender),
             pausen_farbe=wert("PAUSEN_FARBE", cls.pausen_farbe),
-            pausen_puffer_minuten=max(0, zahl("PAUSEN_PUFFER_MINUTEN", 10)),
+            pausen_puffer_minuten=max(0, zahl("PAUSEN_PUFFER_MINUTEN", 15)),
+            pausen_nach_stunden=max(0.5, kommazahl("PAUSEN_NACH_STUNDEN", 3.0)),
+            pausen_pause_minuten=max(0, zahl("PAUSEN_PAUSE_MINUTEN", 15)),
             pausen_mittag_minuten=max(0, zahl("PAUSEN_MITTAG_MINUTEN", 30)),
             pausen_mittag_von=uhrzeit("PAUSEN_MITTAG_VON", "11:30"),
             pausen_mittag_bis=uhrzeit("PAUSEN_MITTAG_BIS", "14:00"),

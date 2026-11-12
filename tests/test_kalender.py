@@ -57,6 +57,14 @@ def neue_anfrage(kennung: str) -> None:
     aktuelle_anfrage.set(kennung)
 
 
+def nach_ja(funktion, *args, **kwargs):
+    """Erst Rückfrage, dann – in Louis' nächster Nachricht – mit Zustimmung."""
+    vorher = aktuelle_anfrage.get()
+    funktion(*args, **kwargs)
+    neue_anfrage(vorher + "-ja")
+    return funktion(*args, **kwargs, bestaetigt=True)
+
+
 # ---------------------------------------------------------------------- Verbindung
 
 
@@ -280,8 +288,16 @@ def meeting(sammlung) -> str:
     return kurz_id("uid-meeting")
 
 
-def test_loeschen_ohne_rueckfrage(kalender, sammlung, zahnarzt):
-    text = kalender.termin_loeschen(zahnarzt)
+def test_loeschen_nur_nach_ja(kalender, sammlung, zahnarzt):
+    vorschau = kalender.termin_loeschen(zahnarzt)
+    assert vorschau.startswith("NOCH NICHT GELÖSCHT")
+    assert "Zahnarzt" in vorschau
+    assert len(sammlung.objekte) == 1
+    # Im selben Zug bestätigen reicht nicht.
+    assert kalender.termin_loeschen(zahnarzt, bestaetigt=True).startswith("NICHT GELÖSCHT")
+    assert len(sammlung.objekte) == 1
+    neue_anfrage("anfrage-2")
+    text = kalender.termin_loeschen(zahnarzt, bestaetigt=True)
     assert text.startswith("Gelöscht aus dem Kalender „persönlich“:")
     assert "Zahnarzt" in text
     assert "rückgängig" in text
@@ -289,7 +305,7 @@ def test_loeschen_ohne_rueckfrage(kalender, sammlung, zahnarzt):
 
 
 def test_loeschen_ueber_volle_uid(kalender, sammlung, zahnarzt):
-    kalender.termin_loeschen("uid-zahnarzt")
+    nach_ja(kalender.termin_loeschen, "uid-zahnarzt")
     assert sammlung.objekte == []
 
 
@@ -303,6 +319,7 @@ def test_wiederkehrender_termin_meldet_serie(kalender, sammlung):
         )
     )
     assert "alle Wiederholungen" in kalender.termin_loeschen(kurz_id("serie"))
+    assert "alle Wiederholungen" in nach_ja(kalender.termin_loeschen, kurz_id("serie"))
 
 
 def test_unbekannte_id(kalender):
@@ -377,9 +394,20 @@ def test_farbe_bei_termin_mit_teilnehmer_ohne_rueckfrage(kalender, sammlung, mee
 
 
 def test_verschieben_mit_teilnehmer_fragt(kalender, sammlung, meeting):
-    text = kalender.termin_aendern(meeting, start="2026-11-13T15:00")
-    assert text.startswith("NOCH NICHT AUSGEFÜHRT.")
+    text = kalender.termin_verschieben(meeting, start="2026-11-13T15:00")
+    assert text.startswith("NOCH NICHT AUSGEFÜHRT. NOCH NICHT VERSCHOBEN")
+    assert "chef@example.ch" in text
     assert sammlung.objekte[0].icalendar_component["dtstart"].dt.hour == 10
+    neue_anfrage("anfrage-2")
+    assert kalender.termin_verschieben(
+        meeting, start="2026-11-13T15:00", bestaetigt=True
+    ).startswith("Geändert")
+    assert sammlung.objekte[0].icalendar_component["dtstart"].dt.hour == 15
+
+
+def test_termin_aendern_verschiebt_nicht(kalender, sammlung, meeting):
+    with pytest.raises(WerkzeugFehler, match="termin_verschieben"):
+        kalender.termin_aendern(meeting, start="2026-11-13T15:00")
 
 
 def test_ungueltige_teilnehmer_adresse(kalender):
@@ -396,6 +424,7 @@ def test_werkzeuge_und_schemas(verbindung):
         "termine_anzeigen",
         "termin_eintragen",
         "termin_aendern",
+        "termin_verschieben",
         "termin_loeschen",
         "kalender_anzeigen",
         "kalender_anlegen",

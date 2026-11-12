@@ -72,6 +72,14 @@ def meeting(sammlung) -> str:
     return kurz_id("uid-meeting")
 
 
+def nach_ja(funktion, *args, **kwargs):
+    """Erst Rückfrage, dann – in Louis' nächster Nachricht – mit Zustimmung."""
+    vorher = aktuelle_anfrage.get()
+    funktion(*args, **kwargs)
+    aktuelle_anfrage.set(vorher + "-ja")
+    return funktion(*args, **kwargs, bestaetigt=True)
+
+
 def komponente(sammlung: FakeSammlung, nummer: int = 0):
     return sammlung.objekte[nummer].icalendar_component
 
@@ -81,17 +89,23 @@ def komponente(sammlung: FakeSammlung, nummer: int = 0):
 
 def test_verschieben_auf_15_uhr_und_rot_faerben(kalender, sammlung, meeting):
     """„Verschieb das Meeting morgen auf 15 Uhr und mach es rot“."""
-    text = kalender.termin_aendern(meeting, start="2026-11-11T15:00", farbe="rot")
+    vorschau = kalender.termin_verschieben(meeting, start="2026-11-11T15:00")
+    assert "NOCH NICHT VERSCHOBEN" in vorschau
+    assert "Neu: Mi 11.11.2026 15:00–16:00" in vorschau
+    assert komponente(sammlung)["dtstart"].dt.hour == 10
+    aktuelle_anfrage.set("anfrage-2")
+    text = kalender.termin_verschieben(meeting, start="2026-11-11T15:00", bestaetigt=True)
+    text += kalender.termin_aendern(meeting, farbe="rot")
     termin = komponente(sammlung)
     assert termin["dtstart"].dt == datetime(2026, 11, 11, 15, 0, tzinfo=ZONE)
     assert termin["dtend"].dt == datetime(2026, 11, 11, 16, 0, tzinfo=ZONE)  # Dauer bleibt
     assert str(termin["color"]) == "red"  # COLOR nach RFC 7986, so zeigt es Nextcloud an
     assert str(termin["location"]) == "Büro"
-    assert sammlung.objekte[0].gespeichert == 1
+    assert sammlung.objekte[0].gespeichert == 2
     assert "vorher: Mi 11.11.2026 10:00–11:00: Meeting" in text
     assert "jetzt:  Mi 11.11.2026 15:00–16:00: Meeting" in text
     assert "Farbe: rot" in text
-    assert "Änderung #1" in text
+    assert "Änderung #1" in text and "Änderung #2" in text
 
 
 def test_titel_ort_notiz_aendern_und_entfernen(kalender, sammlung, meeting):
@@ -103,12 +117,12 @@ def test_titel_ort_notiz_aendern_und_entfernen(kalender, sammlung, meeting):
 
 
 def test_neues_ende(kalender, sammlung, meeting):
-    kalender.termin_aendern(meeting, ende="2026-11-11T12:30")
+    nach_ja(kalender.termin_verschieben, meeting, start="2026-11-11T10:00", ende="2026-11-11T12:30")
     assert komponente(sammlung)["dtend"].dt == datetime(2026, 11, 11, 12, 30, tzinfo=ZONE)
 
 
 def test_ganztaegig_machen(kalender, sammlung, meeting):
-    kalender.termin_aendern(meeting, ganztaegig=True)
+    nach_ja(kalender.termin_verschieben, meeting, start="2026-11-11", ganztaegig=True)
     termin = komponente(sammlung)
     assert termin["dtstart"].dt == date(2026, 11, 11)
     assert termin["dtend"].dt == date(2026, 11, 12)
@@ -259,7 +273,7 @@ def test_serie_anlegen_und_einzeln_anzeigen(kalender, sammlung, training):
 
 
 def test_nur_ein_vorkommen_verschieben(kalender, sammlung, training):
-    kalender.termin_aendern(training, nur_am="2026-11-16", start="2026-11-16T19:00")
+    nach_ja(kalender.termin_verschieben, training, nur_am="2026-11-16", start="2026-11-16T19:00")
     objekt = sammlung.objekte[0]
     termine = list(objekt.icalendar_instance.walk("VEVENT"))
     assert len(termine) == 2  # Serie + Ausnahme in einem Objekt
@@ -274,7 +288,7 @@ def test_nur_ein_vorkommen_verschieben(kalender, sammlung, training):
 
 
 def test_nur_ein_vorkommen_loeschen(kalender, sammlung, training):
-    text = kalender.termin_loeschen(training, nur_am="2026-11-23")
+    text = nach_ja(kalender.termin_loeschen, training, nur_am="2026-11-23")
     assert "nur am Mo 23.11.2026 gelöscht" in text
     assert "exdate" in komponente(sammlung)
     anzeige = kalender.termine_anzeigen("2026-11-16", "2026-11-30")
@@ -353,7 +367,7 @@ def test_alle_kalender_anzeigen(kalender, sammlung, dav, meeting):
 
 
 def test_loeschen_rueckgaengig(kalender, sammlung, meeting):
-    kalender.termin_loeschen(meeting)
+    nach_ja(kalender.termin_loeschen, meeting)
     assert sammlung.objekte == []
     text = kalender.rueckgaengig()
     assert text.startswith("Rückgängig gemacht:")
@@ -363,7 +377,7 @@ def test_loeschen_rueckgaengig(kalender, sammlung, meeting):
 
 
 def test_aenderung_rueckgaengig(kalender, sammlung, meeting):
-    kalender.termin_aendern(meeting, start="2026-11-11T15:00", farbe="rot")
+    nach_ja(kalender.termin_verschieben, meeting, start="2026-11-11T15:00")
     kalender.rueckgaengig()
     termin = komponente(sammlung)
     assert termin["dtstart"].dt == datetime(2026, 11, 11, 10, 0, tzinfo=ZONE)
@@ -414,7 +428,7 @@ def test_nichts_rueckgaengig_zu_machen(kalender):
 
 def test_protokoll_vorher_nachher(kalender, meeting, tmp_path):
     kalender.termin_aendern(meeting, farbe="rot")
-    kalender.termin_loeschen(meeting)
+    nach_ja(kalender.termin_loeschen, meeting)
     [loeschen, aendern] = KalenderProtokoll(tmp_path / "missa.db", ZONE).liste()
     assert loeschen.aktion == "termin_geloescht" and loeschen.nachher is None
     assert "COLOR:red" in (loeschen.vorher or "")
@@ -450,28 +464,34 @@ def test_chat_verschieben_und_rueckgaengig(einstellungen, llama, sammlung, dav, 
     )
     app = create_app(einstellungen, werkzeuge=werkzeuge, llama_transport=llama.transport)
     kopf = {"Authorization": f"Bearer {API_KEY}", "X-Missa-Session": "kalender"}
+    verschieben = {"termin_id": meeting, "start": "2026-11-11T15:00"}
     llama.antworten = [
         werkzeug_aufruf("termine_anzeigen", {"von": "2026-11-11"}),
-        werkzeug_aufruf(
-            "termin_aendern",
-            {"termin_id": meeting, "start": "2026-11-11T15:00", "farbe": "rot"},
-            "c2",
-        ),
-        text("Erledigt: Das Meeting ist jetzt morgen um 15 Uhr und rot. 🔴"),
-        werkzeug_aufruf("kalender_rueckgaengig", {}, "c3"),
+        werkzeug_aufruf("termin_verschieben", verschieben, "c2"),
+        werkzeug_aufruf("termin_aendern", {"termin_id": meeting, "farbe": "rot"}, "c3"),
+        text("Rot ist es schon. Soll ich das Meeting morgen von 10 auf 15 Uhr verschieben?"),
+        werkzeug_aufruf("termin_verschieben", verschieben, "c4"),
+        text("Erledigt: Das Meeting ist jetzt morgen um 15 Uhr. 🔴"),
+        werkzeug_aufruf("kalender_rueckgaengig", {}, "c5"),
         text("Zurückgesetzt – das Meeting ist wieder um 10 Uhr."),
     ]
-    with TestClient(app) as client:
-        frage = "Verschieb das Meeting morgen auf 15 Uhr und mach es rot"
+
+    def sagen(inhalt: str) -> None:
         client.post(
             "/v1/chat/completions",
             headers=kopf,
-            json={"messages": [{"role": "user", "content": frage}]},
+            json={"messages": [{"role": "user", "content": inhalt}]},
         )
-        assert komponente(sammlung)["dtstart"].dt.hour == 15
+
+    with TestClient(app) as client:
+        sagen("Verschieb das Meeting morgen auf 15 Uhr und mach es rot")
+        # Farbe sofort, Verschieben erst nach der Rückfrage.
+        assert komponente(sammlung)["dtstart"].dt.hour == 10
         assert str(komponente(sammlung)["color"]) == "red"
+        sagen("Ja")
+        assert komponente(sammlung)["dtstart"].dt.hour == 15
         protokoll = client.get("/api/kalender/protokoll", headers=kopf).json()
-        assert protokoll["anzahl"] == 1
+        assert protokoll["anzahl"] == 2
         assert protokoll["aenderungen"][0]["aktion"] == "termin_geaendert"
 
         client.post(
@@ -480,4 +500,4 @@ def test_chat_verschieben_und_rueckgaengig(einstellungen, llama, sammlung, dav, 
             json={"messages": [{"role": "user", "content": "Mach das rückgängig"}]},
         )
     assert komponente(sammlung)["dtstart"].dt.hour == 10
-    assert "color" not in komponente(sammlung)
+    assert str(komponente(sammlung)["color"]) == "red"  # nur die letzte Änderung zurück
