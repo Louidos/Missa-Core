@@ -1,0 +1,22 @@
+# Beispiel: ZyWALL-Logs auf ai01 empfangen und für Missa in eine Datei schreiben.
+# Kopieren nach /etc/rsyslog.d/30-zywall.conf, <ZYWALL-IP> ersetzen, dann:
+#   sudo install -d -m 0750 -o root -g missa /var/log/zywall
+#   sudo systemctl restart rsyslog
+# Missa liest die Datei nur (FIREWALL_LOG_DATEI=/var/log/zywall/zywall.log).
+# Siehe docs/homelab-firewall.md.
+
+module(load="imudp")
+
+# Nur die ZyWALL darf Logs schicken.
+$AllowedSender UDP, <ZYWALL-IP>
+
+# Zeitstempel im ISO-Format (mit Jahr und Zeitzone), damit Missa sie sicher lesen kann.
+template(name="MissaZywall" type="string" string="%timereported:::date-rfc3339% %hostname% %msg%\n")
+
+ruleset(name="zywall") {
+    action(type="omfile" file="/var/log/zywall/zywall.log" template="MissaZywall"
+           fileOwner="root" fileGroup="missa" fileCreateMode="0640" dirCreateMode="0750")
+    stop
+}
+
+input(type="imudp" port="514" ruleset="zywall")

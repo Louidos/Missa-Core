@@ -129,6 +129,11 @@ class Einstellungen:
     zertifikate_pruefzeit: time = time(7, 10)
     rdap_aktiv: bool = True
     rdap_bootstrap_url: str = "https://data.iana.org/rdap/dns.json"
+    homelab_intervall_minuten: int = 60
+    firewall_log_datei: Path | None = None
+    firewall_bericht_zeit: time = time(7, 30)
+    firewall_scan_ports: int = 15
+    firewall_block_grenze: int = 100
 
     @property
     def notfall_datei(self) -> Path:
@@ -295,6 +300,7 @@ class Einstellungen:
             )
 
         ca_datei = env.get("PROXMOX_CA_DATEI", "").strip()
+        fw_datei = env.get("FIREWALL_LOG_DATEI", "").strip()
         try:
             warn_tage = tuple(
                 sorted({int(t) for t in liste("ZERTIFIKAT_WARNUNG_TAGE")}, reverse=True)
@@ -411,6 +417,11 @@ class Einstellungen:
             zertifikate_pruefzeit=uhrzeit("ZERTIFIKATE_PRUEFZEIT", "07:10"),
             rdap_aktiv=wert("RDAP_AKTIV", "true").casefold() in WAHR,
             rdap_bootstrap_url=wert("RDAP_BOOTSTRAP_URL", cls.rdap_bootstrap_url),
+            homelab_intervall_minuten=max(5, zahl("HOMELAB_INTERVALL_MINUTEN", 60)),
+            firewall_log_datei=Path(fw_datei) if fw_datei else None,
+            firewall_bericht_zeit=uhrzeit("FIREWALL_BERICHT_ZEIT", "07:30"),
+            firewall_scan_ports=max(3, zahl("FIREWALL_SCAN_PORTS", 15)),
+            firewall_block_grenze=max(1, zahl("FIREWALL_BLOCK_GRENZE", 100)),
         )
 
     def pruefen(self) -> None:

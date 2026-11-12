@@ -15,4 +15,5 @@
 - [monitoring.md](monitoring.md) – Schnittstelle der Monitoring-Quellen und JSON-Formate (eigenes Tool, Homepage, Proxmox)
 - [netzfreigaben.md](netzfreigaben.md) – welche Verbindungen ai01 braucht (Vorlage für die Firewall-Regeln)
 - [container-logs-logins.md](container-logs-logins.md) – Container, Fehlersuche in Logs, Login-Überwachung, Benutzer `missa` auf den Hosts
+- [homelab-firewall.md](homelab-firewall.md) – Homelab-Wissen aus Proxmox (VMs, IPs, VLANs) und Firewall-Logs der ZyWALL (nur lesend)
 - [updates-zertifikate.md](updates-zertifikate.md) – Updates pro VM, Wartungsfenster, Einspielen nach Ja, Zertifikate, Domains (RDAP), DNS

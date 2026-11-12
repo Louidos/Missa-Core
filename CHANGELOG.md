@@ -7,6 +7,18 @@ die Versionsnummern folgen [Semantic Versioning](https://semver.org/lang/de/).
 
 ## Unveröffentlicht
 
+### Hinzugefügt
+
+- Missa hält ihr Wissen über VMs und IPs selbst aktuell und fasst die Firewall-Logs zusammen:
+  Stündlich liest sie aus Proxmox (nur lesend) alle VMs und Container mit Status,
+  Ressourcen, VLAN und IP. „Welche IP hat rp01?“ beantwortet sie mit dem aktuellen Stand,
+  und neue VMs, verschwundene VMs und geänderte IPs meldet sie als `info`. Die Logs der
+  ZyWALL (per Syslog an ai01) wertet sie aus und schickt jeden Morgen eine Zusammenfassung
+  des Vortags mit gehäuften Blocks, Port-Scans und ungewöhnlichen Zielen. Auf Nachfrage
+  geht das auch für jeden anderen Tag („Was war gestern an der Firewall los?“). An der
+  Firewall selbst kann Missa nichts ändern. Neu: `GET /api/homelab`; Einrichtung siehe
+  docs/homelab-firewall.md (#54)
+
 ## 0.7.0 – 2026-11-11
 
 ### Hinzugefügt

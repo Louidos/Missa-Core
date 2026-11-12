@@ -5,7 +5,7 @@ from __future__ import annotations
 import logging
 from dataclasses import dataclass
 from datetime import datetime
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 from missa.core.config import Einstellungen
 from missa.core.werkzeuge import Werkzeugkasten
@@ -25,6 +25,8 @@ if TYPE_CHECKING:
     from missa.tools.container import ContainerDienst
     from missa.tools.erreichbarkeit import ErreichbarkeitsWaechter
     from missa.tools.fehlersuche import Fehlersuche
+    from missa.tools.firewall import FirewallLog
+    from missa.tools.homelab import HomelabInventar
     from missa.tools.kalender import Kalender
     from missa.tools.kontakte import Adressbuch, Kontaktpflege
     from missa.tools.mail import MailDienst
@@ -101,6 +103,8 @@ def werkzeuge_laden(
     anmeldungen: LoginWaechter | None = None,
     updates: UpdateVerwaltung | None = None,
     zertifikate: ZertifikatsWaechter | None = None,
+    homelab: HomelabInventar | None = None,
+    firewall: FirewallLog | None = None,
 ) -> Werkzeugkasten:
     """Stellt alle Werkzeuge zusammen, die mit dieser Konfiguration nutzbar sind.
 
@@ -193,7 +197,28 @@ def werkzeuge_laden(
         for werkzeug in zertifikat_werkzeuge(zertifikate):
             kasten.hinzufuegen(werkzeug)
 
-    meldende = (server, erreichbarkeit, container, anmeldungen, updates, zertifikate)
+    if homelab is not None:
+        from missa.tools.homelab import homelab_werkzeuge
+
+        for werkzeug in homelab_werkzeuge(homelab):
+            kasten.hinzufuegen(werkzeug)
+
+    if firewall is not None:
+        from missa.tools.firewall import firewall_werkzeuge
+
+        for werkzeug in firewall_werkzeuge(firewall):
+            kasten.hinzufuegen(werkzeug)
+
+    meldende = (
+        server,
+        erreichbarkeit,
+        container,
+        anmeldungen,
+        updates,
+        zertifikate,
+        homelab,
+        firewall,
+    )
     if alarme is not None and any(d is not None for d in meldende):
         from missa.core.alarme import alarm_werkzeuge
 
@@ -518,4 +543,52 @@ def zertifikats_waechter_bauen(
         dns_erwartet=erwartet_lesen(einstellungen.dns_erwartet),
         warn_tage=einstellungen.zertifikat_warnung_tage,
         rdap=RdapClient(einstellungen.rdap_bootstrap_url) if einstellungen.rdap_aktiv else None,
+    )
+
+
+def proxmox_leser_bauen(
+    einstellungen: Einstellungen, transport: httpx.AsyncBaseTransport | None = None
+) -> Any:
+    """Nur lesender Proxmox-Zugang (Token mit PVEAuditor) – ohne Konfiguration ``None``."""
+    if not einstellungen.proxmox_konfiguriert:
+        return None
+    from missa.integrationen.proxmox import ProxmoxLeser
+
+    return ProxmoxLeser(
+        einstellungen.proxmox_url,
+        einstellungen.proxmox_token_id,
+        einstellungen.proxmox_token_secret,
+        tls_pruefen=einstellungen.proxmox_tls_pruefen,
+        ca_datei=einstellungen.proxmox_ca_datei,
+        transport=transport,
+    )
+
+
+def homelab_bauen(
+    einstellungen: Einstellungen,
+    alarme: Alarme,
+    transport: httpx.AsyncBaseTransport | None = None,
+) -> HomelabInventar | None:
+    """Homelab-Wissen aus Proxmox (nur lesend) – ohne Proxmox aus."""
+    leser = proxmox_leser_bauen(einstellungen, transport)
+    if leser is None:
+        return None
+    from missa.tools.homelab import HomelabInventar
+
+    return HomelabInventar(leser, alarme, einstellungen.datenbank, einstellungen.zone)
+
+
+def firewall_bauen(einstellungen: Einstellungen, alarme: Alarme) -> FirewallLog | None:
+    """Firewall-Logs aus der rsyslog-Datei (nur lesend) – ohne FIREWALL_LOG_DATEI aus."""
+    if einstellungen.firewall_log_datei is None:
+        return None
+    from missa.tools.firewall import FirewallLog
+
+    return FirewallLog(
+        einstellungen.firewall_log_datei,
+        einstellungen.datenbank,
+        einstellungen.zone,
+        alarme,
+        scan_ports=einstellungen.firewall_scan_ports,
+        block_grenze=einstellungen.firewall_block_grenze,
     )

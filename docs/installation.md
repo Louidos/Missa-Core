@@ -169,6 +169,9 @@ und das App-Passwort lässt sich jederzeit einzeln widerrufen.
 | `ZERTIFIKAT_WARNUNG_TAGE` / `ZERTIFIKATE_PRUEFZEIT` | `21,7` / `07:10` | nein | Warnschwellen in Tagen und tägliche Prüfzeit. |
 | `DNS_ERWARTET` | leer | nein | Erwartete DNS-Einträge als „Name Typ Wert; …“. |
 | `RDAP_AKTIV` / `RDAP_BOOTSTRAP_URL` | `true` / IANA-Liste | nein | Ablaufdatum der Domains per RDAP (einzige Abfrage nach außen). |
+| `HOMELAB_INTERVALL_MINUTEN` | `60` | nein | So oft liest Missa VMs, IPs und VLANs aus Proxmox (braucht `PROXMOX_*`). |
+| `FIREWALL_LOG_DATEI` / `FIREWALL_BERICHT_ZEIT` | leer / `07:30` | nein | ZyWALL-Logs (von rsyslog) und tägliche Zusammenfassung, siehe [homelab-firewall.md](homelab-firewall.md). |
+| `FIREWALL_SCAN_PORTS` / `FIREWALL_BLOCK_GRENZE` | `15` / `100` | nein | Schwellen für Port-Scans und gehäufte Blocks. |
 | `FEHLERSUCHE_DIENSTE` | leer | nein | Zuordnung Dienst → Host und Container/Units, z. B. `nextcloud:int01:nextcloud-app,nextcloud-db`. |
 | `NC_TALK_ENABLED` | `false` | für Talk | Missa in Nextcloud Talk einschalten. |
 | `NC_TALK_BASE_URL` | – | für Talk | Nextcloud-Adresse wie `overwrite.cli.url` (Prüfung des Absenders). |

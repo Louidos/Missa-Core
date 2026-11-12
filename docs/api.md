@@ -464,6 +464,29 @@ curl $MISSA/api/updates -H "Authorization: Bearer $KEY"
 
 Mehr dazu: [updates-zertifikate.md](updates-zertifikate.md).
 
+### `GET /api/homelab` – VMs und IPs aus Proxmox
+
+Missas Wissen über das Homelab vom letzten Scan (stündlich): pro VM bzw. Container Name,
+VMID, Host, Status, CPU, RAM, Disk, VLANs, IPs (mit Quelle) und Pool. Nur lesend.
+
+```bash
+curl $MISSA/api/homelab -H "Authorization: Bearer $KEY"
+```
+
+```json
+{
+  "proxmox": true,
+  "stand": "2026-11-12T09:00:00+01:00",
+  "vms": [
+    {"vmid": 110, "name": "rp01", "typ": "lxc", "node": "pve-id01", "status": "running",
+     "cpus": 1, "ram_mb": 512, "disk_gb": 8, "vlans": [70], "ips": ["10.0.70.10"],
+     "pool": "", "tags": [], "ip_quelle": "lxc"}
+  ]
+}
+```
+
+Mehr dazu: [homelab-firewall.md](homelab-firewall.md).
+
 ### `POST /channels/nextcloud-talk/webhook` – nur für Nextcloud Talk
 
 Kein Endpunkt für Apps: Hier liefert Nextcloud Talk Nachrichten an Missa (Bot-Webhook).
@@ -571,4 +594,6 @@ kennen – man fragt einfach in normaler Sprache.
 | Container und Logs (nur wenn `SSH_HOSTS` gesetzt ist) | „Welche Container laufen auf wb01?“, „Warum geht Nextcloud nicht?“, „Starte nextcloud neu“ (nur nach Ja) | `container_anzeigen`, `container_logs`, `container_neustarten`, `fehlersuche`, `journal_lesen` |
 | Updates (nur wenn `SSH_HOSTS` gesetzt ist) | „Welche Updates stehen an?“, „Plan ein Wartungsfenster“, „Spiel die Updates auf wb01 ein“ (nur nach Ja), „Starte wb01 neu“ (nur nach Ja) | `updates_anzeigen`, `wartungsfenster_vorschlagen`, `wartungsfenster_eintragen`, `updates_plan`, `updates_einspielen`, `host_neustarten` |
 | Zertifikate und Domains | „Wann laufen die Zertifikate ab?“ | `zertifikate_pruefen` |
+| Homelab (nur mit Proxmox-Token) | „Welche IP hat rp01?“, „Welche VMs gibt es?“ | `homelab_anzeigen` |
+| Firewall (nur mit `FIREWALL_LOG_DATEI`, nur lesen) | „Was war gestern an der Firewall los?“ | `firewall_zusammenfassung` |
 | Anmeldungen (nur wenn `SSH_HOSTS` gesetzt ist) | „Wer hat sich heute angemeldet?“, „10.0.30.5 ist mein Laptop“ | `anmeldungen_anzeigen`, `ip_als_bekannt_markieren`, `ip_nicht_mehr_bekannt`, `bekannte_ips_anzeigen`, `login_einstellungen` |
