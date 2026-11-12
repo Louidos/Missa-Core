@@ -52,7 +52,10 @@ Talk nutzen dieselbe Logik.
   Einspielen und Neustart VM für VM nur nach Ja (ai01 zuletzt), Warnungen 21 und 7 Tage vor
   dem Ablauf von Zertifikaten und Domains (RDAP) und DNS-Abgleich
   (siehe docs/updates-zertifikate.md)
-- In Arbeit (Server-Update): Homelab-Wissen, Proxmox-VMs, Caddy und Minecraft, Git-Überblick
+- Fertig: Homelab-Wissen und Firewall-Logs – Missa kennt alle VMs mit IP und VLAN aus
+  Proxmox („Welche IP hat rp01?“), meldet neue VMs und geänderte IPs und fasst die
+  ZyWALL-Logs täglich zusammen (nur lesend, siehe docs/homelab-firewall.md)
+- In Arbeit (Server-Update): Proxmox-VMs, Caddy und Minecraft, Git-Überblick
 - Später als eigene Aufträge: Telefon, Push, Smart Home
 - Änderungen im Detail: [CHANGELOG.md](CHANGELOG.md)
 
@@ -85,6 +88,8 @@ Talk nutzen dieselbe Logik.
 - **[docs/netzfreigaben.md](docs/netzfreigaben.md)** – welche Verbindungen ai01 braucht
 - **[docs/container-logs-logins.md](docs/container-logs-logins.md)** – Container, Fehlersuche
   in Logs, Login-Überwachung und der Benutzer `missa` auf den Hosts
+- **[docs/homelab-firewall.md](docs/homelab-firewall.md)** – Homelab-Wissen und
+  Firewall-Logs
 - **[docs/updates-zertifikate.md](docs/updates-zertifikate.md)** – Updates, Wartungsfenster,
   Zertifikate, Domains und DNS
 

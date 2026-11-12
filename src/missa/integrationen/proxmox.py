@@ -8,6 +8,7 @@ schreiben, starten, stoppen oder löschen kann sie nicht.
 from __future__ import annotations
 
 import ssl
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
@@ -111,3 +112,163 @@ class ProxmoxLeser:
                     anteil = round(float(wert) / float(maximal) * 100, 1)
                     werte.append(Messwert(ziel, metrik, anteil, "%", self.name))
         return werte
+
+
+# ----------------------------------------------------------------------------- Inventar
+
+
+@dataclass(frozen=True)
+class VmEintrag:
+    """Eine VM oder ein Container, wie Missa ihn im Homelab kennt."""
+
+    vmid: int
+    name: str
+    typ: str  # qemu oder lxc
+    node: str
+    status: str
+    cpus: int
+    ram_mb: int
+    disk_gb: int
+    vlans: tuple[int, ...] = ()
+    ips: tuple[str, ...] = ()
+    pool: str = ""
+    tags: tuple[str, ...] = ()
+    ip_quelle: str = ""  # agent, cloud-init, lxc oder leer
+
+    def zeile(self) -> str:
+        art = "Container" if self.typ == "lxc" else "VM"
+        teile = [f"{self.name} ({art} {self.vmid} auf {self.node}, {self.status})"]
+        teile.append("IP " + ", ".join(self.ips) if self.ips else "IP unbekannt")
+        if self.vlans:
+            teile.append("VLAN " + ", ".join(str(v) for v in self.vlans))
+        teile.append(
+            f"{self.cpus} CPU, {self.ram_mb // 1024 if self.ram_mb >= 1024 else self.ram_mb} "
+            f"{'GB' if self.ram_mb >= 1024 else 'MB'} RAM, {self.disk_gb} GB Disk"
+        )
+        if self.pool:
+            teile.append(f"Pool {self.pool}")
+        return "- " + " | ".join(teile)
+
+    def als_dict(self) -> dict[str, Any]:
+        return {
+            "vmid": self.vmid,
+            "name": self.name,
+            "typ": self.typ,
+            "node": self.node,
+            "status": self.status,
+            "cpus": self.cpus,
+            "ram_mb": self.ram_mb,
+            "disk_gb": self.disk_gb,
+            "vlans": list(self.vlans),
+            "ips": list(self.ips),
+            "pool": self.pool,
+            "tags": list(self.tags),
+            "ip_quelle": self.ip_quelle,
+        }
+
+
+def _optionen(text: str) -> dict[str, str]:
+    """``virtio=AA:BB,bridge=vmbr0,tag=70`` → ``{"virtio": "AA:BB", …, "tag": "70"}``."""
+    werte = {}
+    for teil in str(text or "").split(","):
+        schluessel, _, wert = teil.partition("=")
+        if schluessel.strip():
+            werte[schluessel.strip()] = wert.strip()
+    return werte
+
+
+def netze_lesen(config: dict[str, Any]) -> tuple[tuple[int, ...], tuple[str, ...]]:
+    """VLAN-Tags und feste IPs (Cloud-Init ``ipconfigN`` bzw. LXC ``ip=``) aus der Konfiguration."""
+    vlans: list[int] = []
+    ips: list[str] = []
+    for schluessel in sorted(config):
+        if schluessel.startswith("net") and schluessel[3:].isdigit():
+            optionen = _optionen(config[schluessel])
+            if optionen.get("tag", "").isdigit():
+                vlans.append(int(optionen["tag"]))
+            ip = optionen.get("ip", "")
+            if ip and ip not in ("dhcp", "manual"):
+                ips.append(ip.split("/")[0])
+        if schluessel.startswith("ipconfig") and schluessel[8:].isdigit():
+            ip = _optionen(config[schluessel]).get("ip", "")
+            if ip and ip != "dhcp":
+                ips.append(ip.split("/")[0])
+    return tuple(dict.fromkeys(vlans)), tuple(dict.fromkeys(ips))
+
+
+def agent_ips(daten: Any) -> tuple[str, ...]:
+    """IPv4/IPv6 aus ``agent/network-get-interfaces`` (ohne Loopback und Link-Local)."""
+    ergebnis = daten.get("result", []) if isinstance(daten, dict) else []
+    ips = []
+    for schnittstelle in ergebnis if isinstance(ergebnis, list) else []:
+        if not isinstance(schnittstelle, dict) or schnittstelle.get("name") == "lo":
+            continue
+        for adresse in schnittstelle.get("ip-addresses") or []:
+            ip = str(adresse.get("ip-address", ""))
+            if ip and not ip.startswith(("127.", "::1", "fe80", "169.254.")):
+                ips.append(ip)
+    return tuple(dict.fromkeys(sorted(ips, key=lambda i: (":" in i, i))))
+
+
+def lxc_ips(daten: Any) -> tuple[str, ...]:
+    ips = []
+    for schnittstelle in daten if isinstance(daten, list) else []:
+        if not isinstance(schnittstelle, dict) or schnittstelle.get("name") == "lo":
+            continue
+        for feld in ("inet", "inet6"):
+            ip = str(schnittstelle.get(feld) or "").split("/")[0]
+            if ip and not ip.startswith(("127.", "::1", "fe80")):
+                ips.append(ip)
+    return tuple(dict.fromkeys(ips))
+
+
+async def inventar_lesen(leser: ProxmoxLeser) -> list[VmEintrag]:
+    """Alle VMs und Container mit Konfiguration, VLAN und IP (Guest-Agent, wo vorhanden)."""
+    eintraege = []
+    for r in await leser.ressourcen():
+        if r.get("type") not in ("qemu", "lxc") or r.get("template"):
+            continue
+        node, vmid, typ = str(r.get("node", "")), int(r.get("vmid", 0)), str(r["type"])
+        try:
+            config = await leser.lesen(f"nodes/{node}/{typ}/{vmid}/config") or {}
+        except QuellenFehler:
+            config = {}
+        vlans, feste_ips = netze_lesen(config if isinstance(config, dict) else {})
+        ips, quelle = (), ""
+        if r.get("status") == "running":
+            try:
+                if typ == "qemu":
+                    ips = agent_ips(
+                        await leser.lesen(f"nodes/{node}/qemu/{vmid}/agent/network-get-interfaces")
+                    )
+                    quelle = "agent" if ips else ""
+                else:
+                    ips = lxc_ips(await leser.lesen(f"nodes/{node}/lxc/{vmid}/interfaces"))
+                    quelle = "lxc" if ips else ""
+            except QuellenFehler:
+                ips = ()  # kein Guest-Agent oder kein Recht dafür
+        if not ips and feste_ips:
+            ips, quelle = feste_ips, "konfiguration"
+        tags = tuple(
+            t
+            for t in str(r.get("tags") or config.get("tags", "") or "").replace(",", ";").split(";")
+            if t
+        )
+        eintraege.append(
+            VmEintrag(
+                vmid=vmid,
+                name=ziel_normal(r.get("name")) or f"vm{vmid}",
+                typ=typ,
+                node=node,
+                status=str(r.get("status", "")),
+                cpus=int(r.get("maxcpu") or 0),
+                ram_mb=int((r.get("maxmem") or 0) // (1024 * 1024)),
+                disk_gb=int((r.get("maxdisk") or 0) // (1024**3)),
+                vlans=vlans,
+                ips=ips,
+                pool=str(r.get("pool") or ""),
+                tags=tags,
+                ip_quelle=quelle,
+            )
+        )
+    return sorted(eintraege, key=lambda e: e.vmid)

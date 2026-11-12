@@ -77,6 +77,8 @@ def create_app(
     erreichbarkeit: Any = None,
     ssh_verbindung: Any = None,
     zertifikate: Any = None,
+    homelab: Any = None,
+    firewall: Any = None,
 ) -> FastAPI:
     """Baut die App. Parameter außer ``einstellungen`` sind vor allem für Tests da."""
     from missa.channels.nextcloud_talk import TalkClient, talk_einrichten
@@ -86,6 +88,8 @@ def create_app(
         container_dienst_bauen,
         erreichbarkeit_bauen,
         fehlersuche_bauen,
+        firewall_bauen,
+        homelab_bauen,
         kontaktpflege_bauen,
         login_waechter_bauen,
         mail_dienst_bauen,
@@ -201,6 +205,22 @@ def create_app(
         zertifikate = zertifikats_waechter_bauen(einstellungen, alarme)
     if zertifikate is not None:
         zeitplaner.taeglich("zertifikate", einstellungen.zertifikate_pruefzeit, zertifikate.pruefen)
+    # Homelab-Wissen (Proxmox, nur lesend) und Firewall-Logs (nur lesend).
+    if homelab is None:
+        homelab = homelab_bauen(einstellungen, alarme, server_transport)
+    if homelab is not None:
+        zeitplaner.regelmaessig(
+            "homelab",
+            timedelta(minutes=einstellungen.homelab_intervall_minuten),
+            homelab.scannen,
+        )
+    if firewall is None:
+        firewall = firewall_bauen(einstellungen, alarme)
+    if firewall is not None:
+        zeitplaner.regelmaessig("firewall-einlesen", timedelta(minutes=1), firewall.einlesen)
+        zeitplaner.taeglich(
+            "firewall-bericht", einstellungen.firewall_bericht_zeit, firewall.taeglich_berichten
+        )
     if werkzeuge is None:
         werkzeuge = werkzeuge_laden(
             einstellungen,
@@ -222,6 +242,8 @@ def create_app(
             anmeldungen=anmeldungen,
             updates=updates,
             zertifikate=zertifikate,
+            homelab=homelab,
+            firewall=firewall,
         )
     else:
         werkzeuge.rechte = rechte
@@ -245,6 +267,8 @@ def create_app(
         kontext_quellen.append(server_waechter.kontext)
     if erreichbarkeit is not None:
         kontext_quellen.append(erreichbarkeit.kontext)
+    if homelab is not None:
+        kontext_quellen.append(homelab.kontext)
     # Der Notfall-Stopp im Code kommt zuerst – noch vor der Senden-Sperre für Mails.
     eingangs_pruefer = [rechte.eingang]
     nachbearbeiter = []
@@ -328,6 +352,8 @@ def create_app(
     app.state.anmeldungen = anmeldungen
     app.state.updates = updates
     app.state.zertifikate = zertifikate
+    app.state.homelab = homelab
+    app.state.firewall = firewall
 
     # -------------------------------------------------------------- Fehlerformat
 
@@ -574,6 +600,18 @@ def create_app(
             }
             if fenster
             else None,
+        }
+
+    @app.get("/api/homelab", dependencies=geschuetzt, tags=["Missa"])
+    async def homelab_anzeigen() -> dict[str, Any]:
+        """Missas Wissen über VMs und Container aus Proxmox (letzter Scan, nur lesend)."""
+        if homelab is None:
+            return {"proxmox": False, "stand": None, "vms": []}
+        stand = homelab.stand()
+        return {
+            "proxmox": True,
+            "stand": stand.isoformat(timespec="seconds") if stand else None,
+            "vms": [e.als_dict() for e in homelab.eintraege()],
         }
 
     @app.post("/v1/chat/completions", dependencies=geschuetzt, tags=["OpenAI"])
