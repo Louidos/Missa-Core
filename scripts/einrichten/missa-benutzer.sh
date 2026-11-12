@@ -5,9 +5,10 @@
 #   bash missa-benutzer.sh --schluessel "ssh-ed25519 AAAA… missa@ai01"
 #   bash missa-benutzer.sh --schluessel-datei missa.pub --nextcloud-log /var/log/nextcloud/nextcloud.log
 #   bash missa-benutzer.sh --dry-run --schluessel "…"   # nur zeigen, was passieren würde
+#   bash missa-benutzer.sh --caddy --schluessel "…"     # auf rp01: Subdomains vorbereiten
 #   bash missa-benutzer.sh --entfernen                  # alles wieder entfernen
 #   bash missa-benutzer.sh --nur-sudoers   # erzeugte Dateien nur anzeigen (auch --nur-befehl,
-#                                          # --nur-docker, --nur-update)
+#                                          # --nur-docker, --nur-update, --nur-caddy)
 #
 # Was „missa“ danach darf (und nicht mehr):
 #   - per SSH nur mit Missas Schlüssel und NUR das Programm /usr/local/lib/missa/missa-befehl
@@ -19,6 +20,9 @@
 #   - die Liste anstehender Updates lesen (apt list --upgradable, ohne sudo)
 #   - Logs lesen (journalctl) über die Gruppe systemd-journal – ohne sudo, ohne Pager
 #   - optional die eine Nextcloud-Logdatei lesen (--nextcloud-log, per ACL nur diese Datei)
+#   - optional auf rp01 (--caddy): nur Dateien missa-*.caddy im eigenen Ordner
+#     /etc/caddy/missa schreiben und löschen, per sudo nur missa-caddy (caddy validate,
+#     systemctl reload caddy). Das bestehende Caddyfile bleibt unangetastet.
 # Auf dem Proxmox-Host nur mit --proxmox-ja (siehe docs/container-logs-logins.md).
 
 set -Eeuo pipefail
@@ -30,6 +34,11 @@ BEFEHL_DATEI="/usr/local/lib/missa/missa-befehl"
 DOCKER_DATEI="${MISSA_DOCKER_DATEI:-/usr/local/lib/missa/missa-docker}"
 # Ort des sudo-Programms für Updates und Neustart (änderbar nur für Tests).
 UPDATE_DATEI="${MISSA_UPDATE_DATEI:-/usr/local/lib/missa/missa-update}"
+# Caddy auf rp01: sudo-Programm, eigener Ordner und das bestehende Caddyfile (nur lesen).
+CADDY_DATEI="${MISSA_CADDY_DATEI:-/usr/local/lib/missa/missa-caddy}"
+CADDY_ORDNER="${MISSA_CADDY_ORDNER:-/etc/caddy/missa}"
+CADDYFILE="${MISSA_CADDYFILE:-/etc/caddy/Caddyfile}"
+CADDY_JA=0
 SUDOERS_DATEI="/etc/sudoers.d/missa"
 # Woran ein Proxmox-Host zu erkennen ist (änderbar nur für Tests).
 PVE_ORDNER="${PVE_ORDNER:-/etc/pve}"
@@ -63,12 +72,14 @@ while [[ $# -gt 0 ]]; do
             shift
             ;;
         --proxmox-ja) PROXMOX_JA=1 ;;
+        --caddy) CADDY_JA=1 ;;
         --dry-run) DRY_RUN=1 ;;
         --entfernen) AKTION="entfernen" ;;
         --nur-sudoers) AKTION="sudoers" ;;
         --nur-befehl) AKTION="befehl" ;;
         --nur-docker) AKTION="docker" ;;
         --nur-update) AKTION="update" ;;
+        --nur-caddy) AKTION="caddy" ;;
         -h | --help)
             hilfe
             exit 0
@@ -81,6 +92,8 @@ done
 DOCKER="$(command -v docker || true)"
 APT_GET="$(command -v apt-get || true)"
 SHUTDOWN="$(command -v shutdown || true)"
+CADDY_BIN="$(command -v caddy || true)"
+SYSTEMCTL="$(command -v systemctl || true)"
 
 # --------------------------------------------------------------------- erzeugte Dateien
 
@@ -89,11 +102,13 @@ sudoers_inhalt() {
     local programme=()
     [[ -n "$DOCKER" ]] && programme+=("$DOCKER_DATEI")
     [[ -n "$APT_GET" ]] && programme+=("$UPDATE_DATEI")
+    [[ "$CADDY_JA" -eq 1 ]] && programme+=("$CADDY_DATEI")
     cat <<EOF
 # Verwaltet von missa-benutzer.sh – nicht von Hand ändern (Änderungen gehen verloren).
 # Missa darf per sudo NUR diese Programme ausführen:
 #   $DOCKER_DATEI – docker ps, docker stats --no-stream, docker logs, docker restart
 #   $UPDATE_DATEI – apt-get update, apt-get -y upgrade, reboot
+#   $CADDY_DATEI – caddy validate, systemctl reload caddy (nur mit --caddy)
 # Logs liest missa über die Gruppe systemd-journal, dafür braucht es kein sudo.
 EOF
     if ((${#programme[@]})); then
@@ -103,6 +118,38 @@ EOF
     else
         echo "# Weder Docker noch apt-get auf diesem Host – keine sudo-Rechte."
     fi
+}
+
+caddy_inhalt() {
+    sed -e "s|@CADDY_BIN@|${CADDY_BIN}|" -e "s|@SYSTEMCTL@|${SYSTEMCTL}|" \
+        -e "s|@CADDYFILE@|${CADDYFILE}|" <<'CADDY'
+#!/usr/bin/env bash
+# missa-caddy – Caddy prüfen und neu laden, mehr nicht (per sudo als root).
+# Verwaltet von missa-benutzer.sh.
+set -euo pipefail
+export PATH="/usr/sbin:/usr/bin:/sbin:/bin"
+CADDY="@CADDY_BIN@"
+SYSTEMCTL="@SYSTEMCTL@"
+CADDYFILE="@CADDYFILE@"
+
+fehler() {
+    echo "missa-caddy: $*" >&2
+    exit 64
+}
+
+[[ $# -eq 1 ]] || fehler "genau eine Angabe erwartet: validate oder reload"
+case "$1" in
+    validate)
+        [[ -x "$CADDY" ]] || fehler "caddy fehlt auf diesem Host"
+        exec "$CADDY" validate --config "$CADDYFILE" --adapter caddyfile
+        ;;
+    reload)
+        [[ -x "$SYSTEMCTL" ]] || fehler "systemctl fehlt auf diesem Host"
+        exec "$SYSTEMCTL" reload caddy
+        ;;
+    *) fehler "nicht erlaubt: $1" ;;
+esac
+CADDY
 }
 
 update_inhalt() {
@@ -179,7 +226,10 @@ DOCKER
 
 befehl_inhalt() {
     # Platzhalter werden beim Einrichten durch die Werte dieses Hosts ersetzt.
+    local caddy_programm=""
+    [[ "$CADDY_JA" -eq 1 ]] && caddy_programm="$CADDY_DATEI"
     sed -e "s|@DOCKER_DATEI@|${DOCKER_DATEI}|" -e "s|@UPDATE_DATEI@|${UPDATE_DATEI}|" \
+        -e "s|@CADDY_DATEI@|${caddy_programm}|" -e "s|@CADDY_ORDNER@|${CADDY_ORDNER}|" \
         -e "s|@NEXTCLOUD_LOG@|${NEXTCLOUD_LOG}|" <<'BEFEHL'
 #!/usr/bin/env bash
 # missa-befehl – die einzigen Befehle, die Missa per SSH auf diesem Host ausführen kann.
@@ -189,6 +239,8 @@ export PATH="${MISSA_TEST_PATH:-/usr/sbin:/usr/bin:/sbin:/bin}"
 export SYSTEMD_PAGER="" PAGER="cat" SYSTEMD_COLORS=0 LC_ALL=C.UTF-8
 DOCKER="@DOCKER_DATEI@"
 UPDATE="@UPDATE_DATEI@"
+CADDY="@CADDY_DATEI@"
+CADDY_ORDNER="@CADDY_ORDNER@"
 NEXTCLOUD_LOG="@NEXTCLOUD_LOG@"
 MAX_ZEILEN=5000
 
@@ -283,6 +335,48 @@ case "$befehl" in
             echo "nein"
         fi
         ;;
+    caddy-liste | caddy-schreiben | caddy-loeschen | caddy-pruefen | caddy-neu-laden)
+        [[ -n "$CADDY" && -d "$CADDY_ORDNER" ]] || fehler "Caddy ist auf diesem Host nicht eingerichtet (--caddy)"
+        case "$befehl" in
+            caddy-liste)
+                ((anzahl == 0)) || fehler "caddy-liste hat keine Angaben"
+                for datei in "$CADDY_ORDNER"/missa-*.caddy; do
+                    [[ -e "$datei" ]] || continue
+                    echo "### ${datei##*/}"
+                    cat -- "$datei"
+                done
+                ;;
+            caddy-schreiben | caddy-loeschen)
+                ((anzahl == 1)) || fehler "$befehl braucht genau einen Dateinamen"
+                [[ "${argumente[0]}" =~ ^missa-[a-z0-9-]{1,40}\.caddy$ ]] ||
+                    fehler "nur Dateien missa-<name>.caddy sind erlaubt"
+                ziel="$CADDY_ORDNER/${argumente[0]}"
+                if [[ "$befehl" == "caddy-loeschen" ]]; then
+                    rm -f -- "$ziel"
+                    echo "entfernt: ${argumente[0]}"
+                else
+                    inhalt="$(head -c 4097)"
+                    ((${#inhalt} <= 4096)) || fehler "Eintrag zu lang (höchstens 4096 Zeichen)"
+                    if grep -Eq '^[[:space:]]*(import|\{)' <<<"$inhalt"; then
+                        fehler "import und globale Optionen sind in einem Eintrag nicht erlaubt"
+                    fi
+                    zwischen="$(mktemp "$CADDY_ORDNER/.neu.XXXXXX")"
+                    printf '%s\n' "$inhalt" >"$zwischen"
+                    chmod 0644 "$zwischen"
+                    mv -f -- "$zwischen" "$ziel"
+                    echo "geschrieben: ${argumente[0]}"
+                fi
+                ;;
+            caddy-pruefen)
+                ((anzahl == 0)) || fehler "caddy-pruefen hat keine Angaben"
+                exec sudo -n "$CADDY" validate 2>&1
+                ;;
+            caddy-neu-laden)
+                ((anzahl == 0)) || fehler "caddy-neu-laden hat keine Angaben"
+                exec sudo -n "$CADDY" reload 2>&1
+                ;;
+        esac
+        ;;
     nextcloud-log)
         [[ -n "$NEXTCLOUD_LOG" ]] || fehler "kein Nextcloud-Log eingerichtet (--nextcloud-log)"
         ((anzahl == 1)) || fehler "nextcloud-log braucht die Zeilenzahl"
@@ -361,6 +455,16 @@ einrichten() {
     if [[ -n "$APT_GET" ]]; then
         datei_schreiben "$UPDATE_DATEI" 0755 root:root "$(update_inhalt)"
     fi
+    if [[ "$CADDY_JA" -eq 1 ]]; then
+        [[ -n "$CADDY_BIN" || "$DRY_RUN" -eq 1 ]] || abbruch "--caddy: caddy ist auf diesem Host nicht installiert."
+        datei_schreiben "$CADDY_DATEI" 0755 root:root "$(caddy_inhalt)"
+        # Eigener Ordner, den nur missa beschreibt; das Caddyfile wird NICHT verändert.
+        aendern install -d -m 0755 -o "$BENUTZER" -g "$BENUTZER" "$CADDY_ORDNER"
+        if ! grep -Fq "import $CADDY_ORDNER/missa-*.caddy" "$CADDYFILE" 2>/dev/null; then
+            echo "Hinweis: Füge in $CADDYFILE von Hand diese Zeile ganz unten ein (außerhalb jedes Blocks):"
+            echo "  import $CADDY_ORDNER/missa-*.caddy"
+        fi
+    fi
 
     local heimat
     heimat="$(getent passwd "$BENUTZER" | cut -d: -f6 || true)"
@@ -403,7 +507,7 @@ EOF
 
 entfernen() {
     pruefungen
-    aendern rm -f "$SUDOERS_DATEI" "$BEFEHL_DATEI" "$DOCKER_DATEI" "$UPDATE_DATEI"
+    aendern rm -f "$SUDOERS_DATEI" "$BEFEHL_DATEI" "$DOCKER_DATEI" "$UPDATE_DATEI" "$CADDY_DATEI"
     if id "$BENUTZER" >/dev/null 2>&1; then
         aendern userdel --remove "$BENUTZER"
     fi
@@ -416,6 +520,7 @@ case "$AKTION" in
     befehl) befehl_inhalt ;;
     docker) docker_inhalt ;;
     update) update_inhalt ;;
+    caddy) caddy_inhalt ;;
     entfernen) entfernen ;;
     *) einrichten ;;
 esac

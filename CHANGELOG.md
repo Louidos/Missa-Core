@@ -9,6 +9,16 @@ die Versionsnummern folgen [Semantic Versioning](https://semver.org/lang/de/).
 
 ### Hinzugefügt
 
+- Subdomains in Caddy vorbereiten mit Freigabe und Minecraft-Verwaltung per RCON:
+  „Mach spiel.louis-degiorgi.ch auf 10.0.70.120:8080“ zeigt den fertigen Caddy-Eintrag
+  und sagt, ob noch ein DNS-Eintrag fehlt. Erst nach deinem Ja schreibt Missa die Datei
+  in ihren eigenen Ordner auf rp01, prüft mit `caddy validate` und lädt Caddy neu. Ist
+  der Eintrag ungültig, nimmt sie ihn sofort zurück und erklärt den Fehler; Caddy läuft
+  unverändert weiter. Das bestehende Caddyfile bleibt unangetastet (eine `import`-Zeile
+  ergänzt du selbst), Einrichtung mit `missa-benutzer.sh --caddy`. Minecraft per RCON:
+  „Wer ist online?“, Whitelist anzeigen, Spieler hinzufügen und entfernen, Neustart nur
+  nach Ja und mit Warnung, wenn gerade Spieler online sind. Ohne `CADDY_HOST` bzw.
+  `MINECRAFT_RCON_HOST` ist beides aus; siehe docs/caddy-minecraft.md (#58)
 - Missa erstellt und richtet VMs auf Zuruf ein, mit Plan, Bestätigung und festen Grenzen:
   „Richte einen Minecraft-Server ein“ zeigt einen Plan mit Template, CPU, RAM, Disk, VLAN,
   IP, Name und Playbooks. Erst nach deinem Ja klont Missa die VM aus dem

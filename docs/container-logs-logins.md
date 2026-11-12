@@ -130,7 +130,8 @@ sudo bash missa-benutzer.sh --dry-run --schluessel "ssh-ed25519 AAAA… missa@ai
 sudo bash missa-benutzer.sh --schluessel "ssh-ed25519 AAAA… missa@ai01"
 ```
 
-Auf dem Nextcloud-Host zusätzlich `--nextcloud-log /pfad/zur/nextcloud.log`. Damit kann
+Auf rp01 zusätzlich `--caddy`, damit Missa Subdomains vorbereiten kann (siehe
+[caddy-minecraft.md](caddy-minecraft.md)). Auf dem Nextcloud-Host zusätzlich `--nextcloud-log /pfad/zur/nextcloud.log`. Damit kann
 `missa` genau diese eine Datei lesen. Am saubersten ist eine eigene Logdatei außerhalb des
 Datenordners (`'logfile' => '/var/log/nextcloud/nextcloud.log'` in der `config.php`).
 Alternativ loggt Nextcloud per syslog ins journal (`'log_type' => 'syslog'`), dann

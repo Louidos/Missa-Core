@@ -80,12 +80,15 @@ def create_app(
     homelab: Any = None,
     firewall: Any = None,
     vms: Any = None,
+    caddy: Any = None,
+    minecraft: Any = None,
 ) -> FastAPI:
     """Baut die App. Parameter außer ``einstellungen`` sind vor allem für Tests da."""
     from missa.channels.nextcloud_talk import TalkClient, talk_einrichten
     from missa.core.rechte import rechte_bauen
     from missa.tools import (
         alarme_bauen,
+        caddy_verwaltung_bauen,
         container_dienst_bauen,
         erreichbarkeit_bauen,
         fehlersuche_bauen,
@@ -94,6 +97,7 @@ def create_app(
         kontaktpflege_bauen,
         login_waechter_bauen,
         mail_dienst_bauen,
+        minecraft_bauen,
         nextcloud_dienste_bauen,
         pausen_waechter_bauen,
         server_waechter_bauen,
@@ -226,6 +230,11 @@ def create_app(
     # Eigene VMs im Pool missa (Proxmox mit Schreibrechten, nur dort).
     if vms is None:
         vms = vm_verwaltung_bauen(einstellungen, alarme, rechte, homelab, server_transport)
+    # Subdomains in Caddy (rp01, nur eigene Dateien, nach Ja) und Minecraft per RCON.
+    if caddy is None:
+        caddy = caddy_verwaltung_bauen(einstellungen, ssh_verbindung)
+    if minecraft is None:
+        minecraft = minecraft_bauen(einstellungen)
     if werkzeuge is None:
         werkzeuge = werkzeuge_laden(
             einstellungen,
@@ -250,6 +259,8 @@ def create_app(
             homelab=homelab,
             firewall=firewall,
             vms=vms,
+            caddy=caddy,
+            minecraft=minecraft,
         )
     else:
         werkzeuge.rechte = rechte
@@ -363,6 +374,8 @@ def create_app(
     app.state.homelab = homelab
     app.state.firewall = firewall
     app.state.vms = vms
+    app.state.caddy = caddy
+    app.state.minecraft = minecraft
 
     # -------------------------------------------------------------- Fehlerformat
 

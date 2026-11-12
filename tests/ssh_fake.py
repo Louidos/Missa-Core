@@ -23,9 +23,13 @@ class FakeHosts:
         self.aufrufe: list[tuple[str, str, list[str]]] = []
         self.kommandos: list[list[str]] = []
         self.offline: set[str] = set()
+        self.eingaben: list[str | None] = []
 
-    async def __call__(self, kommando: list[str], timeout: float) -> tuple[int, str, str]:
+    async def __call__(
+        self, kommando: list[str], timeout: float, eingabe: str | None = None
+    ) -> tuple[int, str, str]:
         self.kommandos.append(kommando)
+        self.eingaben.append(eingabe)
         trenner = kommando.index("--")
         host = self.adressen[kommando[trenner - 1].split("@", 1)[1]]
         befehl, *argumente = kommando[trenner + 1 :]
@@ -34,7 +38,7 @@ class FakeHosts:
             return 255, "", f"ssh: connect to host {host} port 22: Connection refused"
         antwort = self.antworten.get((host, befehl), "")
         if callable(antwort) and not isinstance(antwort, Exception):
-            antwort = antwort(argumente)
+            antwort = antwort(argumente) if eingabe is None else antwort([*argumente, eingabe])
         if isinstance(antwort, Exception):
             raise antwort
         if isinstance(antwort, tuple):

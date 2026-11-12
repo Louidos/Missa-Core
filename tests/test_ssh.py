@@ -84,7 +84,10 @@ def fakes(tmp_path: Path) -> Path:
     """Ordner mit gefälschten Programmen, die ihre Aufrufe protokollieren (nie die echten!)."""
     ordner = tmp_path / "bin"
     ordner.mkdir()
-    for name in ("docker", "sudo", "journalctl", "tail", "apt-get", "apt", "shutdown"):
+    for name in (
+        "docker", "sudo", "journalctl", "tail", "apt-get", "apt", "shutdown", "caddy",
+        "systemctl",
+    ):  # fmt: skip
         programm = ordner / name
         programm.write_text(
             f'#!/bin/bash\nprintf "%s\\n" "{name} $*" >> "{tmp_path}/aufrufe.log"\n',
@@ -95,9 +98,13 @@ def fakes(tmp_path: Path) -> Path:
 
 
 def erzeugen(
-    fakes: Path, *argumente: str, wrapper: Path | None = None, update: Path | None = None
+    fakes: Path,
+    *argumente: str,
+    wrapper: Path | None = None,
+    update: Path | None = None,
+    **extra: str,
 ) -> str:
-    umgebung = {**os.environ, "PATH": f"{fakes}:{os.environ['PATH']}"}
+    umgebung = {**os.environ, "PATH": f"{fakes}:{os.environ['PATH']}", **extra}
     if wrapper is not None:
         umgebung["MISSA_DOCKER_DATEI"] = str(wrapper)
     if update is not None:
@@ -461,3 +468,205 @@ def test_missa_update_lehnt_alles_andere_ab(update, fakes, argumente):
     code, aufrufe = wrapper_ausfuehren(update, fakes, *argumente)
     assert code == 64
     assert aufrufe == []
+
+
+# ----------------------------------------------------------------------------- Caddy (rp01)
+
+
+@pytest.fixture
+def caddy_ordner(tmp_path: Path) -> Path:
+    ordner = tmp_path / "caddy-missa"
+    ordner.mkdir()
+    return ordner
+
+
+@pytest.fixture
+def caddy_wrapper(tmp_path: Path, fakes: Path) -> Path:
+    """Das erzeugte missa-caddy (ruft gefälschtes caddy und systemctl mit absolutem Pfad auf)."""
+    datei = tmp_path / "missa-caddy"
+    datei.write_text(
+        erzeugen(fakes, "--nur-caddy", MISSA_CADDYFILE="/etc/caddy/Caddyfile"), encoding="utf-8"
+    )
+    datei.chmod(0o755)
+    return datei
+
+
+@pytest.fixture
+def caddy_befehl(tmp_path: Path, fakes: Path, caddy_wrapper: Path, caddy_ordner: Path) -> Path:
+    datei = tmp_path / "missa-befehl-caddy"
+    datei.write_text(
+        erzeugen(
+            fakes,
+            "--caddy",
+            "--nur-befehl",
+            MISSA_CADDY_DATEI=str(caddy_wrapper),
+            MISSA_CADDY_ORDNER=str(caddy_ordner),
+        ),
+        encoding="utf-8",
+    )
+    datei.chmod(0o755)
+    return datei
+
+
+def ausfuehren_mit(
+    befehl: Path, fakes: Path, ssh_befehl: str, eingabe: str = ""
+) -> tuple[int, list[str], str, str]:
+    protokoll_lesen(fakes)
+    umgebung = {
+        "SSH_ORIGINAL_COMMAND": ssh_befehl,
+        "MISSA_TEST_PATH": f"{fakes}:/usr/bin:/bin",
+        "PATH": "/usr/bin:/bin",
+    }
+    ergebnis = subprocess.run(
+        ["bash", str(befehl)],
+        capture_output=True,
+        text=True,
+        env=umgebung,
+        input=eingabe,
+        check=False,
+    )
+    return ergebnis.returncode, protokoll_lesen(fakes), ergebnis.stdout, ergebnis.stderr
+
+
+EINTRAG = "spiel.louis-degiorgi.ch {\n\treverse_proxy 10.0.70.120:8080\n}"
+
+
+def test_caddy_schreiben_liste_loeschen(caddy_befehl, fakes, caddy_ordner):
+    code, aufrufe, aus, fehler = ausfuehren_mit(
+        caddy_befehl, fakes, "caddy-schreiben missa-spiel.caddy", EINTRAG
+    )
+    assert code == 0, fehler
+    assert aus.strip() == "geschrieben: missa-spiel.caddy" and aufrufe == []
+    datei = caddy_ordner / "missa-spiel.caddy"
+    assert datei.read_text(encoding="utf-8") == EINTRAG + "\n"
+    assert datei.stat().st_mode & 0o777 == 0o644
+    assert [p.name for p in caddy_ordner.iterdir()] == ["missa-spiel.caddy"]
+
+    code, _, aus, _ = ausfuehren_mit(caddy_befehl, fakes, "caddy-liste")
+    assert code == 0 and aus == f"### missa-spiel.caddy\n{EINTRAG}\n"
+
+    code, _, aus, _ = ausfuehren_mit(caddy_befehl, fakes, "caddy-loeschen missa-spiel.caddy")
+    assert code == 0 and aus.strip() == "entfernt: missa-spiel.caddy"
+    assert list(caddy_ordner.iterdir()) == []
+
+
+def test_caddy_pruefen_und_neu_laden_nur_ueber_missa_caddy(caddy_befehl, fakes, caddy_wrapper):
+    assert ausfuehren_mit(caddy_befehl, fakes, "caddy-pruefen")[:2] == (
+        0,
+        [f"sudo -n {caddy_wrapper} validate"],
+    )
+    assert ausfuehren_mit(caddy_befehl, fakes, "caddy-neu-laden")[:2] == (
+        0,
+        [f"sudo -n {caddy_wrapper} reload"],
+    )
+
+
+@pytest.mark.parametrize(
+    ("ssh_befehl", "eingabe"),
+    [
+        ("caddy-schreiben ../Caddyfile", EINTRAG),
+        ("caddy-schreiben Caddyfile", EINTRAG),
+        ("caddy-schreiben missa-spiel.conf", EINTRAG),
+        ("caddy-schreiben missa-Spiel.caddy", EINTRAG),
+        ("caddy-schreiben missa-a.caddy missa-b.caddy", EINTRAG),
+        ("caddy-schreiben", EINTRAG),
+        ("caddy-loeschen ../../etc/passwd", ""),
+        ("caddy-loeschen missa-*.caddy", ""),
+        ("caddy-schreiben missa-spiel.caddy", "import /etc/caddy/Caddyfile"),
+        ("caddy-schreiben missa-spiel.caddy", "{\n\tadmin off\n}"),
+        ("caddy-schreiben missa-spiel.caddy", "x" * 5000),
+        ("caddy-liste missa-spiel.caddy", ""),
+        ("caddy-pruefen --config /tmp/boese", ""),
+        ("caddy-neu-laden nginx", ""),
+    ],
+)
+def test_caddy_befehle_lehnen_alles_andere_ab(
+    caddy_befehl, fakes, caddy_ordner, ssh_befehl, eingabe
+):
+    code, aufrufe, _, _ = ausfuehren_mit(caddy_befehl, fakes, ssh_befehl, eingabe)
+    assert code != 0
+    assert aufrufe == []
+    assert list(caddy_ordner.iterdir()) == []
+
+
+def test_ohne_caddy_option_keine_caddy_befehle(befehl, fakes):
+    code, aufrufe, _, fehler = ausfuehren_mit(befehl, fakes, "caddy-liste")
+    assert code != 0 and "nicht eingerichtet" in fehler and aufrufe == []
+
+
+@pytest.mark.parametrize(
+    ("argumente", "erwartet"),
+    [
+        (["validate"], "caddy validate --config /etc/caddy/Caddyfile --adapter caddyfile"),
+        (["reload"], "systemctl reload caddy"),
+    ],
+)
+def test_missa_caddy_kann_nur_validate_und_reload(caddy_wrapper, fakes, argumente, erwartet):
+    code, aufrufe = wrapper_ausfuehren(caddy_wrapper, fakes, *argumente)
+    assert code == 0
+    assert aufrufe == [erwartet]
+
+
+@pytest.mark.parametrize(
+    "argumente",
+    [
+        [],
+        ["restart"],
+        ["stop"],
+        ["validate", "--config", "/tmp/boese"],
+        ["reload", "nginx"],
+        ["adapt"],
+        ["run"],
+    ],
+)
+def test_missa_caddy_lehnt_alles_andere_ab(caddy_wrapper, fakes, argumente):
+    code, aufrufe = wrapper_ausfuehren(caddy_wrapper, fakes, *argumente)
+    assert code != 0
+    assert aufrufe == []
+
+
+def test_sudoers_mit_caddy_erlaubt_genau_drei_programme(fakes, tmp_path):
+    inhalt = erzeugen(fakes, "--caddy", "--nur-sudoers")
+    assert sudoers_regeln(inhalt) == [
+        "/usr/local/lib/missa/missa-docker",
+        "/usr/local/lib/missa/missa-update",
+        "/usr/local/lib/missa/missa-caddy",
+    ]
+    assert "*" not in "".join(z for z in inhalt.splitlines() if not z.startswith("#"))
+    if shutil.which("visudo") is not None:
+        datei = tmp_path / "missa-caddy.sudoers"
+        datei.write_text(inhalt, encoding="utf-8")
+        ergebnis = subprocess.run(
+            ["visudo", "-cf", str(datei)], capture_output=True, text=True, check=False
+        )
+        assert ergebnis.returncode == 0, ergebnis.stdout + ergebnis.stderr
+
+
+def test_caddy_einrichten_aendert_caddyfile_nicht(fakes, tmp_path):
+    caddyfile = tmp_path / "Caddyfile"
+    caddyfile.write_text("example.ch {\n\trespond ok\n}\n", encoding="utf-8")
+    vorher = caddyfile.read_bytes()
+    ausgabe = erzeugen(
+        fakes,
+        "--dry-run",
+        "--caddy",
+        "--schluessel",
+        SCHLUESSEL,
+        MISSA_CADDYFILE=str(caddyfile),
+        MISSA_CADDY_ORDNER=str(tmp_path / "missa"),
+    )
+    assert "würde schreiben: /usr/local/lib/missa/missa-caddy (0755, root:root)" in ausgabe
+    assert f"import {tmp_path / 'missa'}/missa-*.caddy" in ausgabe
+    assert caddyfile.read_bytes() == vorher
+    assert not (tmp_path / "missa").exists()
+
+
+@pytest.mark.skipif(shutil.which("shellcheck") is None, reason="shellcheck nicht installiert")
+def test_caddy_programme_bestehen_shellcheck(caddy_befehl, caddy_wrapper):
+    ergebnis = subprocess.run(
+        ["shellcheck", "-s", "bash", str(caddy_befehl), str(caddy_wrapper)],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    assert ergebnis.returncode == 0, ergebnis.stdout

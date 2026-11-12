@@ -17,4 +17,5 @@
 - [container-logs-logins.md](container-logs-logins.md) – Container, Fehlersuche in Logs, Login-Überwachung, Benutzer `missa` auf den Hosts
 - [homelab-firewall.md](homelab-firewall.md) – Homelab-Wissen aus Proxmox (VMs, IPs, VLANs) und Firewall-Logs der ZyWALL (nur lesend)
 - [proxmox-vms.md](proxmox-vms.md) – VMs in Proxmox auf Zuruf erstellen und per Playbook einrichten, Grenzen, Pool missa
+- [caddy-minecraft.md](caddy-minecraft.md) – Subdomains in Caddy vorbereiten (aktiv nach Ja) und Minecraft per RCON verwalten
 - [updates-zertifikate.md](updates-zertifikate.md) – Updates pro VM, Wartungsfenster, Einspielen nach Ja, Zertifikate, Domains (RDAP), DNS
