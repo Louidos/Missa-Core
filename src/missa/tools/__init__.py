@@ -22,6 +22,7 @@ if TYPE_CHECKING:
     from missa.core.zeitplaner import Zeitplaner
     from missa.integrationen.ssh import SshVerbindung
     from missa.tools.anmeldungen import LoginWaechter
+    from missa.tools.caddy import CaddyVerwaltung
     from missa.tools.container import ContainerDienst
     from missa.tools.erreichbarkeit import ErreichbarkeitsWaechter
     from missa.tools.fehlersuche import Fehlersuche
@@ -30,6 +31,7 @@ if TYPE_CHECKING:
     from missa.tools.kalender import Kalender
     from missa.tools.kontakte import Adressbuch, Kontaktpflege
     from missa.tools.mail import MailDienst
+    from missa.tools.minecraft import MinecraftVerwaltung
     from missa.tools.nextcloud import NextcloudVerbindung
     from missa.tools.pausen import PausenWaechter
     from missa.tools.server_alarme import ServerWaechter
@@ -107,6 +109,8 @@ def werkzeuge_laden(
     homelab: HomelabInventar | None = None,
     firewall: FirewallLog | None = None,
     vms: VmVerwaltung | None = None,
+    caddy: CaddyVerwaltung | None = None,
+    minecraft: MinecraftVerwaltung | None = None,
 ) -> Werkzeugkasten:
     """Stellt alle Werkzeuge zusammen, die mit dieser Konfiguration nutzbar sind.
 
@@ -215,6 +219,18 @@ def werkzeuge_laden(
         from missa.tools.vms import vm_werkzeuge
 
         for werkzeug in vm_werkzeuge(vms):
+            kasten.hinzufuegen(werkzeug)
+
+    if caddy is not None:
+        from missa.tools.caddy import caddy_werkzeuge
+
+        for werkzeug in caddy_werkzeuge(caddy):
+            kasten.hinzufuegen(werkzeug)
+
+    if minecraft is not None:
+        from missa.tools.minecraft import minecraft_werkzeuge
+
+        for werkzeug in minecraft_werkzeuge(minecraft):
             kasten.hinzufuegen(werkzeug)
 
     meldende = (
@@ -641,23 +657,6 @@ def vm_verwaltung_bauen(
         )
     except OSError:
         log.warning("VMs: öffentlicher Schlüssel %s.pub fehlt", einstellungen.ssh_schluessel)
-    rcon_datei = einstellungen.daten / "minecraft-rcon.txt"
-
-    def rcon_passwort() -> str:
-        """Aus MINECRAFT_RCON_PASSWORT, sonst einmal erzeugt und nur für missa lesbar abgelegt."""
-        if einstellungen.minecraft_rcon_passwort:
-            return einstellungen.minecraft_rcon_passwort
-        try:
-            return rcon_datei.read_text(encoding="utf-8").strip()
-        except OSError:
-            import secrets
-
-            neu = secrets.token_urlsafe(18)
-            rcon_datei.parent.mkdir(parents=True, exist_ok=True)
-            rcon_datei.write_text(neu + "\n", encoding="utf-8")
-            rcon_datei.chmod(0o600)
-            return neu
-
     return VmVerwaltung(
         proxmox,
         alarme,
@@ -681,8 +680,64 @@ def vm_verwaltung_bauen(
         ssh_schluessel_pub=oeffentlich,
         nameserver=einstellungen.vm_nameserver,
         verwaltung_ip=einstellungen.vm_verwaltung_ip,
-        rcon_passwort=rcon_passwort,
+        rcon_passwort=lambda: rcon_passwort(einstellungen),
         ansible=AnsibleLaeufer(befehl, einstellungen.ssh_schluessel),
         rechte=rechte,
         homelab=homelab,
+    )
+
+
+def rcon_passwort(einstellungen: Einstellungen, erzeugen: bool = True) -> str:
+    """Aus MINECRAFT_RCON_PASSWORT, sonst aus ``MISSA_DATEN/minecraft-rcon.txt``.
+
+    Fehlt beides, erzeugt Missa (beim Einrichten einer Minecraft-VM) einmal ein Passwort und
+    legt es nur für missa lesbar ab.
+    """
+    if einstellungen.minecraft_rcon_passwort:
+        return einstellungen.minecraft_rcon_passwort
+    datei = einstellungen.daten / "minecraft-rcon.txt"
+    try:
+        return datei.read_text(encoding="utf-8").strip()
+    except OSError:
+        if not erzeugen:
+            return ""
+        import secrets
+
+        neu = secrets.token_urlsafe(18)
+        datei.parent.mkdir(parents=True, exist_ok=True)
+        datei.write_text(neu + "\n", encoding="utf-8")
+        datei.chmod(0o600)
+        return neu
+
+
+def caddy_verwaltung_bauen(
+    einstellungen: Einstellungen, ssh: SshVerbindung | None
+) -> CaddyVerwaltung | None:
+    """Subdomains in Caddy auf rp01 – ohne CADDY_HOST, CADDY_DOMAIN oder SSH aus."""
+    if not einstellungen.caddy_konfiguriert or ssh is None:
+        return None
+    from missa.integrationen.domains import dns_abfragen
+    from missa.tools.caddy import CaddyVerwaltung
+
+    return CaddyVerwaltung(
+        ssh, einstellungen.caddy_host, einstellungen.caddy_domain, dns=dns_abfragen
+    )
+
+
+def minecraft_bauen(einstellungen: Einstellungen) -> MinecraftVerwaltung | None:
+    """Minecraft per RCON – ohne MINECRAFT_RCON_HOST oder ohne Passwort aus."""
+    if not einstellungen.minecraft_konfiguriert:
+        return None
+    passwort = rcon_passwort(einstellungen, erzeugen=False)
+    if not passwort:
+        log.warning(
+            "MINECRAFT_RCON_HOST ist gesetzt, aber kein RCON-Passwort "
+            "(MINECRAFT_RCON_PASSWORT oder minecraft-rcon.txt) – Minecraft-Werkzeuge sind aus"
+        )
+        return None
+    from missa.integrationen.rcon import RconClient
+    from missa.tools.minecraft import MinecraftVerwaltung
+
+    return MinecraftVerwaltung(
+        RconClient(einstellungen.minecraft_rcon_host, einstellungen.minecraft_rcon_port, passwort)
     )

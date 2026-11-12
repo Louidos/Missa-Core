@@ -156,6 +156,10 @@ class Einstellungen:
     ansible_playbook: str = ""
     playbook_ordner: Path | None = None
     minecraft_rcon_passwort: str = ""
+    caddy_host: str = ""
+    caddy_domain: str = ""
+    minecraft_rcon_host: str = ""
+    minecraft_rcon_port: int = 25575
 
     @property
     def notfall_datei(self) -> Path:
@@ -229,6 +233,16 @@ class Einstellungen:
         from missa.integrationen.domains import registrierte_domain
 
         return tuple(dict.fromkeys(registrierte_domain(d) for d in self.zertifikat_domain_liste))
+
+    @property
+    def caddy_konfiguriert(self) -> bool:
+        """``True``, wenn Missa Subdomains in Caddy vorbereiten darf (Host und Domain)."""
+        return bool(self.caddy_host and self.caddy_domain)
+
+    @property
+    def minecraft_konfiguriert(self) -> bool:
+        """``True``, wenn ein Minecraft-Server per RCON eingetragen ist."""
+        return bool(self.minecraft_rcon_host)
 
     @property
     def vms_konfiguriert(self) -> bool:
@@ -491,6 +505,10 @@ class Einstellungen:
             ansible_playbook=env.get("ANSIBLE_PLAYBOOK", "").strip(),
             playbook_ordner=Path(pb_ordner) if pb_ordner else None,
             minecraft_rcon_passwort=env.get("MINECRAFT_RCON_PASSWORT", "").strip(),
+            caddy_host=env.get("CADDY_HOST", "").strip().casefold(),
+            caddy_domain=env.get("CADDY_DOMAIN", "").strip().casefold().strip("."),
+            minecraft_rcon_host=env.get("MINECRAFT_RCON_HOST", "").strip(),
+            minecraft_rcon_port=zahl("MINECRAFT_RCON_PORT", 25575),
         )
 
     def pruefen(self) -> None:
@@ -529,6 +547,13 @@ class Einstellungen:
 
             bereich_lesen(self.vm_id_bereich)
             netze_lesen(self.vm_netze)
+            if self.caddy_host and self.caddy_host not in hosts_lesen(self.ssh_hosts):
+                raise ValueError(
+                    f"CADDY_HOST={self.caddy_host} fehlt in SSH_HOSTS – Missa erreicht "
+                    "Caddy nur über SSH als Benutzer missa"
+                )
+            if not 0 < self.minecraft_rcon_port < 65536:
+                raise ValueError("MINECRAFT_RCON_PORT muss zwischen 1 und 65535 liegen")
         except ValueError as fehler:
             raise KonfigurationsFehler(str(fehler)) from fehler
         try:

@@ -4,10 +4,11 @@ Auf jedem Host richtet Louis von Hand ``scripts/einrichten/missa-benutzer.sh`` e
 SSH-Schlüssel von Missa ist dort an einen festen Befehl gebunden
 (``command="/usr/local/lib/missa/missa-befehl"``, ``restrict``): Missa kann keine Shell
 öffnen, sondern nur die Befehle aus :data:`BEFEHLE` mit geprüften Angaben aufrufen. Per
-sudo darf ``missa`` nur zwei feste Programme starten: ``missa-docker`` (``docker ps``,
+sudo darf ``missa`` nur feste Programme starten: ``missa-docker`` (``docker ps``,
 ``docker stats``, ``docker logs``, ``docker restart``) und ``missa-update`` (``apt-get update``,
-``apt-get -y upgrade``, ``reboot``); die Logs (journal) liest ``missa`` über die Gruppe
-``systemd-journal``.
+``apt-get -y upgrade``, ``reboot``), auf rp01 mit ``--caddy`` zusätzlich ``missa-caddy``
+(``caddy validate``, ``systemctl reload caddy``); die Logs (journal) liest ``missa`` über die
+Gruppe ``systemd-journal``.
 
 Auch hier im Code gilt: Nur Befehle aus :data:`BEFEHLE`, jede Angabe muss zu
 :data:`SICHER` passen – Text des Modells landet nie ungeprüft auf einem Host.
@@ -43,8 +44,15 @@ BEFEHLE = frozenset(
         "apt-upgrade",
         "neustart-noetig",
         "neustart",
+        "caddy-liste",
+        "caddy-schreiben",
+        "caddy-loeschen",
+        "caddy-pruefen",
+        "caddy-neu-laden",
     }
 )
+#: Höchstens so viel Text darf ein Befehl über stdin bekommen (caddy-schreiben).
+MAX_EINGABE = 4096
 #: Erlaubte Zeichen in jeder Angabe: keine Leerzeichen, Anführungszeichen oder Shell-Zeichen.
 SICHER = re.compile(r"^[A-Za-z0-9@%._:,+=/*-]{1,200}$")
 #: Gültige Container-Namen (wie Docker sie erlaubt).
@@ -103,16 +111,20 @@ def container_name_pruefen(name: object) -> str:
     return text
 
 
-async def prozess_ausfuehren(befehl: list[str], timeout: float) -> tuple[int, str, str]:
+async def prozess_ausfuehren(
+    befehl: list[str], timeout: float, eingabe: str | None = None
+) -> tuple[int, str, str]:
     """Startet ``befehl`` ohne Shell und wartet höchstens ``timeout`` Sekunden."""
     prozess = await asyncio.create_subprocess_exec(
         *befehl,
-        stdin=asyncio.subprocess.DEVNULL,
+        stdin=asyncio.subprocess.DEVNULL if eingabe is None else asyncio.subprocess.PIPE,
         stdout=asyncio.subprocess.PIPE,
         stderr=asyncio.subprocess.PIPE,
     )
     try:
-        aus, fehler = await asyncio.wait_for(prozess.communicate(), timeout)
+        aus, fehler = await asyncio.wait_for(
+            prozess.communicate(None if eingabe is None else eingabe.encode("utf-8")), timeout
+        )
     except TimeoutError:
         with contextlib.suppress(ProcessLookupError):
             prozess.kill()
@@ -183,16 +195,30 @@ class SshVerbindung:
         return [*teile, f"{self.benutzer}@{host.adresse}", "--", befehl, *argumente]
 
     async def befehl(
-        self, host_name: object, befehl: str, *argumente: object, timeout: float | None = None
+        self,
+        host_name: object,
+        befehl: str,
+        *argumente: object,
+        timeout: float | None = None,
+        eingabe: str | None = None,
     ) -> str:
-        """Führt ``befehl`` auf dem Host aus und gibt die Ausgabe zurück."""
+        """Führt ``befehl`` auf dem Host aus und gibt die Ausgabe zurück.
+
+        ``eingabe`` geht über stdin an den Befehl (nur für ``caddy-schreiben``).
+        """
         if befehl not in BEFEHLE:
             raise SshFehler(f"Der Befehl „{befehl}“ ist auf den Hosts nicht erlaubt.")
         host = self.host(host_name)
         geprueft = tuple(angabe_pruefen(a) for a in argumente)
         zeit = timeout or self.timeout
+        if eingabe is not None and len(eingabe.encode("utf-8")) > MAX_EINGABE:
+            raise SshFehler(f"Die Eingabe ist länger als {MAX_EINGABE} Zeichen.")
+        kommando = self.kommando(host, befehl, geprueft)
         try:
-            code, aus, fehler = await self._ausfuehrer(self.kommando(host, befehl, geprueft), zeit)
+            if eingabe is None:
+                code, aus, fehler = await self._ausfuehrer(kommando, zeit)
+            else:
+                code, aus, fehler = await self._ausfuehrer(kommando, zeit, eingabe)  # type: ignore[call-arg]
         except TimeoutError as fehler_zeit:
             raise SshFehler(f"{host.name} antwortet nicht (nach {zeit:g} s abgebrochen).") from (
                 fehler_zeit

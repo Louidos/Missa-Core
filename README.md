@@ -59,7 +59,11 @@ Talk nutzen dieselbe Logik.
   klont Missa eine VM aus dem Cloud-Init-Template und richtet sie per Ansible ein; harte
   Grenzen pro VM und Pool, Stoppen und Löschen nur im eigenen Pool
   (siehe docs/proxmox-vms.md)
-- In Arbeit (Server-Update): Caddy und Minecraft, Git-Überblick
+- Fertig: Caddy und Minecraft – Missa bereitet Subdomains in Caddy vor (aktiv erst nach
+  Ja, ungültige Einträge nimmt sie sofort zurück, Caddy läuft unverändert weiter) und
+  verwaltet Minecraft per RCON: „Wer ist online?“, Whitelist, Neustart mit Warnung
+  (siehe docs/caddy-minecraft.md)
+- In Arbeit (Server-Update): Git-Überblick
 - Später als eigene Aufträge: Telefon, Push, Smart Home
 - Änderungen im Detail: [CHANGELOG.md](CHANGELOG.md)
 
@@ -93,6 +97,8 @@ Talk nutzen dieselbe Logik.
 - **[docs/container-logs-logins.md](docs/container-logs-logins.md)** – Container, Fehlersuche
   in Logs, Login-Überwachung und der Benutzer `missa` auf den Hosts
 - **[docs/proxmox-vms.md](docs/proxmox-vms.md)** – VMs auf Zuruf erstellen und einrichten
+- **[docs/caddy-minecraft.md](docs/caddy-minecraft.md)** – Subdomains in Caddy nach Ja,
+  Minecraft per RCON
 - **[docs/homelab-firewall.md](docs/homelab-firewall.md)** – Homelab-Wissen und
   Firewall-Logs
 - **[docs/updates-zertifikate.md](docs/updates-zertifikate.md)** – Updates, Wartungsfenster,

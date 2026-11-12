@@ -21,6 +21,8 @@ nur wb01. Jede Gruppe des Server-Updates trägt hier ein, was sie zusätzlich br
 | ai01 | neue VMs in den VLANs aus `VM_NETZE` | TCP 22 | Ansible richtet die VM ein (SSH als `VM_BENUTZER`) | Proxmox-VMs | VMs werden genutzt |
 | neue VMs | Paketquellen und piston-meta/piston-data.mojang.com | TCP 80/443 | Updates, Java und das Minecraft-Server-Jar | Proxmox-VMs | VMs werden genutzt |
 | Spieler (LAN bzw. außen) | Minecraft-VM | TCP 25565 | Minecraft spielen (von außen nur mit Portweiterleitung in der ZyWALL) | Proxmox-VMs | Minecraft läuft |
+| ai01 | rp01 (`CADDY_HOST`, aus `SSH_HOSTS`) | TCP 22 | Caddy: eigene Dateien `missa-*.caddy` schreiben, `caddy validate`, `systemctl reload caddy` – über `missa-befehl` | Caddy und Minecraft | `CADDY_HOST` gesetzt (gleiche Freigabe wie SSH oben) |
+| ai01 | Minecraft-Server (`MINECRAFT_RCON_HOST`) | TCP 25575 (`MINECRAFT_RCON_PORT`) | Minecraft: Spieler, Whitelist, Neustart per RCON (unverschlüsselt, nur intern) | Caddy und Minecraft | `MINECRAFT_RCON_HOST` gesetzt |
 | ZyWALL | ai01 | UDP 514 | Firewall-Logs per Syslog an rsyslog auf ai01 (Missa liest die Datei) | Homelab-Wissen und Firewall | `FIREWALL_LOG_DATEI` gesetzt |
 | ai01 | data.iana.org | TCP 443 | Domains: Liste der RDAP-Server (IANA) | Zertifikate und Domains | `RDAP_AKTIV=true` und Domains gesetzt |
 | ai01 | RDAP-Server der Endung (für `.ch`: rdap.nic.ch) | TCP 443 | Domains: Ablaufdatum abfragen – die einzige Abfrage nach außen dieser Prüfung | Zertifikate und Domains | `RDAP_AKTIV=true` und Domains gesetzt |
