@@ -10,17 +10,18 @@ einen Schlag alle Schreibrechte.
 | Stufe            | Bedeutung                                                    | Beispiele |
 |------------------|--------------------------------------------------------------|-----------|
 | `lesen`          | schaut nur nach, ändert nichts                               | `termine_anzeigen`, `erinnern`, `emails_anzeigen`, `aktionen_anzeigen`, `server_werte_anzeigen`, `erreichbarkeit_pruefen`, `container_anzeigen`, `container_logs`, `fehlersuche`, `journal_lesen`, `anmeldungen_anzeigen`, `updates_anzeigen`, `wartungsfenster_vorschlagen`, `updates_plan`, `zertifikate_pruefen`, `homelab_anzeigen`, `firewall_zusammenfassung`, `vm_planen`, `missa_vms_anzeigen`, `playbooks_anzeigen`, `subdomain_vorschlagen`, `subdomains_anzeigen`, `minecraft_spieler`, `minecraft_whitelist`, `git_ueberblick`, `git_alte_branches`, `github_ueberblick` |
-| `schreiben`      | legt an oder ändert – harmlos oder rückgängig machbar         | `termin_eintragen`, `termin_loeschen`*, `aufgabe_erstellen`, `merken`, `email_entwurf_erstellen`, `alarmregel_anlegen`, `alarm_einstellungen`, `ip_als_bekannt_markieren`, `login_einstellungen`, `minecraft_whitelist_hinzufuegen`, `minecraft_whitelist_entfernen`, `git_issue_anlegen`, `claude_prompt_erstellen` |
-| `zerstoererisch` | löscht endgültig, verwirft, versendet – oder startet, installiert, aktiviert etwas neu | `vergessen`, `aufgabe_loeschen`, `erinnerung_loeschen`, `routine_loeschen`, `nachtaufgabe_loeschen`, `email_entwurf_verwerfen`, `alarmregel_loeschen`, `container_neustarten`, `updates_einspielen`, `host_neustarten`, `wartungsfenster_eintragen`**, `vm_erstellen`, `vm_starten`, `vm_stoppen`, `vm_loeschen`, `subdomain_aktivieren`, `subdomain_entfernen`, `minecraft_neustarten`, `claude_prompt_als_issue`**, E-Mail senden |
+| `schreiben`      | legt an oder ändert – harmlos oder rückgängig machbar         | `termin_eintragen`*, `termin_aendern`, `tag_pruefen`, `pausen_regeln_einstellen`, `aufgabe_erstellen`, `merken`, `email_entwurf_erstellen`, `alarmregel_anlegen`, `alarm_einstellungen`, `ip_als_bekannt_markieren`, `login_einstellungen`, `minecraft_whitelist_hinzufuegen`, `minecraft_whitelist_entfernen`, `git_issue_anlegen`, `claude_prompt_erstellen` |
+| `zerstoererisch` | löscht endgültig, verwirft, versendet – oder startet, installiert, aktiviert etwas neu | `vergessen`, `termin_loeschen`, `termin_verschieben`, `aufgabe_loeschen`, `erinnerung_loeschen`, `routine_loeschen`, `nachtaufgabe_loeschen`, `email_entwurf_verwerfen`, `alarmregel_loeschen`, `container_neustarten`, `updates_einspielen`, `host_neustarten`, `wartungsfenster_eintragen`**, `vm_erstellen`, `vm_starten`, `vm_stoppen`, `vm_loeschen`, `subdomain_aktivieren`, `subdomain_entfernen`, `minecraft_neustarten`, `claude_prompt_als_issue`**, E-Mail senden |
 
 \*\* Ein Wartungsfenster zu speichern zerstört nichts. Der Termin soll aber ausdrücklich erst
 nach deinem Ja im Kalender erscheinen, darum läuft er über die Rückfrage der Stufe
 `zerstoererisch`. Genauso beim Claude-Code-Prompt: Ein Issue anzulegen zerstört nichts,
 der Prompt soll aber erst nach deinem Ja im Repo landen.
 
-\* Termine lassen sich mit „mach das rückgängig“ wiederherstellen, darum gilt Löschen im
-Kalender als `schreiben` (so seit 0.3.0). Bekämen andere Personen eine Absage, fragt Missa
-trotzdem vorher.
+\* Ein neuer Termin, der sich mit einem anderen überschneidet oder für den die Zeit zum
+Ortswechsel nicht reicht, wird erst nach Rückfrage eingetragen (Sperre im Kalender-Werkzeug).
+Bestehende Termine **löschen** und **verschieben** ist seit dem Organisations-Update
+`zerstoererisch` – auch wenn es sich rückgängig machen lässt (#63).
 
 Ein Werkzeug **ohne Stufe lässt sich nicht registrieren** – der Dienst startet dann nicht.
 Neue Werkzeuge bekommen ihre Stufe direkt bei der Definition:

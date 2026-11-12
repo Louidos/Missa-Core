@@ -457,6 +457,8 @@ class UpdateVerwaltung:
             f"{start:%Y-%m-%dT%H:%M}",
             f"{ende:%Y-%m-%dT%H:%M}",
             notiz=notiz,
+            # Louis hat dem Wartungsfenster samt Konflikt-Hinweis schon zugestimmt.
+            bestaetigt=True,
         )
         with verbinden(self.datei) as db:
             cursor = db.execute(

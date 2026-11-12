@@ -145,12 +145,11 @@ Gut zu wissen:
   Charakter aber nie.
 - **Eigene `tools` der App** werden ignoriert. Missa benutzt nur ihre eigenen Werkzeuge,
   und die führt der Server aus – die App bekommt immer eine fertige Textantwort.
-- **Manches braucht ein Ja:** Bittet man Missa, eine Aufgabe oder einen Fakt zu löschen
-  oder einen Termin zu ändern, bei dem andere Personen eine E-Mail bekämen (Einladung,
-  Änderung, Absage), fragt sie zuerst nach. Ausgeführt wird erst, wenn in einer *nächsten*
-  Nachricht ein Ja kommt. Dafür muss die App die Sitzung beibehalten (gleiche
-  `X-Missa-Session`) oder den Verlauf mitschicken. Eigene Termine ändert und löscht Missa
-  ohne Rückfrage – protokolliert und rückgängig machbar.
+- **Manches braucht ein Ja:** Bittet man Missa, eine Aufgabe, einen Fakt oder einen Termin
+  zu löschen, einen Termin zu verschieben, einen Termin trotz Überschneidung einzutragen oder
+  etwas zu ändern, bei dem andere Personen eine E-Mail bekämen, fragt sie zuerst nach.
+  Ausgeführt wird erst, wenn in einer *nächsten* Nachricht ein Ja kommt. Dafür muss die App
+  die Sitzung beibehalten (gleiche `X-Missa-Session`) oder den Verlauf mitschicken.
 - **Geduld:** Das Modell läuft auf der CPU. Eine Antwort kann einige Sekunden bis Minuten
   dauern, besonders wenn Missa Werkzeuge benutzt. Den Timeout der App (und von Caddy)
   großzügig setzen, z. B. 10 Minuten, oder Streaming verwenden.
@@ -590,13 +589,13 @@ kennen – man fragt einfach in normaler Sprache.
 
 | Bereich | Beispiel-Fragen | Werkzeuge |
 |---------|-----------------|-----------|
-| Kalender (Nextcloud) | „Was habe ich morgen?“, „Trag mir Freitag 14 Uhr Zahnarzt ein“, „Verschieb das Meeting auf 15 Uhr und mach es rot“, „Leg einen Kalender Lehre in Grün an“, „Mach das rückgängig“ | `termine_anzeigen`, `termin_eintragen`, `termin_aendern`, `termin_loeschen`, `kalender_anzeigen`, `kalender_anlegen`, `kalender_aendern`, `farbsystem_festlegen`, `kalender_rueckgaengig`, `kalender_protokoll` |
+| Kalender (Nextcloud) | „Was habe ich morgen?“, „Trag mir Freitag 14 Uhr Zahnarzt ein“, „Verschieb das Meeting auf 15 Uhr und mach es rot“, „Leg einen Kalender Lehre in Grün an“, „Mach das rückgängig“ | `termine_anzeigen`, `termin_eintragen`, `termin_aendern`, `termin_verschieben`, `termin_loeschen`, `kalender_anzeigen`, `kalender_anlegen`, `kalender_aendern`, `farbsystem_festlegen`, `kalender_rueckgaengig`, `kalender_protokoll` |
 | Aufgaben (Nextcloud) | „Was steht auf meiner Liste?“, „Schreib auf: Milch kaufen“, „Hab ich erledigt“ | `aufgaben_anzeigen`, `aufgabe_erstellen`, `aufgabe_erledigt`, `aufgabe_loeschen` |
 | Gedächtnis | „Merk dir, dass ich Kaffee ohne Zucker trinke“, „Was weißt du über meine Schwester?“, „Vergiss das“ | `merken`, `erinnern`, `vergessen` |
 | Erinnerungen | „Erinnere mich um 6:30 an Training“, „Jeden Montag um 7 an die Wochenplanung“, „In 10 Minuten nochmal“ | `erinnerung_anlegen`, `erinnerungen_anzeigen`, `erinnerung_aendern`, `erinnerung_loeschen`, `erinnerung_schlummern` |
 | Routinen | „Jeden Freitag um 17 Uhr Wochenrückblick“, „Pausier den Wochenrückblick“, „Lösch die Routine“ | `routine_anlegen`, `routinen_anzeigen`, `routine_pausieren`, `routine_fortsetzen`, `routine_loeschen`, `routine_jetzt_ausfuehren` |
 | Nachtschicht | „Mach mir heute Nacht eine Übersicht aller offenen Aufgaben“, „Nachtschicht von 2 bis 5 Uhr“ | `nachtaufgabe_anlegen`, `nachtaufgaben_anzeigen`, `nachtaufgabe_ergebnis`, `nachtaufgabe_loeschen`, `nachtschicht_einstellen` |
-| Pausen und Puffer (Nextcloud-Kalender) | „Prüf mal morgen auf Pausen“, „… und trag die Pausen ein“ | `tag_pruefen` (dazu prüft Missa jeden Abend und nach jeder Terminanlage von selbst) |
+| Pausen und Puffer (Nextcloud-Kalender) | „Prüf mal morgen auf Pausen“, „… und trag die Pausen ein“, „Mach 20 Minuten Puffer“ | `tag_pruefen`, `pausen_regeln_anzeigen`, `pausen_regeln_einstellen` (dazu prüft Missa jeden Abend und bei jeder Terminanlage von selbst; eingetragen wird nur nach Ja) |
 | Kontakte (Nextcloud) | „Wer hat bald Geburtstag?“, „Oma ist mir wichtig, mindestens alle 3 Wochen“, „Hab gerade mit Oma telefoniert“ | `kontakte_suchen`, `geburtstage_anzeigen`, `kontakt_wichtig_markieren`, `kontakt_nicht_mehr_wichtig`, `kontakt_gemeldet`, `wichtige_kontakte_anzeigen` |
 | E-Mail (nur wenn eingerichtet) | „Schreib dem Chef, dass ich morgen später komme“, „Was ist neu im Posteingang?“, „Schreib förmlicher an Lehrer“ – gesendet wird nur nach „Ja, abschicken“ | `emails_anzeigen`, `email_lesen`, `email_entwurf_erstellen`, `email_entwurf_aendern`, `email_entwuerfe_anzeigen`, `email_entwurf_verwerfen`, `email_adresse_suchen`, `schreibstil_anzeigen`, `schreibstil_lernen`, `schreibstil_anpassen` (kein Senden-Werkzeug – siehe [email.md](email.md)) |
 | Nextcloud Talk (nur wenn eingerichtet) | „Schick mir die Übersicht per Talk“, „Erinnere mich per Talk an …“ | `talk_nachricht_senden` |

@@ -10,11 +10,17 @@ oder verschobenen Terminanlage der betroffene Tag:
 - **zu voller Tag**: mehr als ``PAUSEN_MAX_STUNDEN`` Termine
 - **fehlende Wegzeit**: Termine an verschiedenen Orten mit weniger als
   ``PAUSEN_WEGZEIT_MINUTEN`` dazwischen
+- **keine Pause**: mehr als ``PAUSEN_NACH_STUNDEN`` Termine am Stück ohne eine Lücke von
+  mindestens ``PAUSEN_PAUSE_MINUTEN``
 
-Am Abend trägt Missa Puffer- und Pausenblöcke selbst im Kalender ``PAUSEN_KALENDER``
-ein (eigene Farbe, als ihre Blöcke markiert, protokolliert und rückgängig machbar) und
-sagt danach Bescheid. Bei einer neuen Terminanlage meldet sie sich mit einem Hinweis und
-einem Vorschlag, wann der Termin besser passen würde.
+Missa **trägt nichts ungefragt ein**: Am Abend schickt sie Hinweise und Vorschläge für
+Puffer- und Pausenblöcke; erst wenn Louis zustimmt, trägt sie sie im Kalender
+``PAUSEN_KALENDER`` ein (eigene Farbe, protokolliert, rückgängig machbar). Doppelbuchungen
+und zu knappe Ortswechsel meldet sie schon *vor* dem Eintragen eines Termins
+(:meth:`PausenWaechter.vor_termin`) mit einem Vorschlag für eine freie Zeit.
+
+Alle Grenzwerte kommen aus der Konfiguration und lassen sich im Gespräch ändern
+(``pausen_regeln_einstellen``, gespeichert in der Tabelle ``vorgaben``).
 """
 
 from __future__ import annotations
@@ -24,19 +30,21 @@ import itertools
 import logging
 import re
 from collections.abc import Awaitable, Callable
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from datetime import date, datetime, time, timedelta
 from typing import TYPE_CHECKING
 from zoneinfo import ZoneInfo
 
 from missa.core.prompt import datum_lang
-from missa.core.werkzeuge import Stufe, Werkzeug, WerkzeugFehler
+from missa.core.werkzeuge import Stufe, Werkzeug, WerkzeugFehler, im_hintergrund
 from missa.core.zeitangaben import wandzeit
+from missa.tools.bestaetigung import Bestaetigungen
 from missa.tools.kalender import Belegung, freie_luecke
 from missa.tools.nextcloud import datum_kurz, zeitpunkt_lesen
 
 if TYPE_CHECKING:
     from missa.core.rechte import Rechte
+    from missa.core.vorgaben import Vorgaben
     from missa.core.zeitplaner import Zeitplaner
     from missa.tools.kalender import Kalender
 
@@ -54,7 +62,7 @@ Formulierer = Callable[[str, str], Awaitable[str]]
 class PausenRegeln:
     """Grenzwerte – alle über die Einstellungen änderbar."""
 
-    puffer: timedelta = timedelta(minutes=10)
+    puffer: timedelta = timedelta(minutes=15)
     mittag_dauer: timedelta = timedelta(minutes=30)
     mittag_von: time = time(11, 30)
     mittag_bis: time = time(14, 0)
@@ -62,11 +70,41 @@ class PausenRegeln:
     wegzeit: timedelta = timedelta(minutes=30)
     kalender: str = "Pausen"
     farbe: str = "türkis"
+    pause_nach: timedelta = timedelta(hours=3)
+    pause_dauer: timedelta = timedelta(minutes=15)
+
+    def text(self) -> str:
+        return (
+            f"Puffer zwischen Terminen: {_minuten(self.puffer)} Min.\n"
+            f"Pause: nach spätestens {_stunden(self.pause_nach)} Std. am Stück mindestens "
+            f"{_minuten(self.pause_dauer)} Min.\n"
+            f"Abstand bei Ortswechsel: {_minuten(self.wegzeit)} Min.\n"
+            f"Mittagspause: {_minuten(self.mittag_dauer)} Min. zwischen "
+            f"{self.mittag_von:%H:%M} und {self.mittag_bis:%H:%M}\n"
+            f"Tag gilt als zu voll ab: {self.max_stunden:g} Std. Terminen"
+        )
+
+
+#: Im Gespräch änderbare Werte: Name → (Feld, Umrechnung, Beschreibung).
+REGEL_FELDER = {
+    "puffer_minuten": ("puffer", lambda w: timedelta(minutes=w), "Puffer zwischen Terminen"),
+    "pause_nach_stunden": ("pause_nach", lambda w: timedelta(hours=w), "Pause spätestens nach"),
+    "pause_minuten": ("pause_dauer", lambda w: timedelta(minutes=w), "Mindestlänge einer Pause"),
+    "ortswechsel_minuten": ("wegzeit", lambda w: timedelta(minutes=w), "Abstand bei Ortswechsel"),
+    "mittag_minuten": ("mittag_dauer", lambda w: timedelta(minutes=w), "Länge der Mittagspause"),
+    "max_stunden": ("max_stunden", float, "Grenze für einen vollen Tag"),
+}
+
+
+def _stunden(abstand: timedelta) -> str:
+    return f"{abstand.total_seconds() / 3600:g}"
 
 
 @dataclass(frozen=True)
 class Befund:
-    art: str  # kein_puffer, ueberlappung, keine_mittagspause, kein_platz_mittag, zu_voll, wegzeit
+    # kein_puffer, ueberlappung, keine_mittagspause, kein_platz_mittag, zu_voll, wegzeit,
+    # keine_pause
+    art: str
     text: str
 
 
@@ -232,6 +270,31 @@ def tag_pruefen(
                 )
             )
 
+    # ------------------------------------------------ Pause nach X Stunden am Stück
+    block_start, block_ende = termine[0].start, termine[0].ende
+    letzte_vor_grenze = termine[0]
+    for termin in [*termine[1:], None]:
+        if termin is not None and termin.start - block_ende < regeln.pause_dauer:
+            if termin.ende <= block_start + regeln.pause_nach:
+                letzte_vor_grenze = termin
+            block_ende = max(block_ende, termin.ende)
+            continue
+        if block_ende - block_start > regeln.pause_nach:
+            stunden = (block_ende - block_start).total_seconds() / 3600
+            vorschlag = letzte_vor_grenze.ende
+            befunde.append(
+                Befund(
+                    "keine_pause",
+                    f"Von {block_start:%H:%M} bis {block_ende:%H:%M} sind {stunden:.1f} Stunden "
+                    f"Termine am Stück ohne Pause (Regel: nach spätestens "
+                    f"{_stunden(regeln.pause_nach)} Std. mindestens "
+                    f"{_minuten(regeln.pause_dauer)} Min. Pause). Vorschlag: eine Pause ab "
+                    f"{vorschlag:%H:%M} (nach {_kurz(letzte_vor_grenze)}).",
+                )
+            )
+        if termin is not None:
+            block_start, block_ende, letzte_vor_grenze = termin.start, termin.ende, termin
+
     # ------------------------------------------------ zu voll
     belegt = timedelta(0)
     zeiger = beginn
@@ -277,9 +340,12 @@ class PausenWaechter:
         zone: ZoneInfo,
         zeitplaner: Zeitplaner | None = None,
         uhr: Callable[[], datetime] | None = None,
+        vorgaben: Vorgaben | None = None,
     ) -> None:
         self.kalender = kalender
-        self.regeln = regeln
+        self._basis = regeln
+        self.vorgaben = vorgaben
+        self.bestaetigungen = Bestaetigungen()
         self.zone = zone
         self.zeitplaner = zeitplaner
         self._uhr = uhr or (lambda: datetime.now(zone))
@@ -289,6 +355,52 @@ class PausenWaechter:
 
     def jetzt(self) -> datetime:
         return self._uhr().astimezone(self.zone)
+
+    @property
+    def regeln(self) -> PausenRegeln:
+        """Regeln aus der Konfiguration, überschrieben mit im Gespräch geänderten Werten."""
+        if self.vorgaben is None:
+            return self._basis
+        aenderungen = {}
+        for name, (feld, umrechnen, _) in REGEL_FELDER.items():
+            text = self.vorgaben.lesen(f"pausen.{name}", "")
+            if text:
+                try:
+                    aenderungen[feld] = umrechnen(float(text))
+                except ValueError:
+                    log.warning("Ungültige gespeicherte Pausen-Regel %s=%r", name, text)
+        return replace(self._basis, **aenderungen) if aenderungen else self._basis
+
+    @regeln.setter
+    def regeln(self, regeln: PausenRegeln) -> None:
+        self._basis = regeln
+
+    def regeln_einstellen(self, **werte: float | int | str | None) -> str:
+        if self.vorgaben is None:
+            raise WerkzeugFehler("Die Pausen-Regeln lassen sich hier nicht speichern.")
+        geaendert = []
+        for name, wert in werte.items():
+            if wert is None or wert == "":
+                continue
+            try:
+                zahl = float(str(wert).replace(",", "."))
+            except ValueError as fehler:
+                raise WerkzeugFehler(f"{name}: „{wert}“ ist keine Zahl.") from fehler
+            if zahl < 0 or (name in ("pause_nach_stunden", "max_stunden") and zahl <= 0):
+                raise WerkzeugFehler(f"{name} muss größer als 0 sein.")
+            self.vorgaben.setzen(f"pausen.{name}", f"{zahl:g}")
+            geaendert.append(f"{REGEL_FELDER[name][2]}: {zahl:g}")
+        if not geaendert:
+            raise WerkzeugFehler("Welche Regel soll sich ändern? Es fehlt ein Wert.")
+        return (
+            "Gespeichert (gilt ab sofort, auch nach einem Neustart): "
+            + ", ".join(geaendert)
+            + "\n\nAktuelle Regeln:\n"
+            + self.regeln.text()
+        )
+
+    def regeln_anzeigen(self) -> str:
+        return "Pausen- und Puffer-Regeln:\n" + self.regeln.text()
 
     def _belegungen(self, tag: date) -> list[Belegung]:
         beginn = wandzeit(tag, time(0), self.zone)
@@ -320,6 +432,55 @@ class PausenWaechter:
                 continue
             eingetragen.append(block)
         return eingetragen
+
+    def vor_termin(
+        self, start: datetime, ende: datetime, titel: str, ort: str, uid: str | None
+    ) -> str | None:
+        """Haken vor dem Eintragen/Verschieben: Doppelbuchung oder zu knapper Ortswechsel?"""
+        regeln = self.regeln
+        tag = start.astimezone(self.zone).date()
+        belegt = [
+            b
+            for b in self._belegungen(tag)
+            if b.uid != uid and not b.ganztaegig and not b.frei and not _ist_pause(b, regeln)
+        ]
+        neu = Belegung(start, ende, titel, ort, "", uid or "neu", False, False, "")
+        probleme = []
+        for b in belegt:
+            if b.start < ende and b.ende > start:
+                probleme.append(f"Doppelbuchung: überschneidet sich mit {_kurz(b)}.")
+            elif _orte_verschieden(neu, b):
+                abstand = start - b.ende if b.ende <= start else b.start - ende
+                if abstand < regeln.wegzeit:
+                    probleme.append(
+                        f"Ortswechsel zu knapp: {_kurz(b)} in {b.ort} – nur "
+                        f"{_minuten(abstand)} Min. Abstand nach/vor {ort} (mindestens "
+                        f"{_minuten(regeln.wegzeit)} Min.)."
+                    )
+        if not probleme:
+            return None
+        text = "KONFLIKT – " + " ".join(probleme)
+        if (besser := self._alternative(tag, belegt, neu, start)) is not None:
+            text += (
+                f" Lösungsvorschlag: um {besser:%H:%M} Uhr wäre Platz (mit "
+                f"{_minuten(regeln.puffer)} Min. Puffer)."
+            )
+        else:
+            text += (
+                " Am selben Tag finde ich keine passende freie Zeit – vielleicht ein anderer Tag?"
+            )
+        return text
+
+    def _alternative(
+        self, tag: date, andere: list[Belegung], termin: Belegung, gewuenscht: datetime
+    ) -> datetime | None:
+        dauer = termin.ende - termin.start
+        frueh = max(wandzeit(tag, TAG_VON, self.zone), self.jetzt())
+        bis = wandzeit(tag, TAG_BIS, self.zone)
+        for von in (max(frueh, gewuenscht - self.regeln.puffer), frueh):
+            if (kandidat := self._suchen(tag, andere, termin, dauer, von, bis)) is not None:
+                return kandidat
+        return None
 
     def vorschlag(self, tag: date, uid: str) -> datetime | None:
         """Ein Beginn am selben Tag, an dem der Termin ``uid`` mit Puffern Platz hätte."""
@@ -380,19 +541,25 @@ class PausenWaechter:
 
     def nach_termin(self, tag: date, uid: str | None) -> str | None:
         """Haken für den Kalender: Hinweis an das Modell nach einer Terminänderung."""
-        befunde, _ = self.pruefen(tag)
+        befunde, bloecke = self.pruefen(tag)
         if uid:
-            befunde = [b for b in befunde if b.art != "keine_mittagspause"]  # trägt der Abend ein
+            befunde = [b for b in befunde if b.art != "keine_mittagspause"]  # kommt am Abend
         if not befunde:
             return None
         text = (
-            f"PAUSEN-HINWEIS für {datum_lang(tag)} – sag Louis das kurz in deinem Stil:\n"
-            + "\n".join(f"- {b.text}" for b in befunde)
+            f"PAUSEN-HINWEIS für {datum_lang(tag)} – sag Louis das kurz in deinem Stil und "
+            "trag nichts ungefragt ein:\n" + "\n".join(f"- {b.text}" for b in befunde)
         )
         if uid and (besser := self.vorschlag(tag, uid)) is not None:
             text += (
                 f"\nAlternative: Der Termin hätte um {besser:%H:%M} Uhr mit genug Puffer Platz – "
-                "biete Louis an, ihn dorthin zu verschieben (termin_aendern)."
+                "biete Louis an, ihn dorthin zu verschieben (termin_verschieben)."
+            )
+        elif bloecke:
+            text += (
+                "\nVorschlag zum Eintragen: "
+                + ", ".join(b.zeile() for b in bloecke)
+                + " – nur wenn Louis das will (tag_pruefen mit eintragen=true)."
             )
         return text
 
@@ -406,57 +573,44 @@ class PausenWaechter:
         zeilen = [f"Pausen-Prüfung für {datum_lang(tag)}:"]
         zeilen += [f"- {b.text}" for b in befunde] or ["- Alles gut: genug Puffer und Pausen."]
         if bloecke:
-            if eintragen:
+            schluessel = f"pausen:{tag.isoformat()}"
+            if eintragen and not im_hintergrund.get() and self.bestaetigungen.erlaubt(schluessel):
                 gemacht = self.eintragen(bloecke)
+                self.bestaetigungen.erledigt(schluessel)
                 zeilen.append(
                     f"Eingetragen im Kalender „{self.regeln.kalender}“: "
                     + ", ".join(b.zeile() for b in gemacht)
+                    + " (rückgängig mit kalender_rueckgaengig)."
                 )
             else:
+                self.bestaetigungen.vormerken(schluessel)
                 zeilen.append(
-                    "Vorschlag (mit eintragen=true trage ich das ein): "
+                    ("NOCH NICHTS EINGETRAGEN. " if eintragen else "")
+                    + "Vorschlag: "
                     + ", ".join(b.zeile() for b in bloecke)
+                    + ". Frag Louis, ob du das eintragen sollst; erst nach seinem Ja in der "
+                    "nächsten Nachricht tag_pruefen mit eintragen=true aufrufen."
                 )
         return "\n".join(zeilen)
 
     async def abends_pruefen(self) -> str | None:
-        """Täglicher Auftrag: morgen prüfen, Blöcke eintragen, Louis Bescheid geben."""
+        """Täglicher Auftrag: morgen prüfen und Louis Hinweise und Vorschläge schicken.
+
+        Eingetragen wird nichts – erst wenn Louis zustimmt („ja, trag ein“).
+        """
         morgen = self.jetzt().date() + timedelta(days=1)
         befunde, bloecke = await asyncio.to_thread(self.pruefen, morgen)
-        if bloecke and self.rechte is not None and self.rechte.notfall_aktiv():
-            # Notfall-Stopp: nichts eintragen, nur Bescheid geben.
-            self.rechte.protokollieren(
-                werkzeug="pausen_eintragen",
-                stufe="schreiben",
-                parameter={"tag": morgen.isoformat(), "bloecke": [b.zeile() for b in bloecke]},
-                bestaetigt=False,
-                status="gesperrt_notfall",
-                ergebnis="Notfall-Stopp aktiv",
-                kanal="hintergrund",
-                account="missa",
-            )
-            bloecke = []
-        eingetragen = await asyncio.to_thread(self.eintragen, bloecke)
-        if eingetragen and self.rechte is not None:
-            self.rechte.protokollieren(
-                werkzeug="pausen_eintragen",
-                stufe="schreiben",
-                parameter={"tag": morgen.isoformat()},
-                bestaetigt=False,
-                status="ausgefuehrt",
-                ergebnis=", ".join(b.zeile() for b in eingetragen),
-                kanal="hintergrund",
-                account="missa",
-            )
-        if not befunde and not eingetragen:
+        if not befunde:
             return None
         teile = [f"☕ Kurzer Blick auf morgen ({datum_kurz(morgen)}):"]
         teile += [f"• {b.text}" for b in befunde]
-        if eingetragen:
+        if bloecke:
+            # Die Rückfrage gilt als gestellt: „Ja, trag ein“ im Chat reicht dann.
+            self.bestaetigungen.vormerken(f"pausen:{morgen.isoformat()}")
             teile.append(
-                f"Ich habe dir im Kalender „{self.regeln.kalender}“ eingetragen: "
-                + ", ".join(b.zeile() for b in eingetragen)
-                + ". Passt es nicht, sag einfach „mach das rückgängig“."
+                "Mein Vorschlag: "
+                + ", ".join(b.zeile() for b in bloecke)
+                + f". Soll ich dir das im Kalender „{self.regeln.kalender}“ eintragen?"
             )
         ersatz = "\n".join(teile)
         text = ersatz
@@ -464,8 +618,8 @@ class PausenWaechter:
             try:
                 text = await self.formulierer(
                     "Sag Louis kurz und freundlich, was dir an seinem Kalender für morgen "
-                    "aufgefallen ist und was du eingetragen hast. Behalte alle Uhrzeiten genau "
-                    f"bei:\n{ersatz}",
+                    "aufgefallen ist, und frag ihn, ob du die vorgeschlagenen Puffer und Pausen "
+                    f"eintragen sollst. Behalte alle Uhrzeiten genau bei:\n{ersatz}",
                     ersatz,
                 )
             except Exception:
@@ -482,19 +636,75 @@ class PausenWaechter:
 
 
 def pausen_werkzeuge(waechter: PausenWaechter) -> list[Werkzeug]:
+    def einstellen(
+        puffer_minuten: float | None = None,
+        pause_nach_stunden: float | None = None,
+        pause_minuten: float | None = None,
+        ortswechsel_minuten: float | None = None,
+        mittag_minuten: float | None = None,
+        max_stunden: float | None = None,
+    ) -> str:
+        return waechter.regeln_einstellen(
+            puffer_minuten=puffer_minuten,
+            pause_nach_stunden=pause_nach_stunden,
+            pause_minuten=pause_minuten,
+            ortswechsel_minuten=ortswechsel_minuten,
+            mittag_minuten=mittag_minuten,
+            max_stunden=max_stunden,
+        )
+
     return [
         Werkzeug(
             "tag_pruefen",
-            "Prüft einen Tag auf fehlende Puffer, Mittagspause, Wegzeit und zu volle Tage. "
-            "Mit eintragen=true trägt Missa Puffer- und Pausenblöcke selbst ein.",
+            "Prüft einen Tag auf fehlende Puffer, Pausen (nach 3 Std. am Stück), Mittagspause, "
+            "Ortswechsel und zu volle Tage und schlägt Puffer-/Pausenblöcke vor. Eingetragen "
+            "wird nur, wenn Louis dem Vorschlag zugestimmt hat (dann eintragen=true).",
             {
                 "type": "object",
                 "properties": {
                     "datum": {"type": "string", "description": "Tag, Standard: morgen"},
-                    "eintragen": {"type": "boolean", "description": "Blöcke eintragen"},
+                    "eintragen": {
+                        "type": "boolean",
+                        "description": "Nur true, wenn Louis dem Eintragen zugestimmt hat",
+                    },
                 },
             },
             waechter.tag_pruefen_werkzeug,
             stufe=Stufe.SCHREIBEN,
-        )
+        ),
+        Werkzeug(
+            "pausen_regeln_anzeigen",
+            "Zeigt die Regeln für Puffer, Pausen und Ortswechsel.",
+            {"type": "object", "properties": {}},
+            waechter.regeln_anzeigen,
+            stufe=Stufe.LESEN,
+        ),
+        Werkzeug(
+            "pausen_regeln_einstellen",
+            "Ändert Regeln für Puffer und Pausen dauerhaft, z. B. „mach 20 Minuten Puffer“, "
+            "„Pause schon nach 2 Stunden“, „bei Ortswechsel 45 Minuten Abstand“. Nur die "
+            "Werte mitschicken, die sich ändern.",
+            {
+                "type": "object",
+                "properties": {
+                    "puffer_minuten": {"type": "number", "description": "Puffer (Standard 15)"},
+                    "pause_nach_stunden": {
+                        "type": "number",
+                        "description": "Pause spätestens nach so vielen Stunden (Standard 3)",
+                    },
+                    "pause_minuten": {
+                        "type": "number",
+                        "description": "Mindestlänge einer Pause in Minuten (Standard 15)",
+                    },
+                    "ortswechsel_minuten": {
+                        "type": "number",
+                        "description": "Abstand bei Terminen an verschiedenen Orten (Standard 30)",
+                    },
+                    "mittag_minuten": {"type": "number", "description": "Mittagspause"},
+                    "max_stunden": {"type": "number", "description": "Grenze für vollen Tag"},
+                },
+            },
+            einstellen,
+            stufe=Stufe.SCHREIBEN,
+        ),
     ]

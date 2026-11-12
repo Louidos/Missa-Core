@@ -137,11 +137,13 @@ und das App-Passwort lässt sich jederzeit einzeln widerrufen.
 | `PAUSEN_AKTIV` | `true` | nein | Pausen-Wächter ein/aus (braucht `NEXTCLOUD_KALENDER`). |
 | `PAUSEN_KALENDER` | `Pausen` | nein | Kalender für Missas Puffer- und Pausenblöcke (legt sie bei Bedarf an). |
 | `PAUSEN_FARBE` | `türkis` | nein | Farbe des Pausen-Kalenders und der Blöcke. |
-| `PAUSEN_PUFFER_MINUTEN` | `10` | nein | Mindest-Puffer zwischen zwei Terminen. |
+| `PAUSEN_PUFFER_MINUTEN` | `15` | nein | Mindest-Puffer zwischen zwei Terminen. |
+| `PAUSEN_NACH_STUNDEN` | `3` | nein | Spätestens nach so vielen Stunden Terminen am Stück schlägt Missa eine Pause vor. |
+| `PAUSEN_PAUSE_MINUTEN` | `15` | nein | Mindestlänge einer Pause; kürzere Lücken zählen nicht. |
 | `PAUSEN_MITTAG_MINUTEN` | `30` | nein | Länge der Mittagspause. |
 | `PAUSEN_MITTAG_VON` / `PAUSEN_MITTAG_BIS` | `11:30` / `14:00` | nein | Zeitfenster der Mittagspause. |
 | `PAUSEN_MAX_STUNDEN` | `8` | nein | Ab so vielen Stunden Terminen gilt ein Tag als zu voll. |
-| `PAUSEN_WEGZEIT_MINUTEN` | `30` | nein | Mindest-Wegzeit zwischen Terminen an verschiedenen Orten. |
+| `PAUSEN_WEGZEIT_MINUTEN` | `30` | nein | Mindestabstand zwischen Terminen an verschiedenen Orten (keine Wegzeit-Dienste, nur diese Regel). |
 | `PAUSEN_PRUEFZEIT` | `19:00` | nein | Abendliche Prüfung des nächsten Tages. |
 | `NACHTSCHICHT_VON` / `NACHTSCHICHT_BIS` | `01:00` / `06:00` | nein | Nachtfenster für lange Aufgaben; am Ende kommt der Morgenbericht. Im Gespräch geänderte Zeiten haben Vorrang (siehe [routinen-nachtschicht.md](routinen-nachtschicht.md)). |
 | `MONITORING_URL` / `MONITORING_TOKEN` | leer | nein | Eigenes Monitoring-Tool (JSON, Format in [monitoring.md](monitoring.md)); leer = aus. |

@@ -387,12 +387,18 @@ def pausen_waechter_bauen(
     einstellungen: Einstellungen, zeitplaner: Zeitplaner, kalender: Kalender
 ) -> PausenWaechter:
     """Achtet auf Pausen und Puffer im Kalender (Haken und Abend-Prüfung)."""
+    from missa.core.vorgaben import Vorgaben
     from missa.tools.pausen import PausenWaechter
 
     waechter = PausenWaechter(
-        kalender, einstellungen.pausen_regeln(), einstellungen.zone, zeitplaner
+        kalender,
+        einstellungen.pausen_regeln(),
+        einstellungen.zone,
+        zeitplaner,
+        vorgaben=Vorgaben(einstellungen.datenbank),
     )
     kalender.nach_pruefungen.append(waechter.nach_termin)
+    kalender.vor_pruefungen.append(waechter.vor_termin)
     return waechter
 
 
