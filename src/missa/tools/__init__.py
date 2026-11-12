@@ -411,6 +411,8 @@ def kontaktpflege_bauen(
         kalender=nextcloud.kalender,
         vorlauf_tage=einstellungen.kontakte_geburtstag_vorlauf,
         pruefzeit=einstellungen.kontakte_pruefzeit,
+        nur_wichtige_geburtstage=not einstellungen.kontakte_alle_geburtstage,
+        standard_abstand=einstellungen.kontakte_abstand_tage,
     )
 
 

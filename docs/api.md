@@ -272,6 +272,23 @@ curl $MISSA/api/nachtschicht -H "Authorization: Bearer $KEY"
 
 Siehe [routinen-nachtschicht.md](routinen-nachtschicht.md).
 
+### `POST /api/kontakte/kontakt` – Kontakt vermerken (für die Telefonie)
+
+Vermerkt den letzten Kontakt mit einer Person – gedacht für die spätere Telefonie oder eine
+App. Die Person wird über `telefon`, `email` oder `name` gefunden.
+
+```bash
+curl -X POST $MISSA/api/kontakte/kontakt -H "Authorization: Bearer $KEY" \
+  -H "Content-Type: application/json" \
+  -d '{"telefon": "+41 79 000 00 00", "zeit": "2026-11-12T18:30:00+01:00", "art": "Anruf"}'
+```
+
+```json
+{"vermerkt": true, "name": "Maria Degiorgi", "letzter_kontakt": "2026-11-12", "art": "Anruf"}
+```
+
+`vermerkt: false`, wenn niemand passt; `400` ohne Angaben, `503` ohne Kontaktpflege.
+
 ### `GET /api/kalender/protokoll` – was hat Missa am Kalender geändert?
 
 Alle Kalenderänderungen von Missa, die neueste zuerst (höchstens `?anzahl=50`, bis 500), mit
@@ -598,7 +615,7 @@ kennen – man fragt einfach in normaler Sprache.
 | Routinen | „Jeden Freitag um 17 Uhr Wochenrückblick“, „Pausier den Wochenrückblick“, „Lösch die Routine“ | `routine_anlegen`, `routinen_anzeigen`, `routine_pausieren`, `routine_fortsetzen`, `routine_loeschen`, `routine_jetzt_ausfuehren` |
 | Nachtschicht | „Mach mir heute Nacht eine Übersicht aller offenen Aufgaben“, „Nachtschicht von 2 bis 5 Uhr“ | `nachtaufgabe_anlegen`, `nachtaufgaben_anzeigen`, `nachtaufgabe_ergebnis`, `nachtaufgabe_loeschen`, `nachtschicht_einstellen` |
 | Pausen und Puffer (Nextcloud-Kalender) | „Prüf mal morgen auf Pausen“, „… und trag die Pausen ein“, „Mach 20 Minuten Puffer“ | `tag_pruefen`, `pausen_regeln_anzeigen`, `pausen_regeln_einstellen` (dazu prüft Missa jeden Abend und bei jeder Terminanlage von selbst; eingetragen wird nur nach Ja) |
-| Kontakte (Nextcloud) | „Wer hat bald Geburtstag?“, „Oma ist mir wichtig, mindestens alle 3 Wochen“, „Hab gerade mit Oma telefoniert“ | `kontakte_suchen`, `geburtstage_anzeigen`, `kontakt_wichtig_markieren`, `kontakt_nicht_mehr_wichtig`, `kontakt_gemeldet`, `wichtige_kontakte_anzeigen` |
+| Kontakte (Nextcloud) | „Wer hat bald Geburtstag?“, „Oma ist mir wichtig, mindestens alle 3 Wochen“, „Hab gerade mit Oma telefoniert“ | `kontakte_suchen`, `geburtstage_anzeigen`, `kontakt_wichtig_markieren`, `kontakt_nicht_mehr_wichtig`, `kontakt_gemeldet`, `letzter_kontakt`, `wichtige_kontakte_anzeigen` |
 | E-Mail (nur wenn eingerichtet) | „Schreib dem Chef, dass ich morgen später komme“, „Was ist neu im Posteingang?“, „Schreib förmlicher an Lehrer“ – gesendet wird nur nach „Ja, abschicken“ | `emails_anzeigen`, `email_lesen`, `email_entwurf_erstellen`, `email_entwurf_aendern`, `email_entwuerfe_anzeigen`, `email_entwurf_verwerfen`, `email_adresse_suchen`, `schreibstil_anzeigen`, `schreibstil_lernen`, `schreibstil_anpassen` (kein Senden-Werkzeug – siehe [email.md](email.md)) |
 | Nextcloud Talk (nur wenn eingerichtet) | „Schick mir die Übersicht per Talk“, „Erinnere mich per Talk an …“ | `talk_nachricht_senden` |
 | Server-Alarme (nur wenn eine Monitoring-Quelle eingerichtet ist) | „Ruf mich an, wenn ai01 über 90 % ist“, „Wie ist die Auslastung von ai01?“, „Welche Alarm-Regeln gibt es?“, „Ruhezeit von 23 bis 6 Uhr“ | `server_werte_anzeigen`, `alarmregel_anlegen`, `alarmregeln_anzeigen`, `alarmregel_aendern`, `alarmregel_loeschen`, `alarme_anzeigen`, `alarm_einstellungen` |

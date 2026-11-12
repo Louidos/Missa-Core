@@ -309,6 +309,8 @@ def create_app(
         kontext_quellen.append(erreichbarkeit.kontext)
     if homelab is not None:
         kontext_quellen.append(homelab.kontext)
+    if kontaktpflege is not None:
+        kontext_quellen.append(kontaktpflege.kontext)
     if "aufgabe_erstellen" in werkzeuge:
         from missa.tools.todo_erkennung import aufgaben_hinweis
 
@@ -518,6 +520,36 @@ def create_app(
             "fenster": {"von": f"{von:%H:%M}", "bis": f"{bis:%H:%M}"},
             "anzahl": len(auftraege),
             "auftraege": [a.als_dict() for a in auftraege],
+        }
+
+    class KontaktMeldung(BaseModel):
+        """Ein Kontakt aus einer anderen Quelle (z. B. später die Telefonie)."""
+
+        telefon: str | None = None
+        email: str | None = None
+        name: str | None = None
+        zeit: datetime | None = None
+        art: str = "Anruf"
+
+    @app.post("/api/kontakte/kontakt", dependencies=geschuetzt, tags=["Missa"])
+    async def kontakt_melden(meldung: KontaktMeldung) -> dict[str, Any]:
+        """Vermerkt den letzten Kontakt mit einer Person (Telefonnummer, E-Mail oder Name)."""
+        if kontaktpflege is None:
+            raise HTTPException(status_code=503, detail="Kontaktpflege ist nicht eingerichtet")
+        if not (meldung.telefon or meldung.email or meldung.name):
+            raise HTTPException(status_code=400, detail="telefon, email oder name fehlt")
+        eintrag = kontaktpflege.kontakt_von_aussen(
+            meldung.telefon, meldung.email, meldung.name, meldung.zeit, meldung.art or "Anruf"
+        )
+        if eintrag is None:
+            return {"vermerkt": False, "name": None}
+        return {
+            "vermerkt": True,
+            "name": eintrag.name,
+            "letzter_kontakt": eintrag.letzter_kontakt.isoformat()
+            if eintrag.letzter_kontakt
+            else None,
+            "art": eintrag.letzte_art,
         }
 
     @app.get("/api/kalender/protokoll", dependencies=geschuetzt, tags=["Missa"])

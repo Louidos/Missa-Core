@@ -66,7 +66,9 @@ class Einstellungen:
     nextcloud_adressbuch: str = ""
     nextcloud_notizen_kategorie: str = "Missa"
     nextcloud_dateien_ordner: str = "Missa"
-    kontakte_geburtstag_vorlauf: int = 3
+    kontakte_geburtstag_vorlauf: int = 1
+    kontakte_alle_geburtstage: bool = False
+    kontakte_abstand_tage: int = 30
     kontakte_pruefzeit: time = time(8, 0)
     pausen_aktiv: bool = True
     pausen_kalender: str = "Pausen"
@@ -461,7 +463,9 @@ class Einstellungen:
             nextcloud_dateien_ordner=wert(
                 "NEXTCLOUD_DATEIEN_ORDNER", cls.nextcloud_dateien_ordner
             ).strip("/ "),
-            kontakte_geburtstag_vorlauf=max(0, zahl("KONTAKTE_GEBURTSTAG_VORLAUF", 3)),
+            kontakte_geburtstag_vorlauf=max(0, zahl("KONTAKTE_GEBURTSTAG_VORLAUF", 1)),
+            kontakte_alle_geburtstage=wert("KONTAKTE_GEBURTSTAGE", "wichtige").casefold() == "alle",
+            kontakte_abstand_tage=max(1, zahl("KONTAKTE_ABSTAND_TAGE", 30)),
             kontakte_pruefzeit=uhrzeit("KONTAKTE_PRUEFZEIT", "08:00"),
             pausen_aktiv=wert("PAUSEN_AKTIV", "true").casefold() in WAHR,
             pausen_kalender=wert("PAUSEN_KALENDER", cls.pausen_kalender),
