@@ -590,7 +590,9 @@ kennen – man fragt einfach in normaler Sprache.
 | Bereich | Beispiel-Fragen | Werkzeuge |
 |---------|-----------------|-----------|
 | Kalender (Nextcloud) | „Was habe ich morgen?“, „Trag mir Freitag 14 Uhr Zahnarzt ein“, „Verschieb das Meeting auf 15 Uhr und mach es rot“, „Leg einen Kalender Lehre in Grün an“, „Mach das rückgängig“ | `termine_anzeigen`, `termin_eintragen`, `termin_aendern`, `termin_verschieben`, `termin_loeschen`, `kalender_anzeigen`, `kalender_anlegen`, `kalender_aendern`, `farbsystem_festlegen`, `kalender_rueckgaengig`, `kalender_protokoll` |
-| Aufgaben (Nextcloud) | „Was steht auf meiner Liste?“, „Schreib auf: Milch kaufen“, „Hab ich erledigt“ | `aufgaben_anzeigen`, `aufgabe_erstellen`, `aufgabe_erledigt`, `aufgabe_loeschen` |
+| Aufgaben (Nextcloud) | „Was steht auf meiner Liste?“, „Schreib auf: Milch kaufen“, „Hab ich erledigt“, nebenbei „muss noch Rail-Kit bestellen“ | `aufgaben_anzeigen`, `aufgabe_erstellen`, `aufgabe_erledigt`, `aufgabe_loeschen` |
+| Notizen (Nextcloud Notes) | „Schreib dir auf, dass …“, „Ergänz die Homelab-Notiz um …“, „Was hab ich mir zu rp01 notiert?“ | `notiz_anlegen`, `notiz_ergaenzen`, `notizen_suchen`, `notiz_lesen` |
+| Dateien (Nextcloud, WebDAV) | „Wo ist die Doku zu rp01?“, „Lies mir die Datei vor“, „Leg die Zusammenfassung in deinem Ordner ab“ | `dateien_suchen`, `ordner_anzeigen`, `datei_lesen`, `datei_schreiben` (nur in `Missa/`) |
 | Gedächtnis | „Merk dir, dass ich Kaffee ohne Zucker trinke“, „Was weißt du über meine Schwester?“, „Vergiss das“ | `merken`, `erinnern`, `vergessen` |
 | Erinnerungen | „Erinnere mich um 6:30 an Training“, „Jeden Montag um 7 an die Wochenplanung“, „In 10 Minuten nochmal“ | `erinnerung_anlegen`, `erinnerungen_anzeigen`, `erinnerung_aendern`, `erinnerung_loeschen`, `erinnerung_schlummern` |
 | Routinen | „Jeden Freitag um 17 Uhr Wochenrückblick“, „Pausier den Wochenrückblick“, „Lösch die Routine“ | `routine_anlegen`, `routinen_anzeigen`, `routine_pausieren`, `routine_fortsetzen`, `routine_loeschen`, `routine_jetzt_ausfuehren` |

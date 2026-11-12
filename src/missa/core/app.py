@@ -309,6 +309,10 @@ def create_app(
         kontext_quellen.append(erreichbarkeit.kontext)
     if homelab is not None:
         kontext_quellen.append(homelab.kontext)
+    if "aufgabe_erstellen" in werkzeuge:
+        from missa.tools.todo_erkennung import aufgaben_hinweis
+
+        kontext_quellen.append(aufgaben_hinweis)
     # Der Notfall-Stopp im Code kommt zuerst – noch vor der Senden-Sperre für Mails.
     eingangs_pruefer = [rechte.eingang]
     nachbearbeiter = []

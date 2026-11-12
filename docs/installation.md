@@ -132,6 +132,8 @@ und das App-Passwort lässt sich jederzeit einzeln widerrufen.
 | `NEXTCLOUD_KALENDER` | – | für Kalender | Anzeigename des Kalenders, so wie er in Nextcloud heißt (Groß/Klein egal). |
 | `NEXTCLOUD_AUFGABEN_LISTE` | – | für Aufgaben | Anzeigename der Liste in der App „Aufgaben“. |
 | `NEXTCLOUD_ADRESSBUCH` | – (alle) | nein | Adressbuch für Geburtstage und Kontaktpflege (Anzeigename, z. B. `Kontakte`). |
+| `NEXTCLOUD_NOTIZEN_KATEGORIE` | `Missa` | nein | Kategorie in Nextcloud Notes für neue Notizen (leer = ohne). |
+| `NEXTCLOUD_DATEIEN_ORDNER` | `Missa` | nein | Missas eigener Ordner in Nextcloud-Dateien – nur dort schreibt sie (siehe [nextcloud-dateien.md](nextcloud-dateien.md)). |
 | `KONTAKTE_GEBURTSTAG_VORLAUF` | `3` | nein | So viele Tage vor einem Geburtstag erinnert Missa (zusätzlich am Tag selbst); `0` = nur am Tag. |
 | `KONTAKTE_PRUEFZEIT` | `08:00` | nein | Uhrzeit der täglichen Prüfung von Geburtstagen und Kontaktpflege. |
 | `PAUSEN_AKTIV` | `true` | nein | Pausen-Wächter ein/aus (braucht `NEXTCLOUD_KALENDER`). |

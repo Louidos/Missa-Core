@@ -9,6 +9,14 @@ die Versionsnummern folgen [Semantic Versioning](https://semver.org/lang/de/).
 
 ### Hinzugefügt
 
+- To-dos aus Gesprächen, Notizen und Dateisuche in Nextcloud: Sagst du nebenbei „muss noch
+  Rail-Kit bestellen“, legt Missa die Aufgabe in Nextcloud Tasks an und sagt es kurz (doppelte
+  legt sie nicht an). „Schreib dir auf, dass …“ ergibt eine Notiz in Nextcloud Notes; Notizen
+  lassen sich ergänzen und durchsuchen. „Wo ist die Doku zu rp01?“ findet Dateien und Ordner
+  nach Namen, Text- und Markdown-Dateien liest sie vor. Schreiben darf Missa nur in ihrem
+  eigenen Ordner `Missa/` (bestehende Dateien ergänzt sie nur), gelöscht wird nie etwas.
+  Neu: `NEXTCLOUD_NOTIZEN_KATEGORIE`, `NEXTCLOUD_DATEIEN_ORDNER` (#65)
+
 - Kalender: volle Bearbeitung inkl. Farben, Hinweise zu Pausen, Puffern und Doppelbuchungen:
   Überschneidet sich ein neuer Termin mit einem anderen (in irgendeinem Kalender) oder
   bleiben bei verschiedenen Orten weniger als 30 Minuten, sagt Missa das **bevor** sie
