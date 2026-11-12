@@ -63,7 +63,10 @@ Talk nutzen dieselbe Logik.
   Ja, ungültige Einträge nimmt sie sofort zurück, Caddy läuft unverändert weiter) und
   verwaltet Minecraft per RCON: „Wer ist online?“, Whitelist, Neustart mit Warnung
   (siehe docs/caddy-minecraft.md)
-- In Arbeit (Server-Update): Git-Überblick
+- Fertig: Git und GitHub – Issues auf dem eigenen Git-Server (Gitea/Forgejo) anlegen,
+  offene Pull Requests zusammenfassen, alte Branches wöchentlich melden; GitHub nur
+  lesend (fehlgeschlagene Builds, neue Releases und Issues); Claude-Code-Prompts aus
+  groben Ideen nach Vorlage, als Issue erst nach Ja (siehe docs/git-github-prompts.md)
 - Später als eigene Aufträge: Telefon, Push, Smart Home
 - Änderungen im Detail: [CHANGELOG.md](CHANGELOG.md)
 
@@ -99,6 +102,8 @@ Talk nutzen dieselbe Logik.
 - **[docs/proxmox-vms.md](docs/proxmox-vms.md)** – VMs auf Zuruf erstellen und einrichten
 - **[docs/caddy-minecraft.md](docs/caddy-minecraft.md)** – Subdomains in Caddy nach Ja,
   Minecraft per RCON
+- **[docs/git-github-prompts.md](docs/git-github-prompts.md)** – Git-Server, GitHub
+  (nur lesend) und Claude-Code-Prompts aus groben Ideen
 - **[docs/homelab-firewall.md](docs/homelab-firewall.md)** – Homelab-Wissen und
   Firewall-Logs
 - **[docs/updates-zertifikate.md](docs/updates-zertifikate.md)** – Updates, Wartungsfenster,

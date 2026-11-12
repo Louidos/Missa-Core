@@ -27,6 +27,7 @@ if TYPE_CHECKING:
     from missa.tools.erreichbarkeit import ErreichbarkeitsWaechter
     from missa.tools.fehlersuche import Fehlersuche
     from missa.tools.firewall import FirewallLog
+    from missa.tools.git import GitHubWaechter, GitUeberblick
     from missa.tools.homelab import HomelabInventar
     from missa.tools.kalender import Kalender
     from missa.tools.kontakte import Adressbuch, Kontaktpflege
@@ -34,6 +35,7 @@ if TYPE_CHECKING:
     from missa.tools.minecraft import MinecraftVerwaltung
     from missa.tools.nextcloud import NextcloudVerbindung
     from missa.tools.pausen import PausenWaechter
+    from missa.tools.prompts import ClaudePrompts
     from missa.tools.server_alarme import ServerWaechter
     from missa.tools.talk import TalkMelder
     from missa.tools.updates import UpdateVerwaltung
@@ -111,6 +113,9 @@ def werkzeuge_laden(
     vms: VmVerwaltung | None = None,
     caddy: CaddyVerwaltung | None = None,
     minecraft: MinecraftVerwaltung | None = None,
+    git: GitUeberblick | None = None,
+    github: GitHubWaechter | None = None,
+    prompts: ClaudePrompts | None = None,
 ) -> Werkzeugkasten:
     """Stellt alle Werkzeuge zusammen, die mit dieser Konfiguration nutzbar sind.
 
@@ -233,6 +238,24 @@ def werkzeuge_laden(
         for werkzeug in minecraft_werkzeuge(minecraft):
             kasten.hinzufuegen(werkzeug)
 
+    if git is not None:
+        from missa.tools.git import git_werkzeuge
+
+        for werkzeug in git_werkzeuge(git):
+            kasten.hinzufuegen(werkzeug)
+
+    if github is not None:
+        from missa.tools.git import github_werkzeuge
+
+        for werkzeug in github_werkzeuge(github):
+            kasten.hinzufuegen(werkzeug)
+
+    if prompts is not None:
+        from missa.tools.prompts import prompt_werkzeuge
+
+        for werkzeug in prompt_werkzeuge(prompts):
+            kasten.hinzufuegen(werkzeug)
+
     meldende = (
         vms,
         server,
@@ -243,6 +266,8 @@ def werkzeuge_laden(
         zertifikate,
         homelab,
         firewall,
+        git,
+        github,
     )
     if alarme is not None and any(d is not None for d in meldende):
         from missa.core.alarme import alarm_werkzeuge
@@ -741,3 +766,63 @@ def minecraft_bauen(einstellungen: Einstellungen) -> MinecraftVerwaltung | None:
     return MinecraftVerwaltung(
         RconClient(einstellungen.minecraft_rcon_host, einstellungen.minecraft_rcon_port, passwort)
     )
+
+
+def git_bauen(
+    einstellungen: Einstellungen,
+    alarme: Alarme | None,
+    transport: httpx.AsyncBaseTransport | None = None,
+) -> GitUeberblick | None:
+    """Eigener Git-Server (Gitea/Forgejo) – ohne GIT_SERVER_URL oder Token aus."""
+    if not einstellungen.git_server_konfiguriert:
+        return None
+    from missa.integrationen.gitserver import GitServer
+    from missa.tools.git import GitUeberblick
+
+    server = GitServer(
+        einstellungen.git_server_url,
+        einstellungen.git_server_token,
+        ca_datei=einstellungen.git_server_ca_datei,
+        transport=transport,
+    )
+    return GitUeberblick(
+        server,
+        einstellungen.zone,
+        alarme,
+        besitzer=einstellungen.git_server_besitzer,
+        alte_tage=einstellungen.git_alte_branches_tage,
+    )
+
+
+def github_bauen(
+    einstellungen: Einstellungen,
+    alarme: Alarme | None,
+    transport: httpx.AsyncBaseTransport | None = None,
+) -> GitHubWaechter | None:
+    """GitHub nur lesend – ohne GITHUB_TOKEN aus."""
+    if not einstellungen.github_konfiguriert:
+        return None
+    from missa.integrationen.github import GitHubLeser
+    from missa.tools.git import GitHubWaechter
+
+    leser = GitHubLeser(
+        einstellungen.github_token,
+        einstellungen.github_konto,
+        api_url=einstellungen.github_api_url,
+        transport=transport,
+    )
+    return GitHubWaechter(
+        leser, einstellungen.datenbank, einstellungen.zone, alarme, repos=einstellungen.github_repos
+    )
+
+
+def prompts_bauen(einstellungen: Einstellungen, git: GitUeberblick | None) -> ClaudePrompts | None:
+    """Claude-Code-Prompts nach der Vorlage – ohne gültige Vorlage aus (mit Warnung)."""
+    from missa.tools.prompts import ClaudePrompts, PromptVorlage
+
+    try:
+        vorlage = PromptVorlage.laden(einstellungen.prompt_vorlage_datei)
+    except ValueError as fehler:
+        log.warning("Claude-Code-Prompts sind aus: %s", fehler)
+        return None
+    return ClaudePrompts(vorlage, einstellungen.datenbank, einstellungen.zone, git)

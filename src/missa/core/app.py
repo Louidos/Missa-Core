@@ -82,6 +82,9 @@ def create_app(
     vms: Any = None,
     caddy: Any = None,
     minecraft: Any = None,
+    git: Any = None,
+    github: Any = None,
+    git_transport: httpx.AsyncBaseTransport | None = None,
 ) -> FastAPI:
     """Baut die App. Parameter außer ``einstellungen`` sind vor allem für Tests da."""
     from missa.channels.nextcloud_talk import TalkClient, talk_einrichten
@@ -93,6 +96,8 @@ def create_app(
         erreichbarkeit_bauen,
         fehlersuche_bauen,
         firewall_bauen,
+        git_bauen,
+        github_bauen,
         homelab_bauen,
         kontaktpflege_bauen,
         login_waechter_bauen,
@@ -100,6 +105,7 @@ def create_app(
         minecraft_bauen,
         nextcloud_dienste_bauen,
         pausen_waechter_bauen,
+        prompts_bauen,
         server_waechter_bauen,
         ssh_verbindung_bauen,
         talk_melder_bauen,
@@ -235,6 +241,20 @@ def create_app(
         caddy = caddy_verwaltung_bauen(einstellungen, ssh_verbindung)
     if minecraft is None:
         minecraft = minecraft_bauen(einstellungen)
+    # Eigene Repos: Git-Server (Issues, PRs, alte Branches), GitHub nur lesend, Prompts.
+    if git is None:
+        git = git_bauen(einstellungen, alarme, git_transport)
+    if git is not None:
+        zeitplaner.regelmaessig("git-alte-branches", timedelta(days=7), git.woechentlich_pruefen)
+    if github is None:
+        github = github_bauen(einstellungen, alarme, git_transport)
+    if github is not None:
+        zeitplaner.regelmaessig(
+            "github",
+            timedelta(minutes=einstellungen.github_intervall_minuten),
+            github.pruefen,
+        )
+    prompts = prompts_bauen(einstellungen, git)
     if werkzeuge is None:
         werkzeuge = werkzeuge_laden(
             einstellungen,
@@ -261,6 +281,9 @@ def create_app(
             vms=vms,
             caddy=caddy,
             minecraft=minecraft,
+            git=git,
+            github=github,
+            prompts=prompts,
         )
     else:
         werkzeuge.rechte = rechte
@@ -376,6 +399,9 @@ def create_app(
     app.state.vms = vms
     app.state.caddy = caddy
     app.state.minecraft = minecraft
+    app.state.git = git
+    app.state.github = github
+    app.state.prompts = prompts
 
     # -------------------------------------------------------------- Fehlerformat
 
