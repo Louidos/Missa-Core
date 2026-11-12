@@ -487,6 +487,17 @@ curl $MISSA/api/homelab -H "Authorization: Bearer $KEY"
 
 Mehr dazu: [homelab-firewall.md](homelab-firewall.md).
 
+### `GET /api/vms` – Aufträge für Missas eigene VMs
+
+Die letzten Aufträge (neueste zuerst) mit Name, VM-ID, IP, Status (`laeuft`, `fertig`,
+`fehler`, `geloescht`), letztem Schritt und Fehler. Nur lesend, ohne neue Proxmox-Abfrage.
+
+```bash
+curl $MISSA/api/vms -H "Authorization: Bearer $KEY"
+```
+
+Mehr dazu: [proxmox-vms.md](proxmox-vms.md).
+
 ### `POST /channels/nextcloud-talk/webhook` – nur für Nextcloud Talk
 
 Kein Endpunkt für Apps: Hier liefert Nextcloud Talk Nachrichten an Missa (Bot-Webhook).
@@ -595,5 +606,6 @@ kennen – man fragt einfach in normaler Sprache.
 | Updates (nur wenn `SSH_HOSTS` gesetzt ist) | „Welche Updates stehen an?“, „Plan ein Wartungsfenster“, „Spiel die Updates auf wb01 ein“ (nur nach Ja), „Starte wb01 neu“ (nur nach Ja) | `updates_anzeigen`, `wartungsfenster_vorschlagen`, `wartungsfenster_eintragen`, `updates_plan`, `updates_einspielen`, `host_neustarten` |
 | Zertifikate und Domains | „Wann laufen die Zertifikate ab?“ | `zertifikate_pruefen` |
 | Homelab (nur mit Proxmox-Token) | „Welche IP hat rp01?“, „Welche VMs gibt es?“ | `homelab_anzeigen` |
+| Eigene VMs (nur mit VM-Token) | „Richte einen Minecraft-Server ein“, „Welche VMs hast du angelegt?“, „Lösch mc01“ (nur nach Ja) | `vm_planen`, `vm_erstellen`, `missa_vms_anzeigen`, `playbooks_anzeigen`, `vm_starten`, `vm_stoppen`, `vm_loeschen` |
 | Firewall (nur mit `FIREWALL_LOG_DATEI`, nur lesen) | „Was war gestern an der Firewall los?“ | `firewall_zusammenfassung` |
 | Anmeldungen (nur wenn `SSH_HOSTS` gesetzt ist) | „Wer hat sich heute angemeldet?“, „10.0.30.5 ist mein Laptop“ | `anmeldungen_anzeigen`, `ip_als_bekannt_markieren`, `ip_nicht_mehr_bekannt`, `bekannte_ips_anzeigen`, `login_einstellungen` |

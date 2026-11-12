@@ -1,0 +1,30 @@
+# Was Missa einrichten kann. Jeder Eintrag: Beschreibung, Playbook(s) und Standard-Ressourcen.
+# Ein neuer Dienst = ein neues Playbook hier im Ordner + ein Eintrag in diesem Katalog.
+# Die Grenzen aus /etc/missa/missa.env (VM_MAX_*, VM_POOL_MAX_*) gelten immer.
+
+basis:
+  beschreibung: Leere Debian-VM mit Updates, Benutzer und Firewall (ufw)
+  namen_vorlage: vm
+  playbooks: [basis.yml]
+  cpu: 1
+  ram_gb: 1
+  disk_gb: 16
+  stichwoerter: [basis, leer, debian, vm]
+
+minecraft:
+  beschreibung: Minecraft-Server (Vanilla, Version einstellbar, Datapacks/Vanilla+, RCON an)
+  namen_vorlage: mc
+  playbooks: [basis.yml, minecraft.yml]
+  cpu: 2
+  ram_gb: 4
+  disk_gb: 20
+  ports: [25565]
+  stichwoerter: [minecraft, mc, minecraft-server, vanilla]
+  variablen:
+    minecraft_version: latest
+    minecraft_motd: Missas Minecraft-Server
+    minecraft_max_spieler: 10
+    minecraft_schwierigkeit: normal
+  hinweis: >-
+    Mit dem Einrichten wird die Minecraft-EULA akzeptiert (https://aka.ms/MinecraftEULA).
+    Die Whitelist ist an – Spieler fügt Missa per RCON hinzu.

@@ -1,0 +1,53 @@
+# Basis für jede neue VM: Updates, Gast-Agent, Zeitzone, Benutzer, Firewall auf der VM (ufw).
+# Läuft von ai01 aus mit dem Cloud-Init-Benutzer (VM_BENUTZER) und Missas SSH-Schlüssel.
+- name: Basis einrichten
+  hosts: all
+  become: true
+  vars:
+    zeitzone: Europe/Zurich
+    ssh_erlaubt_von: any
+  tasks:
+    - name: Paketlisten holen und alles aktualisieren
+      ansible.builtin.apt:
+        update_cache: true
+        upgrade: safe
+        cache_valid_time: 3600
+
+    - name: Grundpakete installieren
+      ansible.builtin.apt:
+        name: [qemu-guest-agent, ufw, unattended-upgrades, ca-certificates, curl]
+        state: present
+
+    - name: Gast-Agent starten (Proxmox sieht dann die IP)
+      ansible.builtin.systemd_service:
+        name: qemu-guest-agent
+        state: started
+        enabled: true
+
+    - name: Zeitzone setzen
+      ansible.builtin.command: "timedatectl set-timezone {{ zeitzone }}"
+      changed_when: false
+
+    - name: Automatische Sicherheitsupdates einschalten
+      ansible.builtin.copy:
+        dest: /etc/apt/apt.conf.d/20auto-upgrades
+        content: |
+          APT::Periodic::Update-Package-Lists "1";
+          APT::Periodic::Unattended-Upgrade "1";
+        mode: "0644"
+
+    - name: Firewall – eingehend alles zu
+      ansible.builtin.command: ufw default deny incoming
+      changed_when: false
+
+    - name: Firewall – ausgehend erlaubt
+      ansible.builtin.command: ufw default allow outgoing
+      changed_when: false
+
+    - name: Firewall – SSH erlauben
+      ansible.builtin.command: "ufw allow from {{ ssh_erlaubt_von }} to any port 22 proto tcp"
+      changed_when: false
+
+    - name: Firewall einschalten
+      ansible.builtin.command: ufw --force enable
+      changed_when: false

@@ -35,6 +35,7 @@ if TYPE_CHECKING:
     from missa.tools.server_alarme import ServerWaechter
     from missa.tools.talk import TalkMelder
     from missa.tools.updates import UpdateVerwaltung
+    from missa.tools.vms import VmVerwaltung
     from missa.tools.zertifikate import ZertifikatsWaechter
 
 log = logging.getLogger(__name__)
@@ -105,6 +106,7 @@ def werkzeuge_laden(
     zertifikate: ZertifikatsWaechter | None = None,
     homelab: HomelabInventar | None = None,
     firewall: FirewallLog | None = None,
+    vms: VmVerwaltung | None = None,
 ) -> Werkzeugkasten:
     """Stellt alle Werkzeuge zusammen, die mit dieser Konfiguration nutzbar sind.
 
@@ -209,7 +211,14 @@ def werkzeuge_laden(
         for werkzeug in firewall_werkzeuge(firewall):
             kasten.hinzufuegen(werkzeug)
 
+    if vms is not None:
+        from missa.tools.vms import vm_werkzeuge
+
+        for werkzeug in vm_werkzeuge(vms):
+            kasten.hinzufuegen(werkzeug)
+
     meldende = (
+        vms,
         server,
         erreichbarkeit,
         container,
@@ -591,4 +600,89 @@ def firewall_bauen(einstellungen: Einstellungen, alarme: Alarme) -> FirewallLog 
         alarme,
         scan_ports=einstellungen.firewall_scan_ports,
         block_grenze=einstellungen.firewall_block_grenze,
+    )
+
+
+def vm_verwaltung_bauen(
+    einstellungen: Einstellungen,
+    alarme: Alarme,
+    rechte: Rechte | None = None,
+    homelab: HomelabInventar | None = None,
+    transport: httpx.AsyncBaseTransport | None = None,
+) -> VmVerwaltung | None:
+    """Eigene VMs im Pool missa anlegen und einrichten – ohne VM-Token aus."""
+    if not einstellungen.vms_konfiguriert:
+        return None
+    import shutil
+
+    from missa.integrationen.proxmox_vms import ProxmoxVerwalter, bereich_lesen
+    from missa.tools.vms import AnsibleLaeufer, Grenzen, VmVerwaltung, netze_lesen
+
+    proxmox = ProxmoxVerwalter(
+        einstellungen.proxmox_url,
+        einstellungen.proxmox_vm_token_id,
+        einstellungen.proxmox_vm_token_secret,
+        node=einstellungen.vm_node,
+        pool=einstellungen.vm_pool,
+        id_bereich=bereich_lesen(einstellungen.vm_id_bereich),
+        tls_pruefen=einstellungen.proxmox_tls_pruefen,
+        ca_datei=einstellungen.proxmox_ca_datei,
+        transport=transport,
+    )
+    befehl = (
+        einstellungen.ansible_playbook
+        or shutil.which("ansible-playbook")
+        or "/opt/missa/venv/bin/ansible-playbook"
+    )
+    oeffentlich = ""
+    try:
+        oeffentlich = (
+            einstellungen.ssh_schluessel.with_suffix(".pub").read_text(encoding="utf-8").strip()
+        )
+    except OSError:
+        log.warning("VMs: öffentlicher Schlüssel %s.pub fehlt", einstellungen.ssh_schluessel)
+    rcon_datei = einstellungen.daten / "minecraft-rcon.txt"
+
+    def rcon_passwort() -> str:
+        """Aus MINECRAFT_RCON_PASSWORT, sonst einmal erzeugt und nur für missa lesbar abgelegt."""
+        if einstellungen.minecraft_rcon_passwort:
+            return einstellungen.minecraft_rcon_passwort
+        try:
+            return rcon_datei.read_text(encoding="utf-8").strip()
+        except OSError:
+            import secrets
+
+            neu = secrets.token_urlsafe(18)
+            rcon_datei.parent.mkdir(parents=True, exist_ok=True)
+            rcon_datei.write_text(neu + "\n", encoding="utf-8")
+            rcon_datei.chmod(0o600)
+            return neu
+
+    return VmVerwaltung(
+        proxmox,
+        alarme,
+        einstellungen.datenbank,
+        einstellungen.zone,
+        playbook_ordner=einstellungen.playbooks,
+        template=einstellungen.vm_template_id,
+        storage=einstellungen.vm_storage,
+        netze=netze_lesen(einstellungen.vm_netze),
+        grenzen=Grenzen(
+            einstellungen.vm_max_cpu,
+            einstellungen.vm_max_ram_gb,
+            einstellungen.vm_max_disk_gb,
+            einstellungen.vm_pool_max_cpu,
+            einstellungen.vm_pool_max_ram_gb,
+            einstellungen.vm_pool_max_disk_gb,
+        ),
+        bridge=einstellungen.vm_bridge,
+        disk=einstellungen.vm_disk,
+        ci_benutzer=einstellungen.vm_benutzer,
+        ssh_schluessel_pub=oeffentlich,
+        nameserver=einstellungen.vm_nameserver,
+        verwaltung_ip=einstellungen.vm_verwaltung_ip,
+        rcon_passwort=rcon_passwort,
+        ansible=AnsibleLaeufer(befehl, einstellungen.ssh_schluessel),
+        rechte=rechte,
+        homelab=homelab,
     )

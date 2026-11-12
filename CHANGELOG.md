@@ -9,6 +9,16 @@ die Versionsnummern folgen [Semantic Versioning](https://semver.org/lang/de/).
 
 ### Hinzugefügt
 
+- Missa erstellt und richtet VMs auf Zuruf ein, mit Plan, Bestätigung und festen Grenzen:
+  „Richte einen Minecraft-Server ein“ zeigt einen Plan mit Template, CPU, RAM, Disk, VLAN,
+  IP, Name und Playbooks. Erst nach deinem Ja klont Missa die VM aus dem
+  Cloud-Init-Template in den Pool `missa`, setzt Netz, IP und SSH-Schlüssel, startet sie,
+  richtet sie per Ansible ein (`basis.yml`, `minecraft.yml`: Version wählbar, Whitelist,
+  RCON nur von ai01) und meldet dir das Ergebnis. Aufträge über den Grenzen (pro VM und für
+  den ganzen Pool, erlaubte VLANs, ID-Bereich) lehnt sie mit Begründung ab. Starten,
+  Stoppen und Löschen gehen nur für VMs im eigenen Pool und nur nach Ja, und jeder Schritt
+  steht im Aktionsprotokoll. Einrichtung mit `scripts/einrichten/proxmox-missa.sh`; neue
+  Playbooks kommen als Datei dazu. Neu: `GET /api/vms`; siehe docs/proxmox-vms.md (#56)
 - Missa hält ihr Wissen über VMs und IPs selbst aktuell und fasst die Firewall-Logs zusammen:
   Stündlich liest sie aus Proxmox (nur lesend) alle VMs und Container mit Status,
   Ressourcen, VLAN und IP. „Welche IP hat rp01?“ beantwortet sie mit dem aktuellen Stand,
