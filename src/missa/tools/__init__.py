@@ -19,6 +19,7 @@ if TYPE_CHECKING:
     from missa.core.alarme import Alarme
     from missa.core.hintergrund import Hintergrund
     from missa.core.rechte import Aktionsprotokoll, Rechte
+    from missa.core.sicherung import Sicherung
     from missa.core.zeitplaner import Zeitplaner
     from missa.integrationen.ssh import SshVerbindung
     from missa.tools.anmeldungen import LoginWaechter
@@ -119,6 +120,7 @@ def werkzeuge_laden(
     kontaktpflege: Kontaktpflege | None = None,
     pausen: PausenWaechter | None = None,
     hintergrund: Hintergrund | None = None,
+    sicherung: Sicherung | None = None,
     rechte: Rechte | None = None,
     protokoll: Aktionsprotokoll | None = None,
     alarme: Alarme | None = None,
@@ -164,6 +166,12 @@ def werkzeuge_laden(
         from missa.tools.erinnerungen import erinnerungs_werkzeuge
 
         for werkzeug in erinnerungs_werkzeuge(zeitplaner, bestaetigungen):
+            kasten.hinzufuegen(werkzeug)
+
+    if sicherung is not None:
+        from missa.core.sicherung import sicherungs_werkzeuge
+
+        for werkzeug in sicherungs_werkzeuge(sicherung):
             kasten.hinzufuegen(werkzeug)
 
     if zeitplaner is not None and hintergrund is not None:

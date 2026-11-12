@@ -20,8 +20,11 @@ Talk nutzen dieselbe Logik.
   erkennt To-dos im Gespräch („muss noch Rail-Kit bestellen“) und legt sie an
 - Fertig: Nextcloud Notes (anlegen, ergänzen, suchen) und Dateien (suchen, lesen; schreiben
   nur im eigenen Ordner `Missa/`, nie löschen) – siehe docs/nextcloud-dateien.md
-- Fertig: Gedächtnis (merken, erinnern, vergessen; passende Fakten automatisch im Kontext;
-  Übersicht unter `GET /api/gedaechtnis`)
+- Fertig: Langzeitgedächtnis (merken mit Datum, erinnern, vergessen – auch ganze Themen
+  samt Gesprächen; frühere Gespräche durchsuchbar; lernt aus Korrekturen und ersetzt alte
+  Einträge statt sie doppelt zu führen; Übersicht unter `GET /api/gedaechtnis`)
+- Fertig: Tägliches Backup (Gedächtnis, Charakter, Regeln, Routinen, Konfiguration ohne
+  Geheimnisse, 14 behalten) und Wiederherstellen per Script (siehe docs/sicherung.md)
 - Fertig: systemd-Dienst, Installationsanleitung und API-Doku
 - Fertig: Update mit einem Befehl (`sudo ./scripts/update.sh`, mit automatischem Rücksprung)
 - Fertig: Nextcloud Talk als Kanal (nur für erlaubte Accounts, siehe docs/nextcloud-talk.md);
@@ -91,6 +94,9 @@ Talk nutzen dieselbe Logik.
 - **[docs/email.md](docs/email.md)** – E-Mail-Entwürfe im eigenen Stil: Einrichtung
   (`MAIL_*`), Senden-Sperre, Schreibstil-Profil
 - **[docs/kontakte.md](docs/kontakte.md)** – Geburtstage und Kontaktpflege
+- **[docs/gedaechtnis.md](docs/gedaechtnis.md)** – Langzeitgedächtnis, Korrekturen, Vergessen
+- **[docs/sicherung.md](docs/sicherung.md)** – tägliches Backup, Wiederherstellen mit
+  `sudo scripts/wiederherstellen.sh`
 - **[docs/nextcloud-dateien.md](docs/nextcloud-dateien.md)** – To-dos aus Gesprächen, Notizen und
   Dateisuche in Nextcloud, eigener Ordner `Missa/`
 - **[docs/pausen.md](docs/pausen.md)** – Pausen und Puffer im Kalender, Grenzwerte

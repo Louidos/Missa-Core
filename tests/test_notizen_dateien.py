@@ -254,7 +254,8 @@ def test_app_laedt_notizen_und_dateien(einstellungen, llama):
 
     nc_einstellungen = replace(
         einstellungen,
-        nextcloud_url="https://cloud.example.ch",
+        # Lokale Adresse, die sofort abweist: Hintergrund-Aufträge gehen nie ins Netz.
+        nextcloud_url="http://127.0.0.1:9",
         nextcloud_user="louis",
         nextcloud_app_password="pw",
     )

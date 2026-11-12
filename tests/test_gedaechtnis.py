@@ -57,7 +57,7 @@ def test_tabelle_fakten_mit_fts5(gedaechtnis):
     with sqlite3.connect(gedaechtnis.datei) as db:
         spalten = [z[1] for z in db.execute("PRAGMA table_info(fakten)")]
         tabellen = {z[0] for z in db.execute("SELECT name FROM sqlite_master")}
-    assert spalten == ["id", "text", "kategorie", "erstellt"]
+    assert spalten == ["id", "text", "kategorie", "erstellt", "geaendert", "vorher"]
     assert "fakten_fts" in tabellen
 
 
@@ -92,7 +92,10 @@ def test_doppelte_fakten_werden_nicht_neu_angelegt(gedaechtnis):
 
 
 def test_ungueltige_kategorie(gedaechtnis):
-    with pytest.raises(WerkzeugFehler, match="Erlaubt: termine, vorlieben, projekte, sonstiges"):
+    with pytest.raises(
+        WerkzeugFehler,
+        match="Erlaubt: termine, vorlieben, projekte, entscheidungen, korrekturen, sonstiges",
+    ):
         gedaechtnis.hinzufuegen("X", "geheim")
 
 
@@ -211,7 +214,7 @@ def test_api_gedaechtnis_listet_alle_fakten(client):
         "Louis trinkt Kaffee ohne Zucker",
         "Missa läuft auf ai01",
     ]
-    assert set(daten["fakten"][0]) == {"id", "text", "kategorie", "erstellt"}
+    assert set(daten["fakten"][0]) == {"id", "text", "kategorie", "erstellt", "geaendert"}
 
     nur = client.get("/api/gedaechtnis", params={"kategorie": "projekte"}).json()
     assert [f["text"] for f in nur["fakten"]] == ["Missa läuft auf ai01"]

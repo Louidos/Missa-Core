@@ -142,6 +142,26 @@ def create_app(
         nacht_von=einstellungen.nachtschicht_von,
         nacht_bis=einstellungen.nachtschicht_bis,
     )
+    sicherung = None
+    if einstellungen.backup_aktiv:
+        import os
+        from pathlib import Path
+
+        from missa.core.config import STANDARD_ENV_DATEI
+        from missa.core.sicherung import Quellen, Sicherung
+
+        sicherung = Sicherung(
+            Quellen(
+                einstellungen.datenbank,
+                einstellungen.charakter_datei,
+                einstellungen.stil_datei,
+                Path(os.environ.get("MISSA_ENV_DATEI", str(STANDARD_ENV_DATEI))),
+            ),
+            einstellungen.backup_ordner,
+            einstellungen.zone,
+            einstellungen.backup_behalten,
+        )
+        zeitplaner.taeglich("sicherung", einstellungen.backup_zeit, sicherung.taeglich)
     if mail_dienst is None and einstellungen.mail_konfiguriert:
         mail_dienst = mail_dienst_bauen(einstellungen, gedaechtnis)
     nextcloud = (
@@ -266,6 +286,7 @@ def create_app(
             kontaktpflege=kontaktpflege,
             pausen=pausen,
             hintergrund=hintergrund,
+            sicherung=sicherung,
             rechte=rechte,
             protokoll=protokoll,
             alarme=alarme,
@@ -388,6 +409,7 @@ def create_app(
     app.state.gedaechtnis = gedaechtnis
     app.state.zeitplaner = zeitplaner
     app.state.hintergrund = hintergrund
+    app.state.sicherung = sicherung
     app.state.mail = mail_dienst
     app.state.kontaktpflege = kontaktpflege
     app.state.pausen = pausen
