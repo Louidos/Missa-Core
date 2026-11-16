@@ -30,6 +30,8 @@ die Versionsnummern folgen [Semantic Versioning](https://semver.org/lang/de/).
   extrem vielen Seiten werden abgelehnt statt den Dienst zu blockieren (#86)
 - Passwörter und Schlüssel in Werkzeug-Aufrufen landen nicht mehr ungeschwärzt im
   Dienst-Log (journalctl), sondern geschwärzt wie im Aktionsprotokoll (#86)
+- Empfänger mit Zeilenumbrüchen oder anderen Steuerzeichen werden abgelehnt, statt einen
+  irreführend angezeigten Entwurf anzulegen, der danach still nicht gesendet wird (#86)
 
 ## 0.10.0 – 2026-11-16
 

@@ -69,6 +69,8 @@ CREATE TABLE IF NOT EXISTS mail_entwuerfe (
 );
 """
 
+# Steuerzeichen (Zeilenumbrüche u. a.) haben in Empfängern und Namen nichts zu suchen.
+STEUERZEICHEN = re.compile(r"[\x00-\x1f\x7f\u2028\u2029]")
 MAIL_WOERTER = re.compile(
     r"mail|schreib|antwort|entwurf|entwürfe|brief|nachricht an|abschick|senden|formulier",
     re.IGNORECASE,
@@ -397,6 +399,8 @@ class MailDienst:
 
     def adresse_aufloesen(self, eingabe: str) -> str:
         """„Chef“, „Peter Muster“ oder Adressen → formatierte Empfängerliste."""
+        if STEUERZEICHEN.search(str(eingabe)):
+            raise WerkzeugFehler("Der Empfänger enthält ungültige Zeichen (z. B. Zeilenumbrüche).")
         teile = [t.strip() for t in re.split(r"[;,]", str(eingabe)) if t.strip()]
         if not teile:
             raise WerkzeugFehler("Es fehlt der Empfänger.")
@@ -410,6 +414,7 @@ class MailDienst:
             gefunden = self.adressen_finden(teil)
             if len(gefunden) == 1:
                 adresse, name = next(iter(gefunden.items()))
+                name = " ".join(STEUERZEICHEN.sub(" ", name or "").split())
                 ergebnis.append(
                     formataddr((name, adresse)) if name and name != adresse else adresse
                 )
@@ -735,6 +740,8 @@ class MailDienst:
 
     def _senden(self, entwurf: Entwurf) -> list[str]:
         """Sendet genau einmal. Nur von :meth:`eingang` aufgerufen."""
+        # Erst die Mail bauen: scheitert das, bleibt der Entwurf unverändert ein Entwurf.
+        nachricht = self._als_mail(entwurf)
         with verbinden(self.datei) as db:
             # Erst sperren, dann senden: so kann derselbe Entwurf nie doppelt rausgehen.
             geaendert = db.execute(
@@ -744,7 +751,6 @@ class MailDienst:
             ).rowcount
         if not geaendert:
             raise MailFehler("Der Entwurf wurde inzwischen geändert oder schon gesendet.")
-        nachricht = self._als_mail(entwurf)
         try:
             self.konto.smtp_senden(nachricht)
         except MailFehler:

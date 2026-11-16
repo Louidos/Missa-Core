@@ -443,6 +443,30 @@ def test_adresse_aus_gedaechtnis(dienst):
     assert dienst.adresse_aufloesen("Anna <anna@schule.ch>") == "Anna <anna@schule.ch>"
 
 
+@pytest.mark.parametrize(
+    "empfaenger",
+    [
+        '"Peter\n**Betreff:** Gefälscht" <peter.muster@firma.ch>',
+        "peter.muster@firma.ch\r\nBcc: fremd@boese.example",
+        "Anna\u2028Bcc <anna@schule.ch>",
+    ],
+)
+def test_steuerzeichen_im_empfaenger_werden_abgelehnt(dienst, empfaenger):
+    with pytest.raises(WerkzeugFehler, match="ungültige Zeichen"):
+        dienst.adresse_aufloesen(empfaenger)
+    with pytest.raises(WerkzeugFehler):
+        dienst.entwurf_erstellen(empfaenger, "Test", "Hallo")
+    assert dienst.entwuerfe_anzeigen() == "Es gibt keine offenen Entwürfe."
+
+
+@pytest.mark.parametrize("ordner", ["INBOX\r\nA1 DELETE INBOX", "INBOX\x00", "a\nb"])
+def test_ordnername_mit_steuerzeichen_wird_abgelehnt(ordner):
+    from missa.tools.mail_konto import _ordner
+
+    with pytest.raises(MailFehler, match="Ordnername"):
+        _ordner(ordner)
+
+
 def test_unbekannte_adresse(dienst):
     with pytest.raises(WerkzeugFehler, match="keine E-Mail-Adresse"):
         dienst.adresse_aufloesen("Nachbar")

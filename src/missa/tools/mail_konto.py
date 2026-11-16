@@ -53,6 +53,8 @@ class MailKopf:
 
 def _ordner(name: str) -> str:
     """IMAP-Ordnername in Anführungszeichen (für Namen mit Leerzeichen)."""
+    if any(zeichen in name for zeichen in "\x00\r\n"):
+        raise MailFehler("Ungültiger Ordnername (Steuerzeichen).")
     return '"' + name.replace("\\", "\\\\").replace('"', '\\"') + '"'
 
 
