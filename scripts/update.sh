@@ -4,6 +4,7 @@
 #   sudo ./scripts/update.sh               neuester Release-Tag (Standard)
 #   sudo ./scripts/update.sh --main        neuester Stand von main
 #   sudo ./scripts/update.sh --version v0.2.0
+#   sudo ./scripts/update.sh --zurueck     zurück auf den letzten Tag vor dem installierten Stand
 #   ./scripts/update.sh --dry-run          nur anzeigen, nichts ändern
 #
 # Ausführliche Beschreibung: docs/update.md
@@ -20,6 +21,7 @@ HEALTH_WARTEZEIT="${MISSA_HEALTH_WARTEZEIT:-60}"
 RUECKSPRUNG_WARTEZEIT="${MISSA_HEALTH_WARTEZEIT_RUECKSPRUNG:-60}"
 # Nur zum Ausprobieren: lässt die Prüfung nach dem Update absichtlich scheitern.
 TEST_FEHLER="${MISSA_UPDATE_TEST_FEHLER:-}"
+TEST_FUNKTION_FEHLER="${MISSA_UPDATE_TEST_FUNKTION:-}"
 STANDARD_VENV="/opt/missa/venv"
 STANDARD_ENV_DATEI="/etc/missa/missa.env"
 
@@ -32,7 +34,7 @@ VORLAGE=""
 COMPOSE_DATEI=""
 DRY_RUN=0
 ERZWINGEN=0
-ZIEL_ART="release"  # release, main oder version
+ZIEL_ART="release"  # release, main, version oder zurueck
 ZIEL_ANGABE=""
 KOPF_COMMIT=""    # was gerade ausgecheckt ist
 ALT_COMMIT=""     # was installiert ist und läuft (Ziel eines Rücksprungs)
@@ -97,6 +99,7 @@ Optionen:
   (ohne)              auf den neuesten Release-Tag wechseln (empfohlen)
   --main              auf den neuesten Stand von main wechseln
   --version vX.Y.Z    auf eine bestimmte Version wechseln (auch zurück)
+  --zurueck           auf den letzten Release-Tag vor dem installierten Stand zurück
   --dry-run           nur anzeigen, was passieren würde – nichts wird geändert
   --erzwingen         neu installieren und neu starten, auch wenn alles aktuell ist
   -h, --help          diese Hilfe
@@ -107,6 +110,7 @@ Ablauf:
   3. Code wechseln, Abhängigkeiten installieren
   4. Neue Einstellungen aus der Vorlage in der Env-Datei ergänzen (nie überschreiben)
   5. Dienst neu starten, /health bis zu 60 Sekunden prüfen
+  6. Funktionstest: Anmeldung an der API, Datenbank und Zeitplaner antworten
   Geht etwas schief, wird automatisch auf die vorherige Version zurückgewechselt.
 
 Log: logs/update.log im Repo-Ordner. Mehr dazu: docs/update.md
@@ -147,6 +151,7 @@ argumente_lesen() {
                 ZIEL_ART="version"
                 ZIEL_ANGABE="${1#*=}"
                 ;;
+            --zurueck) ZIEL_ART="zurueck" ;;
             --dry-run) DRY_RUN=1 ;;
             --erzwingen) ERZWINGEN=1 ;;
             -h | --help)
@@ -291,7 +296,7 @@ installiert_merken() {
 }
 
 ziel_bestimmen() {
-    local tag
+    local tag commit
     case "$ZIEL_ART" in
         release)
             tag="$(g tag -l 'v*' --sort=-v:refname | grep -E '^v[0-9]+\.[0-9]+\.[0-9]+$' | head -n 1 || true)"
@@ -303,6 +308,19 @@ ziel_bestimmen() {
             ZIEL_COMMIT="$(g rev-parse -q --verify "refs/tags/$ZIEL_ANGABE^{commit}" 2>/dev/null || true)"
             [[ -n "$ZIEL_COMMIT" ]] || abbruch "Version $ZIEL_ANGABE gibt es nicht. Vorhanden: $(g tag -l 'v*' --sort=-v:refname | head -n 5 | tr '\n' ' ')"
             ZIEL_NAME="$ZIEL_ANGABE"
+            ;;
+        zurueck)
+            # Neuester Release-Tag, der älter ist als der installierte Stand.
+            ZIEL_NAME=""
+            while IFS= read -r tag; do
+                commit="$(g rev-parse "refs/tags/$tag^{commit}")"
+                if [[ "$commit" != "$ALT_COMMIT" ]] && g merge-base --is-ancestor "$commit" "$ALT_COMMIT"; then
+                    ZIEL_COMMIT="$commit"
+                    ZIEL_NAME="$tag"
+                    break
+                fi
+            done < <(g tag -l 'v*' --sort=-v:refname | grep -E '^v[0-9]+\.[0-9]+\.[0-9]+$' || true)
+            [[ -n "$ZIEL_NAME" ]] || abbruch "Vor $ALT_NAME gibt es keinen älteren Release-Tag – kein Zurück möglich."
             ;;
         main)
             ZIEL_COMMIT="$(g rev-parse -q --verify "refs/remotes/origin/main^{commit}" 2>/dev/null || true)"
@@ -463,6 +481,27 @@ gesund_pruefen() {
     return 1
 }
 
+# Funktionstest nach dem Update: Anmeldung mit MISSA_API_KEY, Datenbank (Aktionsprotokoll)
+# und Zeitplaner (Erinnerungen) müssen antworten. Das Modell selbst wird nicht gebraucht.
+funktion_pruefen() {
+    local basis schluessel pfad code
+    basis="$(health_url)"
+    basis="${basis%/health}"
+    schluessel="$(env_wert "$ENV_DATEI" MISSA_API_KEY)"
+    for pfad in /v1/models "/api/aktionen?anzahl=1" /api/erinnerungen; do
+        code="$(curl -sS -m 10 -o /dev/null -w '%{http_code}' \
+            -H "Authorization: Bearer $schluessel" "$basis$pfad" 2>/dev/null || true)"
+        if [[ "$code" != "200" ]]; then
+            fehler "Funktionstest: $pfad antwortet mit ${code:-keiner Antwort} statt 200."
+            return 1
+        fi
+    done
+    if [[ -n "$TEST_FUNKTION_FEHLER" ]]; then
+        fehler "Testmodus (MISSA_UPDATE_TEST_FUNKTION): Funktionstest absichtlich fehlgeschlagen."
+        return 1
+    fi
+}
+
 # ----------------------------------------------------------------------------- Rücksprung
 zurueck() {
     local grund="$1"
@@ -575,7 +614,7 @@ main() {
         rm -f "$vorlage_ziel"
         zusammenfassung
         titel "Probelauf beendet – es wurde nichts geändert."
-        info "Würde: Code auf $ZIEL_NAME wechseln, Abhängigkeiten installieren, $DIENST neu starten, /health prüfen."
+        info "Würde: Code auf $ZIEL_NAME wechseln, Abhängigkeiten installieren, $DIENST neu starten, /health und Funktionstest prüfen."
         exit 0
     fi
 
@@ -597,6 +636,8 @@ main() {
         zurueck "Testmodus (MISSA_UPDATE_TEST_FEHLER): Gesundheitsprüfung absichtlich fehlgeschlagen."
     fi
     gesund_pruefen "$ZIEL_VERSION" || zurueck "Gesundheitsprüfung nach dem Update fehlgeschlagen."
+    funktion_pruefen || zurueck "Funktionstest nach dem Update fehlgeschlagen."
+    ok "Funktionstest bestanden (API, Datenbank, Zeitplaner)."
     trap - INT TERM
 
     installiert_merken "$ZIEL_COMMIT"
