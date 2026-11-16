@@ -8,6 +8,7 @@ dieselbe Datei; bereits gesetzte Variablen haben Vorrang.
 from __future__ import annotations
 
 import contextlib
+import logging
 import os
 from collections.abc import Mapping, MutableMapping
 from dataclasses import dataclass
@@ -20,6 +21,11 @@ if TYPE_CHECKING:
     from missa.tools.pausen import PausenRegeln
 
 STANDARD_ENV_DATEI = Path("/etc/missa/missa.env")
+# Werte aus der Beispiel-Konfiguration und Doku – damit startet der Dienst nicht.
+BEISPIEL_SCHLUESSEL = frozenset({"bitte-aendern", "dein_missa_api_key"})
+MIN_SCHLUESSEL_LAENGE = 16
+
+log = logging.getLogger(__name__)
 WAHR = frozenset({"1", "true", "ja", "yes", "on", "an"})
 
 
@@ -640,6 +646,17 @@ class Einstellungen:
         if not self.api_key:
             raise KonfigurationsFehler(
                 "MISSA_API_KEY ist nicht gesetzt – ohne Schlüssel startet Missa-Core nicht"
+            )
+        if self.api_key.strip().casefold() in BEISPIEL_SCHLUESSEL:
+            raise KonfigurationsFehler(
+                "MISSA_API_KEY ist noch der Beispielwert – bitte einen zufälligen Schlüssel "
+                "eintragen (z. B. openssl rand -hex 32)"
+            )
+        if len(self.api_key) < MIN_SCHLUESSEL_LAENGE:
+            log.warning(
+                "MISSA_API_KEY ist kürzer als %d Zeichen – bitte einen längeren, zufälligen "
+                "Schlüssel verwenden (z. B. openssl rand -hex 32)",
+                MIN_SCHLUESSEL_LAENGE,
             )
         if not 0 < self.port < 65536:
             raise KonfigurationsFehler("MISSA_PORT muss zwischen 1 und 65535 liegen")

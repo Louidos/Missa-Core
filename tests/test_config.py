@@ -59,6 +59,22 @@ def test_pruefen_verlangt_api_key():
     Einstellungen(api_key="x").pruefen()
 
 
+@pytest.mark.parametrize("schluessel", ["bitte-aendern", " Bitte-Aendern ", "DEIN_MISSA_API_KEY"])
+def test_pruefen_lehnt_beispielschluessel_ab(schluessel):
+    with pytest.raises(KonfigurationsFehler, match="Beispielwert"):
+        Einstellungen(api_key=schluessel).pruefen()
+
+
+def test_kurzer_schluessel_gibt_warnung(caplog):
+    with caplog.at_level("WARNING"):
+        Einstellungen(api_key="kurz").pruefen()
+    assert "kürzer als 16 Zeichen" in caplog.text
+    caplog.clear()
+    with caplog.at_level("WARNING"):
+        Einstellungen(api_key="a" * 64).pruefen()
+    assert "kürzer" not in caplog.text
+
+
 def test_pruefen_erkennt_falsche_zeitzone():
     with pytest.raises(KonfigurationsFehler, match="Zeitzone"):
         Einstellungen(api_key="x", timezone="Mars/Olympus").pruefen()

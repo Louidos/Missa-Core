@@ -16,6 +16,8 @@ die Versionsnummern folgen [Semantic Versioning](https://semver.org/lang/de/).
 
 - Missa ruft Dateien nur noch aus deiner eigenen Nextcloud ab; Pfade, die woandershin zeigen,
   werden abgelehnt (#86)
+- Missa startet nicht mehr mit dem Beispielschlüssel `bitte-aendern` aus der
+  Beispiel-Konfiguration; ein sehr kurzer Schlüssel erzeugt eine Warnung im Log (#86)
 
 ## 0.10.0 – 2026-11-16
 
