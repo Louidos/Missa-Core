@@ -21,7 +21,13 @@ from pydantic import BaseModel, ConfigDict, Field
 from starlette.exceptions import HTTPException
 
 from missa import __version__
-from missa.core.chat import MODELL, AnfrageFehler, ChatDienst
+from missa.core.chat import (
+    INTERNER_FEHLER,
+    INTERNER_FEHLER_TEXT,
+    MODELL,
+    AnfrageFehler,
+    ChatDienst,
+)
 from missa.core.config import Einstellungen
 from missa.core.hintergrund import Hintergrund
 from missa.core.llama import LlamaClient, LlamaFehler
@@ -53,12 +59,31 @@ class ChatAnfrage(BaseModel):
     user: str | None = None
 
 
-def _fehler(status: int, nachricht: str, typ: str, code: str | None = None, **kopf: str):
-    return JSONResponse(
-        status_code=status,
-        content={"error": {"message": nachricht, "type": typ, "code": code}},
-        headers=kopf or None,
-    )
+#: Fester ``error.code`` je HTTP-Status für Fehler, die nicht vom Sprachmodell kommen.
+HTTP_CODES = {
+    400: "ungueltige_anfrage",
+    401: "nicht_angemeldet",
+    404: "nicht_gefunden",
+    405: "methode_nicht_erlaubt",
+}
+
+
+def _fehler(
+    status: int,
+    nachricht: str,
+    typ: str,
+    code: str | None = None,
+    anfrage_id: str | None = None,
+    **kopf: str,
+):
+    fehler: dict[str, Any] = {
+        "message": nachricht,
+        "type": typ,
+        "code": code or HTTP_CODES.get(status, "fehler"),
+    }
+    if anfrage_id:
+        fehler["anfrage_id"] = anfrage_id
+    return JSONResponse(status_code=status, content={"error": fehler}, headers=kopf or None)
 
 
 def create_app(
@@ -469,7 +494,9 @@ def create_app(
     @app.exception_handler(HTTPException)
     async def http_fehler(_request: Request, fehler: HTTPException):
         typ = "authentication_error" if fehler.status_code == 401 else "invalid_request_error"
-        return _fehler(fehler.status_code, str(fehler.detail), typ, None, **(fehler.headers or {}))
+        return _fehler(
+            fehler.status_code, str(fehler.detail), typ, None, None, **(fehler.headers or {})
+        )
 
     @app.exception_handler(RequestValidationError)
     async def eingabe_fehler(_request: Request, fehler: RequestValidationError):
@@ -484,8 +511,12 @@ def create_app(
 
     @app.exception_handler(LlamaFehler)
     async def llama_fehler(_request: Request, fehler: LlamaFehler):
-        log.error("llama-server: %s", fehler)
-        return _fehler(fehler.status, str(fehler), "llama_fehler")
+        # Anfrage-ID und Originaltext hat der Chat-Dienst schon ins Log geschrieben.
+        if not fehler.anfrage_id:
+            log.error("llama-server: %s (%s) – Original: %s", fehler, fehler.code, fehler.original)
+        return _fehler(
+            fehler.status, str(fehler), "llama_fehler", fehler.code, fehler.anfrage_id or None
+        )
 
     # -------------------------------------------------------------- Anmeldung
 
@@ -777,7 +808,15 @@ def create_app(
                 media_type="text/event-stream",
                 headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
             )
-        return await dienst.antworten(vorbereitet)
+        try:
+            return await dienst.antworten(vorbereitet)
+        except LlamaFehler:
+            raise
+        except Exception:
+            log.exception("Anfrage %s: unerwarteter Fehler", vorbereitet.anfrage_id)
+            return _fehler(
+                500, INTERNER_FEHLER_TEXT, "server_error", INTERNER_FEHLER, vorbereitet.anfrage_id
+            )
 
     # -------------------------------------------------------------- Kanäle
 

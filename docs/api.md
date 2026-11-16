@@ -523,20 +523,67 @@ HMAC-Signatur mit dem Bot-Secret geschützt. Einrichtung und Ablauf:
 
 ## Fehler
 
-Alle Fehler kommen im OpenAI-Format `{"error": {"message": "...", "type": "...", "code": ...}}`.
+Erfolgreiche Antworten haben immer `choices`. Geht etwas schief, kommt stattdessen ein
+Fehler-Objekt im OpenAI-Format – **nie** `choices`. Eine App sollte deshalb zuerst den Status
+prüfen, statt blind auf `choices` zuzugreifen:
 
-| Status | Bedeutung |
-|--------|-----------|
-| 400 | Anfrage ungültig, z. B. leere `messages`, keine `user`-Nachricht, Sitzungs-ID zu lang, unbekannte Kategorie. |
-| 401 | Kein oder falscher API-Schlüssel. |
-| 404 | Unbekannter Endpunkt oder unbekanntes Modell. |
-| 405 | Falsche HTTP-Methode (z. B. `GET` statt `POST` bei `/v1/chat/completions`). |
-| 502 | llama-server ist nicht erreichbar oder hat einen Fehler gemeldet (`type: "llama_fehler"`). |
-| 503 | Nur `/health`: llama-server antwortet nicht. |
-| 504 | llama-server hat nicht innerhalb von `LLAMA_TIMEOUT` geantwortet. |
+```json
+{
+  "error": {
+    "message": "Das Sprachmodell hat nicht innerhalb von 600 Sekunden geantwortet (LLAMA_TIMEOUT). …",
+    "type": "llama_fehler",
+    "code": "zeitlimit",
+    "anfrage_id": "3f2c…"
+  }
+}
+```
+
+- `message`: ein deutscher Satz mit Ursache und nächstem Schritt – so kann ihn die App direkt
+  anzeigen.
+- `code`: fester Code (siehe Tabelle), zum Auswerten in der App.
+- `anfrage_id` (nur bei `/v1/chat/completions`): Unter dieser ID stehen im Log von
+  missa-core die Einzelheiten, bei Fehlern des Sprachmodells auch dessen Originaltext:
+  `sudo journalctl -u missa-core | grep <anfrage_id>`.
+
+| Status | `code` | Bedeutung |
+|--------|--------|-----------|
+| 400 | `ungueltige_anfrage` | Anfrage ungültig, z. B. leere `messages`, keine `user`-Nachricht, Sitzungs-ID zu lang, unbekannte Kategorie. |
+| 401 | `nicht_angemeldet` | Kein oder falscher API-Schlüssel. |
+| 404 | `nicht_gefunden` | Unbekannter Endpunkt oder unbekanntes Modell. |
+| 405 | `methode_nicht_erlaubt` | Falsche HTTP-Methode (z. B. `GET` statt `POST` bei `/v1/chat/completions`). |
+| 502 | `anfrage_zu_gross` | Das Sprachmodell lehnt die Anfrage als zu gross ab (Kontext voll) – auch nachdem Missa sie einmal gekürzt hat (älterer Verlauf weg, Werkzeug-Ergebnisse gekürzt). Aufgaben einzeln schicken, neue Sitzung beginnen oder beim llama-server den Kontext (`-c`) vergrößern. |
+| 502 | `modell_nicht_erreichbar` | llama-server läuft nicht, ist nicht erreichbar oder lädt gerade das Modell. |
+| 502 | `unerwartete_antwort` | llama-server hat geantwortet, aber nicht im erwarteten Format. |
+| 502 | `modell_fehler` | llama-server hat die Anfrage mit einem anderen Fehler abgelehnt (Originaltext im Log). |
+| 504 | `zeitlimit` | llama-server hat nicht innerhalb von `LLAMA_TIMEOUT` Sekunden geantwortet (gilt je Runde der Werkzeug-Schleife). |
+| 500 | `interner_fehler` | Unerwarteter Fehler in Missa-Core selbst (Einzelheiten im Log unter der `anfrage_id`). |
+| 503 | – | Nur `/health`: llama-server antwortet nicht. |
+
+Fehler des Sprachmodells haben `type: "llama_fehler"`. Beim Streaming kommt der Fehler als
+letztes Ereignis vor `data: [DONE]` im selben Format (`data: {"error": {…}}`).
 
 Fehler *in Werkzeugen* (z. B. Nextcloud nicht erreichbar) sind keine HTTP-Fehler: Missa
 bekommt die Meldung und sagt sie ehrlich in ihrer Antwort.
+
+### Fehler richtig abfangen (Python)
+
+```python
+import httpx
+
+antwort = httpx.post(
+    "https://missa.example.ch/v1/chat/completions",
+    headers={"Authorization": "Bearer dein-missa-api-key", "X-Missa-Session": "skript"},
+    json={"model": "missa", "messages": [{"role": "user", "content": "Was steht morgen an?"}]},
+    timeout=900,  # mindestens so lang wie LLAMA_TIMEOUT – die Werkzeug-Schleife braucht Zeit
+)
+daten = antwort.json()
+if antwort.status_code != 200 or "error" in daten:
+    fehler = daten.get("error", {})
+    print(f"Fehler {antwort.status_code} ({fehler.get('code')}): {fehler.get('message')}")
+    print(f"Anfrage-ID fürs Log: {fehler.get('anfrage_id')}")
+else:
+    print(daten["choices"][0]["message"]["content"])
+```
 
 ## Eine App anbinden
 

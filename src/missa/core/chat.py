@@ -12,7 +12,7 @@ from datetime import datetime
 from typing import Any
 
 from missa.core.config import Einstellungen
-from missa.core.llama import LlamaClient, LlamaFehler
+from missa.core.llama import ANFRAGE_ZU_GROSS, LlamaClient, LlamaFehler, unerwartet
 from missa.core.prompt import charakter_lesen, systemprompt_bauen
 from missa.core.verlauf import Verlauf
 from missa.core.werkzeuge import Werkzeugkasten
@@ -37,6 +37,15 @@ DURCHGEREICHT = (
     "presence_penalty",
     "frequency_penalty",
     "repeat_penalty",
+)
+#: Beim gekürzten zweiten Versuch wird jedes Werkzeug-Ergebnis auf so viele Zeichen gekürzt.
+KURZ_WERKZEUG_ERGEBNIS = 1500
+#: Feste Codes für Fehler, die nicht vom llama-server kommen.
+INTERNER_FEHLER = "interner_fehler"
+INTERNER_FEHLER_TEXT = (
+    "Bei der Bearbeitung ist in Missa-Core ein unerwarteter Fehler passiert. Bitte nochmal "
+    "versuchen; bleibt es so, steht der genaue Fehler im Log von missa-core "
+    "(journalctl -u missa-core) unter der Anfrage-ID."
 )
 KEIN_ERGEBNIS = (
     "Entschuldige, ich bin mit meinen Werkzeugen gerade nicht zu einem Ergebnis gekommen."
@@ -85,6 +94,9 @@ class Vorbereitet:
     kanal: str = "api"
     #: Wer schreibt (Talk-Benutzer, ``user`` der API oder leer).
     account: str = ""
+    #: ``True``, sobald Verlauf und Werkzeug-Ergebnisse einmal gekürzt wurden, weil
+    #: llama-server die Anfrage als zu gross abgelehnt hat (höchstens einmal je Anfrage).
+    gekuerzt: bool = False
 
 
 #: Läuft vor dem Modell mit der neuen Nachricht von Louis; ein zurückgegebener Text
@@ -95,11 +107,50 @@ EingangsPruefer = Callable[[Vorbereitet], Awaitable[str | None]]
 Nachbearbeiter = Callable[[Vorbereitet], str | None]
 
 
+def kuerzen(vorbereitet: Vorbereitet) -> bool:
+    """Kürzt Verlauf und Werkzeug-Ergebnisse, damit die Anfrage ins Modell passt.
+
+    Bleibt: der Systemprompt, die letzte Nachricht von Louis und alles danach (die laufende
+    Werkzeug-Schleife). Weg fällt der ältere Verlauf; Werkzeug-Ergebnisse werden auf
+    ``KURZ_WERKZEUG_ERGEBNIS`` Zeichen gekürzt (mit Hinweis). ``True``, wenn sich etwas
+    geändert hat.
+    """
+    nachrichten = vorbereitet.nachrichten
+    letzte_frage = next(
+        (i for i in range(len(nachrichten) - 1, 0, -1) if nachrichten[i].get("role") == "user"),
+        None,
+    )
+    geaendert = False
+    if letzte_frage is not None and letzte_frage > 1:
+        nachrichten[1:letzte_frage] = []
+        geaendert = True
+    for nachricht in nachrichten:
+        inhalt = nachricht.get("content")
+        if (
+            nachricht.get("role") == "tool"
+            and isinstance(inhalt, str)
+            and len(inhalt) > KURZ_WERKZEUG_ERGEBNIS
+        ):
+            nachricht["content"] = (
+                inhalt[:KURZ_WERKZEUG_ERGEBNIS]
+                + f"\n[… gekürzt, {len(inhalt) - KURZ_WERKZEUG_ERGEBNIS} Zeichen ausgelassen]"
+            )
+            geaendert = True
+    vorbereitet.gekuerzt = True
+    return geaendert
+
+
 def _nutzung_addieren(summe: dict[str, int], neu: dict[str, Any] | None) -> None:
     for schluessel in ("prompt_tokens", "completion_tokens", "total_tokens"):
         wert = (neu or {}).get(schluessel)
         if isinstance(wert, int):
             summe[schluessel] = summe.get(schluessel, 0) + wert
+
+
+def fehler_ereignis(nachricht: str, typ: str, code: str, anfrage_id: str) -> str:
+    """Ein Fehler als Server-Sent Event im OpenAI-Format (mit Code und Anfrage-ID)."""
+    daten = {"error": {"message": nachricht, "type": typ, "code": code, "anfrage_id": anfrage_id}}
+    return f"data: {json.dumps(daten, ensure_ascii=False)}\n\n"
 
 
 class ChatDienst:
@@ -226,6 +277,63 @@ class ChatDienst:
             nutzlast["tools"] = self.werkzeuge.schemas()
         return nutzlast
 
+    def _melden(self, vorbereitet: Vorbereitet, fehler: LlamaFehler) -> LlamaFehler:
+        """Schreibt den Fehler mit Anfrage-ID und Originaltext ins Log."""
+        fehler.anfrage_id = vorbereitet.anfrage_id
+        log.error(
+            "Anfrage %s: llama-server-Fehler %s (%s) – Original: %s",
+            vorbereitet.anfrage_id,
+            fehler.code,
+            fehler,
+            fehler.original or "-",
+        )
+        return fehler
+
+    def _nochmal_gekuerzt(self, vorbereitet: Vorbereitet, fehler: LlamaFehler) -> bool:
+        """``True``, wenn ein gekürzter zweiter Versuch sinnvoll ist (und gekürzt wurde)."""
+        if fehler.code != ANFRAGE_ZU_GROSS or vorbereitet.gekuerzt:
+            return False
+        if not kuerzen(vorbereitet):
+            return False
+        log.warning(
+            "Anfrage %s: llama-server lehnt die Anfrage als zu gross ab (%s) – "
+            "versuche es einmal mit gekürztem Verlauf und gekürzten Werkzeug-Ergebnissen",
+            vorbereitet.anfrage_id,
+            fehler.original or fehler,
+        )
+        return True
+
+    async def _llama_chat(self, vorbereitet: Vorbereitet, mit_werkzeugen: bool) -> dict[str, Any]:
+        """Eine Runde ohne Streaming; bei „zu gross“ einmal gekürzt wiederholen."""
+        try:
+            return await self.llama.chat(self._nutzlast(vorbereitet, mit_werkzeugen))
+        except LlamaFehler as fehler:
+            if not self._nochmal_gekuerzt(vorbereitet, fehler):
+                raise self._melden(vorbereitet, fehler) from fehler
+        try:
+            return await self.llama.chat(self._nutzlast(vorbereitet, mit_werkzeugen))
+        except LlamaFehler as fehler:
+            raise self._melden(vorbereitet, fehler) from fehler
+
+    async def _llama_stream(
+        self, vorbereitet: Vorbereitet, mit_werkzeugen: bool
+    ) -> AsyncIterator[dict[str, Any]]:
+        """Eine Runde mit Streaming; bei „zu gross“ (vor dem ersten Stück) einmal gekürzt."""
+        erhalten = False
+        try:
+            async for stueck in self.llama.chat_stream(self._nutzlast(vorbereitet, mit_werkzeugen)):
+                erhalten = True
+                yield stueck
+            return
+        except LlamaFehler as fehler:
+            if erhalten or not self._nochmal_gekuerzt(vorbereitet, fehler):
+                raise self._melden(vorbereitet, fehler) from fehler
+        try:
+            async for stueck in self.llama.chat_stream(self._nutzlast(vorbereitet, mit_werkzeugen)):
+                yield stueck
+        except LlamaFehler as fehler:
+            raise self._melden(vorbereitet, fehler) from fehler
+
     async def _werkzeuge_ausfuehren(
         self, vorbereitet: Vorbereitet, inhalt: str, aufrufe: list[dict[str, Any]]
     ) -> None:
@@ -310,12 +418,15 @@ class ChatDienst:
         text = ""
         for runde in range(MAX_RUNDEN + 1):
             mit_werkzeugen = runde < MAX_RUNDEN
-            antwort = await self.llama.chat(self._nutzlast(vorbereitet, mit_werkzeugen))
+            antwort = await self._llama_chat(vorbereitet, mit_werkzeugen)
             _nutzung_addieren(nutzung, antwort.get("usage"))
             try:
                 nachricht = antwort["choices"][0]["message"]
+                if not isinstance(nachricht, dict):
+                    raise TypeError("message ist kein Objekt")
             except (KeyError, IndexError, TypeError) as fehler:
-                raise LlamaFehler("llama-server lieferte eine unerwartete Antwort") from fehler
+                original = json.dumps(antwort, ensure_ascii=False)[:2000]
+                raise self._melden(vorbereitet, unerwartet(original)) from fehler
             text = text_aus_inhalt(nachricht.get("content"))
             aufrufe = nachricht.get("tool_calls") or []
             if not aufrufe or not mit_werkzeugen:
@@ -371,9 +482,7 @@ class ChatDienst:
                 mit_werkzeugen = runde < MAX_RUNDEN
                 runden_text = ""
                 aufrufe: dict[int, dict[str, Any]] = {}
-                async for stueck in self.llama.chat_stream(
-                    self._nutzlast(vorbereitet, mit_werkzeugen)
-                ):
+                async for stueck in self._llama_stream(vorbereitet, mit_werkzeugen):
                     auswahl = stueck.get("choices") or []
                     if not auswahl:
                         continue
@@ -407,9 +516,14 @@ class ChatDienst:
                     vorbereitet, runden_text, [aufrufe[i] for i in sorted(aufrufe)]
                 )
         except LlamaFehler as fehler:
-            log.error("Fehler beim Streaming: %s", fehler)
-            fehlermeldung = {"error": {"message": str(fehler), "type": "llama_fehler"}}
-            yield f"data: {json.dumps(fehlermeldung, ensure_ascii=False)}\n\n"
+            yield fehler_ereignis(str(fehler), "llama_fehler", fehler.code, vorbereitet.anfrage_id)
+            yield "data: [DONE]\n\n"
+            return
+        except Exception:
+            log.exception("Anfrage %s: unerwarteter Fehler beim Streaming", vorbereitet.anfrage_id)
+            yield fehler_ereignis(
+                INTERNER_FEHLER_TEXT, "server_error", INTERNER_FEHLER, vorbereitet.anfrage_id
+            )
             yield "data: [DONE]\n\n"
             return
 
