@@ -84,7 +84,8 @@ Talk nutzen dieselbe Logik.
   groben Ideen nach Vorlage, als Issue erst nach Ja (siehe docs/git-github-prompts.md)
 - Fertig: Anbindung an Missa Control – mit `MISSA_CONTROL_URL` und `MISSA_CONTROL_TOKEN`
   nutzt Missa alle Funktionen, die im Panel eingerichtet sind; neue erscheinen ohne Neustart,
-  Freigaben entscheidet das Panel (siehe docs/missa-control.md)
+  Freigaben entscheidet das Panel; Ereignisse des Panels (Freigabe wartet, Integration
+  ausgefallen, Regel ausgelöst) meldet Missa von sich aus über Talk (siehe docs/missa-control.md)
 - Später als eigene Aufträge: Telefon, Push, Smart Home
 - Änderungen im Detail: [CHANGELOG.md](CHANGELOG.md)
 

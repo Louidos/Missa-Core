@@ -216,6 +216,7 @@ und das App-Passwort lässt sich jederzeit einzeln widerrufen.
 | `MISSA_CONTROL_MAX_WERKZEUGE` | `40` | nein | Höchstens so viele Panel-Funktionen laden. |
 | `MISSA_CONTROL_AUSLASSEN` | – | nein | Namens-Vorsilben, die nicht geladen werden, z. B. `kalender_,gedaechtnis_`. |
 | `MISSA_CONTROL_IM_HINTERGRUND` | `nur_lesen` | nein | `alles` erlaubt Routinen und Nachtschicht auch schreibende Panel-Funktionen. |
+| `MISSA_CONTROL_EREIGNISSE` | `an` | nein | `aus` = Ereignisse des Panels nicht von sich aus melden. |
 
 Fehlen `NEXTCLOUD_URL`, `NEXTCLOUD_USER` oder `NEXTCLOUD_APP_PASSWORD`, bietet Missa
 keine Kalender- und Aufgaben-Werkzeuge an. Das Gedächtnis ist immer da. Nextcloud Talk ist

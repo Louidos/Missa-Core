@@ -191,6 +191,7 @@ class Einstellungen:
     missa_control_max_werkzeuge: int = 40
     missa_control_auslassen: tuple[str, ...] = ()
     missa_control_im_hintergrund: str = "nur_lesen"
+    missa_control_ereignisse: bool = True
 
     @property
     def notfall_datei(self) -> Path:
@@ -630,6 +631,8 @@ class Einstellungen:
             missa_control_im_hintergrund=wert(
                 "MISSA_CONTROL_IM_HINTERGRUND", cls.missa_control_im_hintergrund
             ).casefold(),
+            missa_control_ereignisse=wert("MISSA_CONTROL_EREIGNISSE", "an").casefold()
+            not in ("aus", "nein", "false", "0", "off", "no"),
         )
 
     def pruefen(self) -> None:
