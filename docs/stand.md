@@ -1,11 +1,15 @@
 # Stand der Funktionen
 
-Bestandsaufnahme vom 2026-11-16 auf `main` (Version 0.9.0) gegen die Soll-Liste
-der drei Aufträge Fundament (F1–F4), Organisation (O1–O6) und Server (S1–S7).
+Bestandsaufnahme gegen die Soll-Liste der drei Aufträge Fundament (F1–F4), Organisation
+(O1–O6) und Server (S1–S7). Erstellt am 2026-11-16 auf Version 0.9.0, nachgeführt auf
+Version 0.10.0 und die Sicherheitsprüfung danach (#84–#97, siehe
+[sicherheit.md](sicherheit.md)).
 
-Ausgangslage: 1042 Tests grün, 3 übersprungen (zwei, weil die Tests als root laufen,
-einer, weil ansible fehlt); `ruff check`, `ruff format --check` und `shellcheck` sauber.
-Keine offenen Branches oder Pull Requests aus früheren Läufen.
+Aktueller Stand: 1244 Tests (1242 grün; übersprungen, wenn die Tests als root laufen oder
+ansible fehlt); `ruff check` mit Sicherheitsregeln `S`, `ruff format --check`, `shellcheck`,
+`pip-audit` und `gitleaks` sauber. Die Funktionen von 0.10.0 (Missa Control als Werkzeuge,
+Ereignisse aus Missa Control, Charaktertest) und die Sicherheitsprüfung ändern an der Tabelle
+unten nichts: offene Punkte (🟡/❌) sind weiter offen.
 
 Legende: ✅ erledigt (Code auf main, Test grün, Einstellung in
 `config/missa.env.example`) · 🟡 teilweise · ❌ fehlt
