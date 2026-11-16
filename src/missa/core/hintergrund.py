@@ -107,7 +107,7 @@ def naechster_beginn(jetzt: datetime, von: time, bis: time) -> datetime:
     if im_fenster(jetzt, von, bis):
         return jetzt
     zone = jetzt.tzinfo
-    assert isinstance(zone, ZoneInfo)
+    assert isinstance(zone, ZoneInfo)  # noqa: S101 – nur Typ-Eingrenzung, keine Eingabeprüfung
     heute = wandzeit(jetzt.date(), von, zone)
     return heute if heute > jetzt else wandzeit(jetzt.date() + timedelta(days=1), von, zone)
 
@@ -395,7 +395,7 @@ class Hintergrund:
         zuweisung = ", ".join(f"{name} = ?" for name in felder)
         with self._sperre, verbinden(self.datei) as db:
             db.execute(
-                f"UPDATE hintergrund_auftraege SET {zuweisung} WHERE id = ?",
+                f"UPDATE hintergrund_auftraege SET {zuweisung} WHERE id = ?",  # noqa: S608 – Namen fest im Code, Werte als Parameter
                 (*felder.values(), auftrag_id),
             )
 
@@ -473,7 +473,7 @@ class Hintergrund:
                 beendet=_utc_text(self.jetzt()),
             )
         neu = self.holen(auftrag.id)
-        assert neu is not None
+        assert neu is not None  # noqa: S101 – nur Typ-Eingrenzung, keine Eingabeprüfung
         if neu.status in ("fertig", "fehler"):
             self._abschliessen(neu)
         return neu
@@ -519,7 +519,7 @@ class Hintergrund:
             if not zeilen:
                 return None
             db.execute(
-                f"UPDATE hintergrund_auftraege SET gemeldet = ? "
+                f"UPDATE hintergrund_auftraege SET gemeldet = ? "  # noqa: S608 – Namen fest im Code, Werte als Parameter
                 f"WHERE id IN ({','.join('?' * len(zeilen))})",
                 (_utc_text(self.jetzt()), *(z["id"] for z in zeilen)),
             )
@@ -563,7 +563,7 @@ class Hintergrund:
             if not zeilen:
                 return None
             db.execute(
-                f"UPDATE hintergrund_auftraege SET erwaehnt = ? "
+                f"UPDATE hintergrund_auftraege SET erwaehnt = ? "  # noqa: S608 – Namen fest im Code, Werte als Parameter
                 f"WHERE id IN ({','.join('?' * len(zeilen))})",
                 (_utc_text(self.jetzt()), *(z["id"] for z in zeilen)),
             )
@@ -608,7 +608,7 @@ class Hintergrund:
             log.warning("%d unterbrochene(r) Hintergrund-Auftrag/Aufträge", len(zeilen))
 
     async def _schleife(self) -> None:
-        assert self._wecker is not None
+        assert self._wecker is not None  # noqa: S101 – nur Typ-Eingrenzung, keine Eingabeprüfung
         while True:
             self._wecker.clear()
             try:

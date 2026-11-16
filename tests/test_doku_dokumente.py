@@ -14,7 +14,7 @@ from fastapi.testclient import TestClient
 
 from missa.core.app import create_app
 from missa.core.hintergrund import Hintergrund
-from missa.core.werkzeuge import Werkzeugkasten, im_hintergrund
+from missa.core.werkzeuge import WerkzeugFehler, Werkzeugkasten, im_hintergrund, louis_nachricht
 from missa.core.zeitplaner import Zeitplaner
 from missa.core.zustellung import Zustellung
 from missa.tools.dateien import Dateien
@@ -188,10 +188,13 @@ class FakeWeb:
     def __init__(self) -> None:
         self.seiten: dict[str, tuple[str, bytes]] = {}
         self.abrufe: list[str] = []
+        self.weiterleitungen: dict[str, str] = {}
         self.transport = httpx.MockTransport(self._bearbeiten)
 
     def _bearbeiten(self, request: httpx.Request) -> httpx.Response:
         self.abrufe.append(str(request.url))
+        if str(request.url) in self.weiterleitungen:
+            return httpx.Response(302, headers={"location": self.weiterleitungen[str(request.url)]})
         typ, inhalt = self.seiten.get(str(request.url), ("text/html", b""))
         if not inhalt:
             return httpx.Response(404)
@@ -262,7 +265,12 @@ def dokumente(tmp_path, dateien, hg, web, formulierer) -> Dokumente:
         transport=web.transport,
     )
     d.formulierer = formulierer
+    d.aufloesen = lambda host: [AUFLOESUNG.get(host, "93.184.216.34")]
     return d
+
+
+# Feste DNS-Antworten für die Tests (kein echtes DNS).
+AUFLOESUNG = {"intern.example.ch": "10.0.30.5", "admin.example.ch": "fd00::5"}
 
 
 def ausfuehren(kasten: Werkzeugkasten, name: str, argumente: dict, nachricht: str) -> str:
@@ -422,3 +430,81 @@ def test_werkzeug_dokumente_anzeigen(dokumente, web):
     )
     liste = ausfuehren(kasten, "dokumente_anzeigen", {}, "Welche Dokumente?")
     assert liste.startswith("Geladene Dokumente") and "Neues Rail-Kit" in liste
+
+
+# ---------------------------------------------------------------------- Abrufe ins Netz
+
+
+@pytest.mark.parametrize(
+    "ziel",
+    [
+        "http://169.254.169.254/latest/meta-data/",
+        "http://127.0.0.1:8000/api/gedaechtnis",
+        "http://localhost/",
+        "http://[::1]/",
+        "http://[::ffff:10.0.0.1]/",
+        "http://intern.example.ch/wiki",
+        "http://admin.example.ch/",
+        "file:///etc/passwd",
+    ],
+)
+def test_weiterleitung_auf_interne_adresse_wird_abgelehnt(dokumente, web, ziel):
+    web.weiterleitungen["https://harmlos.example.ch/artikel"] = ziel
+    web.seiten[ziel] = ("text/html", b"<html><body>GEHEIM-INTERN</body></html>")
+    kasten = Werkzeugkasten(dokument_werkzeuge(dokumente))
+    antwort = ausfuehren(
+        kasten,
+        "zusammenfassen",
+        {"url": "https://harmlos.example.ch/artikel"},
+        "Fass zusammen: https://harmlos.example.ch/artikel",
+    )
+    assert "GEHEIM-INTERN" not in antwort
+    assert ziel not in web.abrufe
+
+
+def test_weiterleitung_auf_oeffentliche_seite_geht(dokumente, web):
+    web.weiterleitungen["https://kurz.example.ch/x"] = "https://shop.example.ch/rail-kit"
+    dok = dokumente_laden_mit_nachricht(dokumente, "https://kurz.example.ch/x")
+    assert dok.titel == "Neues Rail-Kit"
+
+
+def test_interne_adresse_direkt_von_louis_bleibt_erlaubt(dokumente, web):
+    web.seiten["http://intern.example.ch/wiki"] = (
+        "text/html",
+        b"<html><title>Wiki</title>x</html>",
+    )
+    dok = dokumente_laden_mit_nachricht(dokumente, "http://intern.example.ch/wiki")
+    assert dok.titel == "Wiki"
+
+
+def test_riesige_seite_ohne_laengenangabe_wird_abgebrochen(dokumente, web):
+    gelesen: list[int] = []
+
+    def endlos():
+        for _ in range(100):
+            gelesen.append(1)
+            yield b"x" * 1_000_000
+
+    def bearbeiten(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(200, content=endlos(), headers={"content-type": "text/plain"})
+
+    dokumente._http = httpx.Client(transport=httpx.MockTransport(bearbeiten))
+    with pytest.raises(WerkzeugFehler, match="größer als 5 MB"):
+        dokumente_laden_mit_nachricht(dokumente, "https://gross.example.ch/")
+    assert len(gelesen) <= 6
+
+
+def test_pdf_mit_zu_vielen_seiten_wird_abgelehnt(monkeypatch):
+    import missa.tools.dokumente as modul
+
+    monkeypatch.setattr(modul, "MAX_PDF_SEITEN", 0)
+    with pytest.raises(WerkzeugFehler, match="Seiten"):
+        pdf_zu_text(pdf("Hallo"))
+
+
+def dokumente_laden_mit_nachricht(dokumente, url: str):
+    token = louis_nachricht.set(f"Fass zusammen: {url}")
+    try:
+        return dokumente.url_laden(url)
+    finally:
+        louis_nachricht.reset(token)

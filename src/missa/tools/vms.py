@@ -431,7 +431,7 @@ class VmVerwaltung:
         namen, ips = await self._belegt()
         if name:
             name = str(name).strip().casefold()
-            if not NAME.match(name):
+            if not NAME.fullmatch(name):
                 raise WerkzeugFehler("Der Name darf nur a–z, 0–9 und - enthalten (z. B. mc01).")
             if name in namen:
                 raise WerkzeugFehler(f"Den Namen „{name}“ gibt es schon.")
@@ -529,7 +529,8 @@ class VmVerwaltung:
         zuweisung = ", ".join(f"{k} = ?" for k in felder)
         with verbinden(self.datei) as db:
             db.execute(
-                f"UPDATE vm_auftraege SET {zuweisung} WHERE id = ?", (*felder.values(), auftrag)
+                f"UPDATE vm_auftraege SET {zuweisung} WHERE id = ?",  # noqa: S608 – Namen fest im Code, Werte als Parameter
+                (*felder.values(), auftrag),
             )
 
     def _schritt(
@@ -547,10 +548,21 @@ class VmVerwaltung:
                 kanal="hintergrund",
                 account="missa",
             )
+        if status == "ausgefuehrt" and schritt != "fertig":
+            self._notfall_pruefen()
+
+    def _notfall_pruefen(self) -> None:
+        """Notfall-Stopp hält auch eine laufende VM-Erstellung vor dem nächsten Schritt an."""
+        if self.rechte is not None and self.rechte.notfall_aktiv():
+            raise WerkzeugFehler(
+                "Notfall-Stopp ist aktiv – die VM-Erstellung wurde vor dem nächsten Schritt "
+                "angehalten."
+            )
 
     async def _ablauf(self, auftrag: int, plan: VmPlan) -> None:
         schritt = "start"
         try:
+            self._notfall_pruefen()
             netz = self.netze[plan.vlan]
             schritt = "vm-id"
             vmid = await self.proxmox.freie_vmid()

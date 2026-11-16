@@ -131,7 +131,7 @@ def gruppe_pruefen(gruppe: object, nummer: int) -> dict[str, str]:
             + ", ".join(RUBRIKEN)
             + "), z. B. „Hinzugefügt – …“."
         )
-    if not COMMIT.match(commit):
+    if not COMMIT.fullmatch(commit):
         raise WerkzeugFehler(
             f"Gruppe {nummer}: „{commit}“ ist kein Conventional Commit (z. B. „feat: …“)."
         )

@@ -7,6 +7,7 @@ schreiben, starten, stoppen oder löschen kann sie nicht.
 
 from __future__ import annotations
 
+import re
 import ssl
 from dataclasses import dataclass
 from pathlib import Path
@@ -15,6 +16,9 @@ from typing import Any
 import httpx
 
 from missa.integrationen.monitoring import Messwert, QuellenFehler, ziel_normal
+
+# Erlaubte Knotennamen in Proxmox-Antworten (werden Teil von API-Pfaden).
+KNOTEN_NAME = re.compile(r"[A-Za-z0-9][A-Za-z0-9.-]{0,62}")
 
 TIMEOUT = 10.0
 #: Diese Arten von Einträgen aus ``/cluster/resources`` sind Rechner.
@@ -228,7 +232,14 @@ async def inventar_lesen(leser: ProxmoxLeser) -> list[VmEintrag]:
     for r in await leser.ressourcen():
         if r.get("type") not in ("qemu", "lxc") or r.get("template"):
             continue
-        node, vmid, typ = str(r.get("node", "")), int(r.get("vmid", 0)), str(r["type"])
+        # Antworten der Gegenseite prüfen, bevor sie in Adressen landen.
+        node, typ = str(r.get("node", "")), str(r["type"])
+        try:
+            vmid = int(r.get("vmid", 0))
+        except (TypeError, ValueError):
+            continue
+        if not KNOTEN_NAME.fullmatch(node) or vmid <= 0:
+            continue
         try:
             config = await leser.lesen(f"nodes/{node}/{typ}/{vmid}/config") or {}
         except QuellenFehler:

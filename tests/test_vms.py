@@ -307,6 +307,32 @@ def test_fehler_im_playbook_wird_gemeldet(kasten, verwaltung, ansible, alarme):
     assert "fehler" in rufen(kasten, "missa_vms_anzeigen", {})
 
 
+def test_notfall_stopp_haelt_laufende_vm_erstellung_an(
+    kasten, verwaltung, proxmox, ansible, alarme, protokoll, tmp_path
+):
+    from missa.core.rechte import NotfallSchalter
+
+    schalter = NotfallSchalter(tmp_path / "notfall-stopp")
+    verwaltung.rechte = Rechte(protokoll, schalter)
+    klonen = verwaltung.proxmox.klonen
+
+    async def klonen_und_stopp(*args, **kwargs):
+        await klonen(*args, **kwargs)
+        schalter.ausloesen("Test", "talk")  # Stopp kommt, während der Auftrag läuft
+
+    verwaltung.proxmox.klonen = klonen_und_stopp
+    rufen(kasten, "vm_planen", {"zweck": "minecraft"})
+    rufen(kasten, "vm_erstellen", {"plan_id": 1}, "a1")
+    erstellen_und_warten(kasten, verwaltung, 1)
+    # Nach dem Klonen geht nichts mehr: kein Konfigurieren, kein Start, kein Playbook.
+    assert ansible.laeufe == []
+    pfade = [pfad for _, pfad, _ in proxmox.aenderungen]
+    assert any(p.endswith("/clone") for p in pfade)
+    assert not [p for p in pfade if p.endswith(("/config", "/resize", "/start"))]
+    fehler = alarme.liste()[0]
+    assert "Notfall-Stopp" in fehler.text
+
+
 def test_unbekannter_zweck_und_katalog(kasten):
     assert "kein Playbook" in rufen(kasten, "vm_planen", {"zweck": "Kaffeemaschine"})
     katalog = rufen(kasten, "playbooks_anzeigen", {})

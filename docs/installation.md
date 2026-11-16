@@ -118,7 +118,7 @@ und das App-Passwort lässt sich jederzeit einzeln widerrufen.
 |----------|----------|---------|-----------|
 | `MISSA_HOST` | `0.0.0.0` | nein | Adresse, auf der die API lauscht. `0.0.0.0` = alle Netzwerkkarten (nötig, damit Caddy auf dem anderen Server zugreifen kann). |
 | `MISSA_PORT` | `8000` | nein | Port der API. |
-| `MISSA_API_KEY` | – | **ja** | Bearer-Token, mit dem sich jede App anmeldet. Ohne ihn startet der Dienst nicht. |
+| `MISSA_API_KEY` | – | **ja** | Bearer-Token, mit dem sich jede App anmeldet. Ohne ihn oder mit dem Beispielwert `bitte-aendern` startet der Dienst nicht; unter 16 Zeichen gibt es eine Warnung im Log. |
 | `MISSA_CHARAKTER_DATEI` | `/etc/missa/charakter.md` | nein | Charakter von Missa. Wird bei jeder Anfrage neu gelesen – Änderungen wirken sofort, ohne Neustart. Fehlt die Datei, nutzt Missa einen kurzen Ersatztext (Warnung im Log, `/health` meldet `"charakter": "fehlt"`). |
 | `MISSA_DATEN` | `/opt/missa/data` | nein | Ordner für `missa.db` (Gesprächsverlauf und Gedächtnis). Muss für `missa` beschreibbar sein. |
 | `LLAMA_URL` | `http://127.0.0.1:8080` | nein | Adresse von llama-server. |
@@ -319,6 +319,7 @@ Ersteinrichtung, Optionen und Einzelheiten: [update.md](update.md).
 | Anzeichen | Ursache und Lösung |
 |-----------|-------------------|
 | Dienst startet nicht, Log: `Konfigurationsfehler: MISSA_API_KEY ist nicht gesetzt` | `MISSA_API_KEY` in `/etc/missa/missa.env` eintragen. |
+| Dienst startet nicht, Log: `MISSA_API_KEY ist noch der Beispielwert` | Einen zufälligen Schlüssel eintragen: `openssl rand -hex 32`. |
 | `/health` liefert 503, `"llama":"nicht erreichbar"` | llama-server läuft nicht oder `LLAMA_URL` stimmt nicht: `curl http://127.0.0.1:8080/health`. |
 | Apps bekommen 401 | Falscher oder fehlender Header `Authorization: Bearer …`. |
 | Missa sagt, Nextcloud lehne die Anmeldung ab | `NEXTCLOUD_USER` / `NEXTCLOUD_APP_PASSWORD` prüfen, ggf. neues App-Passwort erstellen. |

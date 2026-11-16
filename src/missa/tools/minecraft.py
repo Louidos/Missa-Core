@@ -22,7 +22,7 @@ WHITELIST = re.compile(
 
 def spieler_pruefen(name: object) -> str:
     text = str(name or "").strip()
-    if not SPIELER.match(text):
+    if not SPIELER.fullmatch(text):
         raise WerkzeugFehler(
             f"„{name}“ ist kein gültiger Minecraft-Name (3–16 Zeichen, A–Z, 0–9, _)."
         )

@@ -88,7 +88,9 @@ Die Tabelle wird beim Start automatisch angelegt – beim Update ist nichts zu t
 
 Der Notfall-Stopp sperrt **sofort** alle Werkzeuge der Stufen `schreiben` und
 `zerstoererisch` sowie das Senden von E-Mails und das automatische Eintragen von
-Pausenblöcken. Lesen und Reden geht weiter, Erinnerungen werden weiter zugestellt.
+Pausenblöcken. Lesen und Reden geht weiter, Erinnerungen werden weiter zugestellt. Eine
+VM-Erstellung, die gerade läuft, hält vor ihrem nächsten Schritt an (Meldung „konnte nicht
+fertig eingerichtet werden“; eine schon angelegte VM bleibt zum Nachsehen stehen).
 
 **Auslösen** – zwei Wege:
 

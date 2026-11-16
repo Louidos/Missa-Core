@@ -11,6 +11,42 @@ die Versionsnummern folgen [Semantic Versioning](https://semver.org/lang/de/).
 
 - Die automatische Prüfung sucht jetzt zusätzlich nach bekannten Lücken in Abhängigkeiten
   und nach versehentlich eingecheckten Passwörtern (#84)
+- Der Code wurde vollständig auf Sicherheitslücken geprüft; strengere Prüfregeln (ruff `S`)
+  sind jetzt dauerhaft aktiv (#86)
+
+### Behoben
+
+- Missa ruft Dateien nur noch aus deiner eigenen Nextcloud ab; Pfade, die woandershin zeigen,
+  werden abgelehnt (#86)
+- Missa startet nicht mehr mit dem Beispielschlüssel `bitte-aendern` aus der
+  Beispiel-Konfiguration; ein sehr kurzer Schlüssel erzeugt eine Warnung im Log (#86)
+- Die Anmeldung an der API wird geprüft, bevor eine Anfrage gelesen wird; sehr grosse
+  Anfragen (über 20 MB) werden abgelehnt, wiederholte falsche Schlüssel sperren die Adresse
+  für 15 Minuten, und die öffentliche API-Beschreibung (`/docs`) ist abgeschaltet (#86)
+- `/health` zeigt ohne Anmeldung keine Fehlertexte von Missa Control mehr (#86)
+- Eine Talk-Nachricht wird nur einmal ausgeführt, auch wenn sie nach einem Neustart noch
+  einmal zugestellt wird; ungewöhnliche Zeichen in den Kopfzeilen eines Webhooks führen nicht
+  mehr zu einem Fehler 500 (#86)
+- Beim Zusammenfassen von Webseiten folgt Missa keiner Weiterleitung mehr auf interne
+  Adressen in deinem Netz; zu grosse Seiten werden nicht mehr ganz geladen, und PDFs mit
+  extrem vielen Seiten werden abgelehnt statt den Dienst zu blockieren (#86)
+- Passwörter und Schlüssel in Werkzeug-Aufrufen landen nicht mehr ungeschwärzt im
+  Dienst-Log (journalctl), sondern geschwärzt wie im Aktionsprotokoll (#86)
+- Empfänger mit Zeilenumbrüchen oder anderen Steuerzeichen werden abgelehnt, statt einen
+  irreführend angezeigten Entwurf anzulegen, der danach still nicht gesendet wird (#86)
+- Angaben für Befehle auf anderen Hosts (SSH) werden strenger geprüft; ein angehängter
+  Zeilenumbruch wird jetzt ebenfalls abgelehnt (#86)
+- „Vergiss alles zu …“ mit Zeichen wie `%` oder `_` löscht nicht mehr versehentlich den
+  ganzen Gesprächsverlauf, sondern nur Nachrichten, die den Text wirklich enthalten (#86)
+- Das Homelab-Inventar prüft die Antworten von Proxmox, bevor es damit weitere Abfragen
+  baut; ein kaputter Eintrag bricht nicht mehr das ganze Inventar ab (#86)
+- Der Notfall-Stopp hält jetzt auch eine VM-Erstellung an, die schon läuft – vor dem
+  nächsten Schritt statt erst am Ende (#86)
+- Beim Wiederherstellen eines Backups bekommt die Datenbank enge Dateirechte (nur der
+  Dienst darf sie lesen), und es wird nie durch eine Verknüpfung an einen anderen Ort
+  geschrieben (#86)
+- Die automatisch erzeugte RCON-Passwortdatei für Minecraft ist von Anfang an nur für den
+  Dienst lesbar (#86)
 
 ## 0.10.0 – 2026-11-16
 

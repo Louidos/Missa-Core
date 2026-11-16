@@ -38,6 +38,12 @@ Fehlt er oder ist der Schlüssel falsch, antwortet Missa-Core mit **401** und de
 {"error": {"message": "Fehlender oder ungültiger API-Schlüssel (Authorization: Bearer …)", "type": "authentication_error", "code": null}}
 ```
 
+Die Anmeldung wird geprüft, *bevor* der Inhalt einer Anfrage gelesen wird. Nach 10
+Fehlversuchen innerhalb von 5 Minuten ist die Adresse 15 Minuten gesperrt (**429**,
+`Retry-After`); jeder Fehlversuch steht mit Adresse im Log. Anfragen über 20 MB lehnt
+Missa-Core mit **413** ab. Eine öffentliche API-Beschreibung (`/docs`, `/redoc`,
+`/openapi.json`) gibt es nicht.
+
 ## Sitzungen: Missa erinnert sich an das Gespräch
 
 Damit Missa weiß, worüber ihr gerade sprecht, schickt die App eine **Sitzungs-ID** mit:
@@ -86,6 +92,8 @@ heißt, die Charakterdatei ist nicht lesbar (Missa antwortet dann mit einem Ersa
 Ist Missa Control angebunden ([missa-control.md](missa-control.md)), kommt zusätzlich
 `"missa_control": {"verbunden": true, "funktionen": 12, "letzte_aktualisierung": "…", "fehler": null}`
 dazu. Ein ausgefallenes Panel macht `/health` nicht zu 503 – Missa arbeitet ohne es weiter.
+Den genauen Fehlertext unter `fehler` gibt es nur mit Anmeldung (Bearer-Header); ohne steht
+dort nur `"Fehler (Details nur mit Anmeldung)"`.
 
 ### `GET /v1/models` – verfügbare Modelle
 
@@ -553,6 +561,8 @@ prüfen, statt blind auf `choices` zuzugreifen:
 |--------|--------|-----------|
 | 400 | `ungueltige_anfrage` | Anfrage ungültig, z. B. leere `messages`, keine `user`-Nachricht, Sitzungs-ID zu lang, unbekannte Kategorie. |
 | 401 | `nicht_angemeldet` | Kein oder falscher API-Schlüssel. |
+| 413 | `zu_gross` | Die Anfrage ist grösser als 20 MB. |
+| 429 | `zu_viele_fehlversuche` | Zu viele falsche Schlüssel von dieser Adresse – 15 Minuten warten. |
 | 404 | `nicht_gefunden` | Unbekannter Endpunkt oder unbekanntes Modell. |
 | 405 | `methode_nicht_erlaubt` | Falsche HTTP-Methode (z. B. `GET` statt `POST` bei `/v1/chat/completions`). |
 | 502 | `anfrage_zu_gross` | Das Sprachmodell lehnt die Anfrage als zu gross ab (Kontext voll) – auch nachdem Missa sie einmal gekürzt hat (älterer Verlauf weg, Werkzeug-Ergebnisse gekürzt). Aufgaben einzeln schicken, neue Sitzung beginnen oder beim llama-server den Kontext (`-c`) vergrößern. |

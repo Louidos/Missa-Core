@@ -51,6 +51,13 @@ target-version = "py313"
 src = ["src", "tests"]
 
 [tool.ruff.lint]
-select = ["E", "F", "W", "I", "UP", "B", "SIM", "RUF"]
+# S = Sicherheitsregeln (flake8-bandit). Fehlalarme stehen mit Begründung als
+# "# noqa: Sxxx – …" direkt in der Zeile.
+select = ["E", "F", "W", "I", "UP", "B", "SIM", "RUF", "S"]
 # Gedankenstriche und Anführungszeichen in deutschen Texten sind gewollt.
 ignore = ["RUF001", "RUF002", "RUF003"]
+
+[tool.ruff.lint.per-file-ignores]
+# Tests: assert ist gewollt; Tests starten Scripts per subprocess, nutzen erfundene
+# Passwörter, /tmp-Pfade als Testdaten und binden Test-Server an alle Adressen.
+"tests/**" = ["S101", "S104", "S105", "S106", "S108", "S603", "S607"]

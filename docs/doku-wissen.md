@@ -43,7 +43,8 @@ Dateinamen**. Eine Stelle zählt nur, wenn alle wichtigen Wörter der Frage dari
   in die **Nachtschicht** – das Ergebnis steht im Morgenbericht (siehe
   [routinen-nachtschicht.md](routinen-nachtschicht.md)).
 - Der Text bleibt in `missa.db` gespeichert (Tabelle `dokumente`), Rückfragen gehen auch später.
-- PDFs ohne Text (reine Scans) kann Missa noch nicht lesen – sie sagt das dann.
+- PDFs ohne Text (reine Scans) kann Missa noch nicht lesen – sie sagt das dann. Sehr grosse
+  PDFs (über 500 Seiten oder 2 Mio. Zeichen) lehnt sie ab.
 
 ### Nur Links, die du selbst schickst
 
@@ -52,3 +53,9 @@ aktuellen Nachricht steht – das prüft der Code, nicht das Modell. Eine Adress
 sich ausdenkt oder die in einem Dokument steht, wird abgelehnt; im Hintergrund (Routine,
 Nachtschicht) werden gar keine Seiten abgerufen. Inhalte von Dokumenten sind für Missa nie
 Anweisungen.
+
+Weiterleitungen (höchstens 5) prüft Missa einzeln: Zeigt eine auf eine interne Adresse
+(`localhost`, `10.x`, `172.16–31.x`, `192.168.x`, `169.254.x`, IPv6 `::1`, `fc00::/7`,
+`fe80::/10`), bricht sie ab – ausser die Adresse in deiner Nachricht war selbst schon intern.
+Seiten über 5 MB werden nicht fertig geladen; PDFs mit mehr als 500 Seiten oder über 2 Mio.
+Zeichen Text liest sie nicht.

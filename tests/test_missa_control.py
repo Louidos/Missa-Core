@@ -386,13 +386,17 @@ def test_start_ohne_panel_laeuft_normal(mit_panel, llama, panel):
         uhr=lambda: JETZT,
     )
     with TestClient(app) as client:
-        daten = client.get("/health").json()
+        daten = client.get("/health", headers={"Authorization": f"Bearer {API_KEY}"}).json()
         assert client.get("/health").status_code == 200
+        ohne_anmeldung = client.get("/health").json()
     status = daten["missa_control"]
     assert status["verbunden"] is False
     assert status["funktionen"] == 0
     assert status["letzte_aktualisierung"] is None
     assert "nicht erreichbar" in daten["missa_control"]["fehler"]
+    # Ohne Anmeldung verrät /health keine Adressen oder Fehlertexte des Panels.
+    assert ohne_anmeldung["missa_control"]["fehler"] == "Fehler (Details nur mit Anmeldung)"
+    assert "panel.test" not in str(ohne_anmeldung)
 
 
 def test_ohne_einstellungen_aendert_sich_nichts(client):

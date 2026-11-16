@@ -229,3 +229,27 @@ def test_api_gedaechtnis_braucht_token(client):
 def test_scharfes_s_wird_gefunden(gedaechtnis):
     gedaechtnis.hinzufuegen("Die Katze heißt Mimi", "sonstiges")
     assert [f.text for f in gedaechtnis.suchen("Wie heißt die Katze?")] == ["Die Katze heißt Mimi"]
+
+
+@pytest.mark.parametrize("thema", ["%", "_", "%%", "_%_", " "])
+def test_vergessen_mit_platzhaltern_loescht_nicht_alles(gedaechtnis, thema):
+    from missa.core.verlauf import Verlauf
+
+    verlauf = Verlauf(gedaechtnis.datei)
+    verlauf.speichern("s1", "user", "Mein Hund heißt Bello.")
+    verlauf.speichern("s1", "assistant", "Schöner Name!")
+    _, anzahl = gedaechtnis.vergessen_thema(thema, nur_zaehlen=True)
+    assert anzahl == 0
+    gedaechtnis.vergessen_thema(thema)
+    with sqlite3.connect(gedaechtnis.datei) as db:
+        assert db.execute("SELECT COUNT(*) FROM nachrichten").fetchone()[0] == 2
+
+
+def test_vergessen_mit_prozent_im_text(gedaechtnis):
+    from missa.core.verlauf import Verlauf
+
+    verlauf = Verlauf(gedaechtnis.datei)
+    verlauf.speichern("s1", "user", "Rabatt 50% auf alles")
+    verlauf.speichern("s1", "user", "Rabatt 50 Franken")
+    _, anzahl = gedaechtnis.vergessen_thema("50%", nur_zaehlen=True)
+    assert anzahl == 1

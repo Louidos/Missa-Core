@@ -26,6 +26,9 @@ Antwort erscheint in Talk ◄── Bot-API (int01) ◄──POST Antwort──�
 
 - Jeder Webhook ist mit dem gemeinsamen **Bot-Secret** signiert (HMAC-SHA256). Falsche
   Signatur oder fremder Absender-Server → `401`, sonst passiert nichts.
+- Jede Nachricht wird nur einmal ausgeführt, auch nach einem Neustart: Missa merkt sich je
+  Unterhaltung die letzten 200 Nachrichten-Nummern in `talk-gesehen.json` im Datenordner.
+  Eine wiederholt zugestellte oder sehr alte Nachricht wird still ignoriert.
 - Talk wartet nur 5 Sekunden auf den Webhook. Missa antwortet darum sofort und arbeitet im
   Hintergrund weiter; das 👀 zeigt, dass sie dran ist.
 - Die Antwort kommt als Antwort auf die ursprüngliche Nachricht (Zitat). Markdown wird

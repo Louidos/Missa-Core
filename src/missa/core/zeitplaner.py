@@ -403,12 +403,12 @@ class Zeitplaner:
             zuweisung = ", ".join(f"{name} = ?" for name in felder)
             with self._sperre, verbinden(self.datei) as db:
                 db.execute(
-                    f"UPDATE erinnerungen SET {zuweisung} WHERE id = ?",
+                    f"UPDATE erinnerungen SET {zuweisung} WHERE id = ?",  # noqa: S608 – Namen fest im Code, Werte als Parameter
                     (*felder.values(), erinnerung_id),
                 )
             self.wecken()
         neu = self.holen(erinnerung_id)
-        assert neu is not None
+        assert neu is not None  # noqa: S101 – nur Typ-Eingrenzung, keine Eingabeprüfung
         return neu
 
     def loeschen(self, erinnerung_id: int, art: str = "erinnerung") -> Erinnerung:
@@ -442,7 +442,7 @@ class Zeitplaner:
         zuweisung = ", ".join(f"{name} = ?" for name in felder)
         with self._sperre, verbinden(self.datei) as db:
             db.execute(
-                f"UPDATE erinnerungen SET {zuweisung} WHERE id = ?",
+                f"UPDATE erinnerungen SET {zuweisung} WHERE id = ?",  # noqa: S608 – Namen fest im Code, Werte als Parameter
                 (*felder.values(), erinnerung_id),
             )
         log.info(
@@ -454,7 +454,7 @@ class Zeitplaner:
         )
         self.wecken()
         neu = self.holen(erinnerung_id, art)
-        assert neu is not None
+        assert neu is not None  # noqa: S101 – nur Typ-Eingrenzung, keine Eingabeprüfung
         return neu
 
     def schlummern(self, minuten: float, erinnerung_id: int | None = None) -> Erinnerung:
@@ -717,7 +717,7 @@ class Zeitplaner:
         return max(0.0, min(MAX_SCHLAF, (naechste - self.jetzt()).total_seconds()))
 
     async def _schleife(self) -> None:
-        assert self._wecker is not None
+        assert self._wecker is not None  # noqa: S101 – nur Typ-Eingrenzung, keine Eingabeprüfung
         while True:
             self._wecker.clear()
             try:

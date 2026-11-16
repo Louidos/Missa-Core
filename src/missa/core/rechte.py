@@ -383,7 +383,7 @@ class Aktionsprotokoll:
         wo = f"WHERE {' AND '.join(bedingungen)}" if bedingungen else ""
         with verbinden(self.datei) as db:
             zeilen = db.execute(
-                f"SELECT * FROM aktionsprotokoll {wo} ORDER BY zeit DESC, id DESC LIMIT ?",
+                f"SELECT * FROM aktionsprotokoll {wo} ORDER BY zeit DESC, id DESC LIMIT ?",  # noqa: S608 – Namen fest im Code, Werte als Parameter
                 [*werte, max(1, anzahl)],
             ).fetchall()
         return [self._aktion(z) for z in zeilen]
@@ -705,7 +705,7 @@ def main(argv: list[str] | None = None) -> int:
     einstellungen = Einstellungen.aus_umgebung()
     rechte, _ = rechte_bauen(einstellungen)
     schalter = rechte.notfall
-    assert schalter is not None
+    assert schalter is not None  # noqa: S101 – nur Typ-Eingrenzung, keine Eingabeprüfung
     konto = os.environ.get("SUDO_USER") or os.environ.get("USER") or "ai01"
 
     if argumente.befehl == "status":

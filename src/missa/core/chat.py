@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import contextlib
 import json
 import logging
 import time
@@ -14,6 +15,7 @@ from typing import Any
 from missa.core.config import Einstellungen
 from missa.core.llama import ANFRAGE_ZU_GROSS, LlamaClient, LlamaFehler, unerwartet
 from missa.core.prompt import charakter_lesen, systemprompt_bauen
+from missa.core.rechte import schwaerzen
 from missa.core.verlauf import Verlauf
 from missa.core.werkzeuge import Werkzeugkasten
 
@@ -334,6 +336,17 @@ class ChatDienst:
         except LlamaFehler as fehler:
             raise self._melden(vorbereitet, fehler) from fehler
 
+    def _argumente_fuers_log(self, funktion: dict[str, Any]) -> str:
+        """Argumente wie im Aktionsprotokoll geschwärzt und gekürzt – nie Passwörter im Log."""
+        argumente: Any = funktion.get("arguments")
+        if isinstance(argumente, str):
+            with contextlib.suppress(ValueError):
+                argumente = json.loads(argumente)
+        protokoll = self.werkzeuge.rechte.protokoll
+        geheimnisse = protokoll.geheimnisse if protokoll is not None else ()
+        text = json.dumps(schwaerzen(argumente, geheimnisse), ensure_ascii=False)
+        return text if len(text) <= 300 else text[:300] + "…"
+
     async def _werkzeuge_ausfuehren(
         self, vorbereitet: Vorbereitet, inhalt: str, aufrufe: list[dict[str, Any]]
     ) -> None:
@@ -343,7 +356,7 @@ class ChatDienst:
         for nummer, aufruf in enumerate(aufrufe):
             funktion = aufruf.get("function") or {}
             name = str(funktion.get("name", ""))
-            log.info("Werkzeug-Aufruf: %s(%s)", name, funktion.get("arguments"))
+            log.info("Werkzeug-Aufruf: %s(%s)", name, self._argumente_fuers_log(funktion))
             ergebnis = await self.werkzeuge.ausfuehren(
                 name,
                 funktion.get("arguments"),

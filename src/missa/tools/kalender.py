@@ -23,6 +23,7 @@ Dafür gilt:
 from __future__ import annotations
 
 import hashlib
+import logging
 import re
 from collections.abc import Callable
 from dataclasses import dataclass
@@ -55,6 +56,8 @@ from missa.tools.nextcloud import (
     text_feld,
     zeitpunkt_lesen,
 )
+
+log = logging.getLogger(__name__)
 
 #: Längster Zeitraum, den termine_anzeigen auf einmal liefert.
 MAX_TAGE = 366
@@ -354,7 +357,7 @@ class Kalender:
                     if text := pruefung(tag, uid):
                         hinweise.append(text)
                 except Exception:  # Hinweise dürfen die Änderung nie scheitern lassen
-                    continue
+                    log.warning("Kalender: Prüfung nach der Änderung fehlgeschlagen", exc_info=True)
         return ("\n\n" + "\n".join(hinweise)) if hinweise else ""
 
     def _vorpruefen(
@@ -374,7 +377,7 @@ class Kalender:
                 if text := pruefung(beginn, schluss, titel, ort or "", uid):
                     hinweise.append(text)
             except Exception:  # eine kaputte Prüfung darf das Eintragen nicht verhindern
-                continue
+                log.warning("Kalender: Prüfung vor dem Eintragen fehlgeschlagen", exc_info=True)
         return "\n".join(hinweise)
 
     # -------------------------------------------------------------- Anzeige
@@ -583,7 +586,9 @@ class Kalender:
     ) -> str | None:
         # Die Zustimmung gilt genau für diese Änderung (ohne die zufällige ID neuer Termine).
         inhalt = re.sub(r"\s*\[ID \w+\]", "", beschreibung)
-        pruefsumme = hashlib.sha1(f"{art}|{uid}|{inhalt}|{','.join(sorted(teilnehmer))}".encode())
+        pruefsumme = hashlib.sha1(
+            f"{art}|{uid}|{inhalt}|{','.join(sorted(teilnehmer))}".encode(), usedforsecurity=False
+        )
         schluessel = "einladung:" + pruefsumme.hexdigest()
         return zustimmung_pruefen(
             self.bestaetigungen,
@@ -645,7 +650,9 @@ class Kalender:
         _, zeile = self._beschreiben(termin)
 
         if konflikt := self._vorpruefen(beginn, schluss, titel, ort, None):
-            pruefsumme = hashlib.sha1(f"{name}|{titel}|{beginn}|{schluss}".encode()).hexdigest()
+            pruefsumme = hashlib.sha1(
+                f"{name}|{titel}|{beginn}|{schluss}".encode(), usedforsecurity=False
+            ).hexdigest()
             sperre = zustimmung_pruefen(
                 self.bestaetigungen,
                 "konflikt:" + pruefsumme,

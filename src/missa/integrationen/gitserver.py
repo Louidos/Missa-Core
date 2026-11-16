@@ -26,7 +26,7 @@ MAX_SEITEN = 10
 
 def name_pruefen(name: object, was: str = "Repo") -> str:
     text = str(name or "").strip()
-    if not NAME.match(text) or text in (".", ".."):
+    if not NAME.fullmatch(text) or text in (".", ".."):
         raise QuellenFehler(f"„{name}“ ist kein gültiger Name für ein {was}.")
     return text
 

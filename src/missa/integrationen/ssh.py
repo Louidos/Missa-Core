@@ -91,7 +91,7 @@ def hosts_lesen(text: str) -> dict[str, SshHost]:
             if not port_text.isdigit():
                 raise ValueError(f"Ungültiger Port in SSH_HOSTS: {teil}")
             port = int(port_text)
-        if not re.fullmatch(r"[a-z0-9][a-z0-9._-]*", name) or not SICHER.match(adresse):
+        if not re.fullmatch(r"[a-z0-9][a-z0-9._-]*", name) or not SICHER.fullmatch(adresse):
             raise ValueError(f"Ungültiger Eintrag in SSH_HOSTS: {teil}")
         hosts[name] = SshHost(name, adresse, port)
     return hosts
@@ -99,14 +99,14 @@ def hosts_lesen(text: str) -> dict[str, SshHost]:
 
 def angabe_pruefen(wert: object) -> str:
     text = str(wert)
-    if not SICHER.match(text):
+    if not SICHER.fullmatch(text):
         raise SshFehler(f"Unzulässige Angabe für einen Host-Befehl: {text!r}")
     return text
 
 
 def container_name_pruefen(name: object) -> str:
     text = str(name or "").strip()
-    if not CONTAINER_NAME.match(text):
+    if not CONTAINER_NAME.fullmatch(text):
         raise SshFehler(f"„{text}“ ist kein gültiger Container-Name.")
     return text
 

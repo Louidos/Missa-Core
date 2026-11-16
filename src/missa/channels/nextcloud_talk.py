@@ -18,13 +18,14 @@ Doku der Schnittstelle: https://nextcloud-talk.readthedocs.io/en/latest/bots/
 from __future__ import annotations
 
 import asyncio
+import bisect
 import hashlib
 import hmac
 import json
 import logging
+import os
 import secrets
 import time
-from collections import OrderedDict
 from datetime import datetime
 from typing import Any
 from urllib.parse import urlsplit
@@ -44,6 +45,9 @@ WEBHOOK_PFAD = "/channels/nextcloud-talk/webhook"
 API_PFAD = "/ocs/v2.php/apps/spreed/api/v1/bot"
 #: Höchstlänge einer Talk-Nachricht (Zeichen).
 MAX_LAENGE = 32_000
+# Wie viele Nachrichten-IDs je Unterhaltung gegen Wiederholungen gemerkt werden.
+GEMERKTE_IDS = 200
+GESEHEN_DATEI = "talk-gesehen.json"
 #: Größere Webhook-Anfragen werden gar nicht erst gelesen.
 MAX_BODY = 1_000_000
 ARBEITET = "👀"
@@ -210,7 +214,8 @@ class TalkKanal:
         self.client = client
         self.erlaubt = frozenset(einstellungen.nc_talk_allowed_users)
         self._backend = url_normalisieren(einstellungen.nc_talk_base_url)
-        self._gesehen: OrderedDict[tuple[str, str], None] = OrderedDict()
+        self._gesehen_datei = einstellungen.daten / GESEHEN_DATEI
+        self._gesehen: dict[str, list[int]] = self._gesehen_laden()
         self._sperren: dict[str, asyncio.Lock] = {}
 
     # -------------------------------------------------------------- Prüfungen
@@ -219,10 +224,15 @@ class TalkKanal:
         if len(random) < 32 or not signatur_kopf:
             return False
         erwartet = signatur(self.einstellungen.nc_talk_bot_secret, random, body)
-        return hmac.compare_digest(erwartet, signatur_kopf.strip().lower())
+        # Als Bytes vergleichen: Sonderzeichen im Kopf ergeben 401 statt eines Absturzes.
+        return hmac.compare_digest(
+            erwartet.encode(), signatur_kopf.strip().lower().encode("utf-8", "replace")
+        )
 
     def backend_gueltig(self, backend: str) -> bool:
-        return bool(backend) and hmac.compare_digest(url_normalisieren(backend), self._backend)
+        return bool(backend) and hmac.compare_digest(
+            url_normalisieren(backend).encode("utf-8", "replace"), self._backend.encode()
+        )
 
     def absender_erlaubt(self, akteur: Any) -> bool:
         """Nur echte Nextcloud-Benutzer (``users/<id>``) aus der Erlaubnisliste – exakt."""
@@ -233,13 +243,50 @@ class TalkKanal:
             return False
         return kennung.removeprefix("users/") in self.erlaubt
 
+    def _gesehen_laden(self) -> dict[str, list[int]]:
+        try:
+            daten = json.loads(self._gesehen_datei.read_text(encoding="utf-8"))
+        except FileNotFoundError:
+            return {}
+        except (OSError, ValueError) as fehler:
+            log.warning("Talk: %s nicht lesbar (%s) – beginne neu", self._gesehen_datei, fehler)
+            return {}
+        if not isinstance(daten, dict):
+            return {}
+        return {
+            str(token): sorted(int(i) for i in ids if isinstance(i, int))[-GEMERKTE_IDS:]
+            for token, ids in daten.items()
+            if isinstance(ids, list)
+        }
+
+    def _gesehen_speichern(self) -> None:
+        try:
+            self._gesehen_datei.parent.mkdir(parents=True, exist_ok=True)
+            tmp = self._gesehen_datei.with_suffix(".tmp")
+            fd = os.open(tmp, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
+            with os.fdopen(fd, "w", encoding="utf-8") as datei:
+                json.dump(self._gesehen, datei)
+            os.replace(tmp, self._gesehen_datei)
+        except OSError as fehler:
+            log.warning("Talk: gesehene Nachrichten nicht gespeichert (%s)", fehler)
+
     def _schon_gesehen(self, token: str, nachricht_id: str) -> bool:
-        schluessel = (token, nachricht_id)
-        if schluessel in self._gesehen:
+        """Jede Nachricht nur einmal – auch nach einem Neustart.
+
+        Talk vergibt aufsteigende Nummern. Gemerkt werden je Unterhaltung die letzten
+        ``GEMERKTE_IDS`` Nummern (in einer Datei im Datenordner). Bekannte Nummern und
+        solche, die älter sind als alle gemerkten, gelten als Wiederholung. Nachrichten
+        ohne Nummer werden ignoriert.
+        """
+        if not nachricht_id.isdigit():
             return True
-        self._gesehen[schluessel] = None
-        while len(self._gesehen) > 1000:
-            self._gesehen.popitem(last=False)
+        nummer = int(nachricht_id)
+        ids = self._gesehen.setdefault(token, [])
+        if nummer in ids or (len(ids) >= GEMERKTE_IDS and nummer < ids[0]):
+            return True
+        bisect.insort(ids, nummer)
+        del ids[:-GEMERKTE_IDS]
+        self._gesehen_speichern()
         return False
 
     # -------------------------------------------------------------- Webhook

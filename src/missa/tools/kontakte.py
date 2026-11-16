@@ -344,7 +344,7 @@ class Adressbuch:
         if antwort.status_code >= 400:
             raise WerkzeugFehler(f"Nextcloud-Kontakte antworten mit {antwort.status_code}")
         try:
-            return ET.fromstring(antwort.content)
+            return ET.fromstring(antwort.content)  # noqa: S314 – eigene Nextcloud; ElementTree lädt keine externen Entitäten
         except ET.ParseError as fehler:
             raise WerkzeugFehler("Nextcloud-Kontakte lieferten ungültiges XML") from fehler
 
@@ -544,7 +544,7 @@ class Kontaktpflege:
         zuweisung = ", ".join(f"{name} = ?" for name in felder)
         with verbinden(self.datei) as db:
             db.execute(
-                f"UPDATE kontakte_pflege SET {zuweisung} WHERE schluessel = ?",
+                f"UPDATE kontakte_pflege SET {zuweisung} WHERE schluessel = ?",  # noqa: S608 – Namen fest im Code, Werte als Parameter
                 (*felder.values(), schluessel),
             )
 

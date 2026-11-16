@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from zoneinfo import ZoneInfo
 
+import httpx
 import pytest
 from fastapi.testclient import TestClient
 
@@ -271,3 +272,33 @@ def anfrage():
     marke = aktuelle_anfrage.set("anfrage-1")
     yield
     aktuelle_anfrage.reset(marke)
+
+
+@pytest.mark.parametrize(
+    "pfad",
+    [
+        "https://angreifer.example/x.md",
+        "http://169.254.169.254/latest/x.md",
+        "../../calendars/louis/x.md",
+        "Doku/../../x.md",
+    ],
+)
+def test_lesen_geht_nur_an_die_eigene_nextcloud(pfad):
+    from missa.core.werkzeuge import WerkzeugFehler
+
+    gesehen: list[httpx.Request] = []
+
+    def antwort(request: httpx.Request) -> httpx.Response:
+        gesehen.append(request)
+        return httpx.Response(200, content=b"geheim")
+
+    d = Dateien(
+        "https://cloud.example.ch", "louis", "pw", ZONE, transport=httpx.MockTransport(antwort)
+    )
+    for aufruf in (d.lesen, d.auflisten, d.text_holen, d.bytes_holen):
+        with pytest.raises(WerkzeugFehler):
+            aufruf(pfad)
+    with pytest.raises(WerkzeugFehler):
+        d.suchen("x", ordner=pfad)
+    # Keine einzige Anfrage – vor allem keine mit Anmeldedaten an einen fremden Host.
+    assert gesehen == []
