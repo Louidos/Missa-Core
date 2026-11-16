@@ -1,0 +1,15 @@
+# Einstellungen für die Geheimnis-Suche (gitleaks), lokal und in der CI.
+# Es gelten die Standardregeln von gitleaks. Ausgenommen sind nur ausdrücklich
+# erfundene Platzhalter aus Doku und Beispiel-Konfiguration – keine ganzen Ordner.
+title = "Missa-Core"
+
+[extend]
+useDefault = true
+
+[[allowlists]]
+description = "Platzhalter in Doku und Beispiel-Konfiguration"
+regexTarget = "match"
+regexes = [
+  '''DEIN_MISSA_API_KEY''',
+  '''bitte-aendern''',
+]

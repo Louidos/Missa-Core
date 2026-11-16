@@ -199,7 +199,10 @@ curl http://127.0.0.1:8000/v1/chat/completions \
 scripts/pruefen.sh
 ```
 
-Das Skript führt `ruff check`, `ruff format --check` und `pytest` aus – genau wie die CI.
+Das Skript führt `ruff check`, `ruff format --check`, `shellcheck`, `pip-audit` (bekannte Lücken
+in Abhängigkeiten), `gitleaks` (versehentlich eingecheckte Geheimnisse, ganze Historie) und
+`pytest` aus – genau wie die CI. Fehlt `shellcheck` oder `gitleaks` lokal, gibt es nur einen
+Hinweis; die CI prüft trotzdem. Ausnahmen für erfundene Platzhalter stehen in `.gitleaks.toml`.
 
 ## Aufbau
 

@@ -7,6 +7,11 @@ die Versionsnummern folgen [Semantic Versioning](https://semver.org/lang/de/).
 
 ## Unveröffentlicht
 
+### Geändert
+
+- Die automatische Prüfung sucht jetzt zusätzlich nach bekannten Lücken in Abhängigkeiten
+  und nach versehentlich eingecheckten Passwörtern (#84)
+
 ## 0.10.0 – 2026-11-16
 
 ### Hinzugefügt
