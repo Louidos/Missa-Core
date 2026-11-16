@@ -30,7 +30,7 @@ from zoneinfo import ZoneInfo
 
 import httpx
 
-from missa.core.datenbank import verbinden
+from missa.core.datenbank import verbinden, zeile_aendern
 from missa.core.prompt import WOCHENTAGE, datum_lang
 from missa.core.werkzeuge import Stufe, Werkzeug, WerkzeugFehler
 from missa.core.zeitangaben import wandzeit
@@ -73,6 +73,14 @@ Formulierer = Callable[[str, str], Awaitable[str]]
 
 
 # ---------------------------------------------------------------------- vCard
+
+
+SPALTEN = frozenset(
+    {
+        "name", "abstand_tage", "emails", "letzter_kontakt", "letzte_art",
+        "letzte_erinnerung", "erstellt",
+    }
+)  # fmt: skip
 
 
 @dataclass(frozen=True)
@@ -541,11 +549,9 @@ class Kontaktpflege:
         return None
 
     def _setzen(self, schluessel: str, **felder: Any) -> None:
-        zuweisung = ", ".join(f"{name} = ?" for name in felder)
         with verbinden(self.datei) as db:
-            db.execute(
-                f"UPDATE kontakte_pflege SET {zuweisung} WHERE schluessel = ?",  # noqa: S608 – Namen fest im Code, Werte als Parameter
-                (*felder.values(), schluessel),
+            zeile_aendern(
+                db, "kontakte_pflege", felder, wo="schluessel", wert=schluessel, erlaubt=SPALTEN
             )
 
     # -------------------------------------------------------------- Werkzeuge

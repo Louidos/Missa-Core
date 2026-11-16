@@ -32,7 +32,7 @@ from typing import Any
 from zoneinfo import ZoneInfo
 
 from missa.core.alarme import Alarme, AlarmStufe
-from missa.core.datenbank import verbinden
+from missa.core.datenbank import verbinden, zeile_aendern
 from missa.core.werkzeuge import Stufe, Werkzeug, WerkzeugFehler
 from missa.integrationen.proxmox_vms import ProxmoxFehler, ProxmoxVerwalter
 
@@ -64,6 +64,11 @@ GB = 1024**3
 
 def _utc(wert: datetime) -> str:
     return wert.astimezone(UTC).strftime("%Y-%m-%dT%H:%M:%S+00:00")
+
+
+SPALTEN = frozenset(
+    {"plan_id", "name", "vmid", "ip", "status", "schritt", "fehler", "erstellt", "geaendert"}
+)
 
 
 @dataclass(frozen=True)
@@ -537,12 +542,8 @@ class VmVerwaltung:
 
     def _setzen(self, auftrag: int, **felder: Any) -> None:
         felder["geaendert"] = _utc(self.jetzt())
-        zuweisung = ", ".join(f"{k} = ?" for k in felder)
         with verbinden(self.datei) as db:
-            db.execute(
-                f"UPDATE vm_auftraege SET {zuweisung} WHERE id = ?",  # noqa: S608 – Namen fest im Code, Werte als Parameter
-                (*felder.values(), auftrag),
-            )
+            zeile_aendern(db, "vm_auftraege", felder, wo="id", wert=auftrag, erlaubt=SPALTEN)
 
     def _schritt(
         self, auftrag: int, plan: VmPlan, schritt: str, ergebnis: str, status: str = "ausgefuehrt"

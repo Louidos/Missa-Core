@@ -2,8 +2,9 @@
 
 from __future__ import annotations
 
+import re
 import sqlite3
-from collections.abc import Iterator
+from collections.abc import Collection, Iterator, Mapping
 from contextlib import contextmanager
 from pathlib import Path
 
@@ -23,6 +24,39 @@ def verbinden(datei: Path) -> Iterator[sqlite3.Connection]:
         raise
     finally:
         verbindung.close()
+
+
+#: Erlaubte Form für Tabellen- und Spaltennamen in zusammengesetztem SQL.
+_SQL_NAME = re.compile(r"[a-z_][a-z0-9_]*")
+
+
+def zeile_aendern(
+    db: sqlite3.Connection,
+    tabelle: str,
+    felder: Mapping[str, object],
+    *,
+    wo: str,
+    wert: object,
+    erlaubt: Collection[str],
+    zusatz: str = "",
+) -> int:
+    """``UPDATE tabelle SET a = ?, b = ? WHERE wo = ?`` – gemeinsam für alle Module.
+
+    Spaltennamen kommen nur aus ``erlaubt`` (einer festen Liste im Code); alle Werte gehen
+    als Parameter. ``zusatz`` ist ein fester Ausdruck aus dem Code (z. B.
+    ``version = version + 1``). Gibt die Anzahl geänderter Zeilen zurück.
+    """
+    unbekannt = sorted(set(felder) - set(erlaubt))
+    if unbekannt:
+        raise ValueError(f"Unbekannte Spalten für {tabelle}: {', '.join(unbekannt)}")
+    if not felder and not zusatz:
+        raise ValueError("Nichts zu ändern")
+    for name in (tabelle, wo, *felder):
+        if not _SQL_NAME.fullmatch(name):
+            raise ValueError(f"Ungültiger Name in SQL: {name!r}")
+    zuweisung = ", ".join([f"{name} = ?" for name in felder] + ([zusatz] if zusatz else []))
+    sql = f"UPDATE {tabelle} SET {zuweisung} WHERE {wo} = ?"  # noqa: S608 – Namen geprüft
+    return db.execute(sql, (*felder.values(), wert)).rowcount
 
 
 STAND_SCHEMA = """
