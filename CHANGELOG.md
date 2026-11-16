@@ -58,6 +58,8 @@ die Versionsnummern folgen [Semantic Versioning](https://semver.org/lang/de/).
   markiert, und danach fragt Missa vor jeder schreibenden Aktion nach deinem Ja (#90)
 - `update.sh` holt nur noch vom erwarteten GitHub-Repo und nimmt bei `--version` nur
   Versionsnummern an (#92)
+- Das Notfall-Script folgt in seiner Notlösung ohne Python keiner Verknüpfung im
+  Datenordner mehr (#92)
 
 ## 0.10.0 – 2026-11-16
 

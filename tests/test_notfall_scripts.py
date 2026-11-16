@@ -117,3 +117,26 @@ def test_freigabe_braucht_root(daten: Path):
     ergebnis = starten(FREIGABE, daten, "--ja", MISSA_FREIGABE_OHNE_ROOT="")
     assert ergebnis.returncode == 1
     assert (daten / "notfall-stopp").exists()
+
+
+def test_notloesung_folgt_keiner_verknuepfung(daten: Path, tmp_path: Path):
+    """Ohne Python legt das Script die Sperrdatei selbst an – nie durch einen Link hindurch."""
+    daten.mkdir(parents=True)
+    fremd = tmp_path / "fremde-datei"
+    fremd.write_text("geheim\n", encoding="utf-8")
+    fremd.chmod(0o600)
+    (daten / "notfall-stopp").symlink_to(fremd)
+    ins_leere = tmp_path / "neu-angelegt"
+    ergebnis = starten(STOPP, daten, python="/gibt/es/nicht")
+    assert ergebnis.returncode == 0, ergebnis.stderr
+    # Die fremde Datei ist unverändert (Inhalt und Rechte), der Link ist ersetzt.
+    assert fremd.read_text(encoding="utf-8") == "geheim\n"
+    assert oct(fremd.stat().st_mode & 0o777) == "0o600"
+    assert not (daten / "notfall-stopp").is_symlink()
+    assert "ai01/script" in (daten / "notfall-stopp").read_text(encoding="utf-8")
+    assert not schreiben_geht(daten)
+    # Auch ein Link ins Leere legt nirgends sonst eine Datei an.
+    (daten / "notfall-stopp").unlink()
+    (daten / "notfall-stopp").symlink_to(ins_leere)
+    assert starten(STOPP, daten, python="/gibt/es/nicht").returncode == 0
+    assert not ins_leere.exists()
