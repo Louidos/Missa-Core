@@ -36,6 +36,8 @@ die Versionsnummern folgen [Semantic Versioning](https://semver.org/lang/de/).
   Zeilenumbruch wird jetzt ebenfalls abgelehnt (#86)
 - „Vergiss alles zu …“ mit Zeichen wie `%` oder `_` löscht nicht mehr versehentlich den
   ganzen Gesprächsverlauf, sondern nur Nachrichten, die den Text wirklich enthalten (#86)
+- Das Homelab-Inventar prüft die Antworten von Proxmox, bevor es damit weitere Abfragen
+  baut; ein kaputter Eintrag bricht nicht mehr das ganze Inventar ab (#86)
 
 ## 0.10.0 – 2026-11-16
 

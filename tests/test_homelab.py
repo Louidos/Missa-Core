@@ -110,6 +110,20 @@ def test_netze_und_agent():
     ) == ("10.0.1.5", "2001:db8::5")  # fmt: skip
 
 
+def test_inventar_prueft_proxmox_antworten(leser, proxmox):
+    proxmox.ressourcen += [
+        {"type": "qemu", "vmid": 120, "name": "boese", "node": "../../access/users?x=",
+         "status": "running"},
+        {"type": "qemu", "vmid": "keine-zahl", "name": "kaputt", "node": "pve-id01"},
+        {"type": "lxc", "vmid": None, "name": "leer", "node": "pve-id01"},
+    ]  # fmt: skip
+    namen = {e.name for e in asyncio.run(inventar_lesen(leser))}
+    # Unpassende Einträge werden übersprungen, der Rest kommt trotzdem.
+    assert {"wb01", "ai01", "rp01"} <= namen
+    assert not {"boese", "kaputt", "leer"} & namen
+    assert all("access" not in str(a.url) for a in proxmox.anfragen)
+
+
 def test_inventar_lesen(leser, proxmox):
     eintraege = {e.name: e for e in asyncio.run(inventar_lesen(leser))}
     assert set(eintraege) == {"wb01", "ai01", "rp01"}  # ohne Template und Host
