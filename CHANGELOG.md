@@ -43,6 +43,8 @@ die Versionsnummern folgen [Semantic Versioning](https://semver.org/lang/de/).
 - Beim Wiederherstellen eines Backups bekommt die Datenbank enge Dateirechte (nur der
   Dienst darf sie lesen), und es wird nie durch eine Verknüpfung an einen anderen Ort
   geschrieben (#86)
+- Die automatisch erzeugte RCON-Passwortdatei für Minecraft ist von Anfang an nur für den
+  Dienst lesbar (#86)
 
 ## 0.10.0 – 2026-11-16
 

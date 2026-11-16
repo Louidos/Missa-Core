@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+import os
 from dataclasses import dataclass
 from datetime import datetime
 from typing import TYPE_CHECKING, Any
@@ -793,8 +794,10 @@ def rcon_passwort(einstellungen: Einstellungen, erzeugen: bool = True) -> str:
 
         neu = secrets.token_urlsafe(18)
         datei.parent.mkdir(parents=True, exist_ok=True)
-        datei.write_text(neu + "\n", encoding="utf-8")
-        datei.chmod(0o600)
+        # Gleich mit 0600 anlegen – nie kurz für alle lesbar.
+        fd = os.open(datei, os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW, 0o600)
+        with os.fdopen(fd, "w", encoding="utf-8") as aus:
+            aus.write(neu + "\n")
         return neu
 
 

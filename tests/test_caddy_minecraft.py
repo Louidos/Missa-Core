@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import os
 import struct
 from datetime import datetime
 from pathlib import Path
@@ -464,3 +465,23 @@ def test_werkzeug_subdomains_anzeigen(caddy, tmp_path):
     anzeige = asyncio.run(kasten.ausfuehren("subdomains_anzeigen", {}))
     assert "- spiel.louis-degiorgi.ch → 10.0.70.120:8080" in anzeige
     assert protokoll.liste()[0].werkzeug == "subdomains_anzeigen"
+
+
+def test_rcon_passwort_datei_ist_von_anfang_an_privat(tmp_path, monkeypatch):
+    from missa.tools import rcon_passwort
+
+    modi: list[int] = []
+    echtes_open = os.open
+
+    def open_merken(pfad, flags, modus=0o777, *args, **kwargs):
+        if str(pfad).endswith("minecraft-rcon.txt"):
+            modi.append(modus)
+        return echtes_open(pfad, flags, modus, *args, **kwargs)
+
+    monkeypatch.setattr(os, "open", open_merken)
+    e = Einstellungen.aus_umgebung({"MISSA_API_KEY": "k", "MISSA_DATEN": str(tmp_path)})
+    passwort = rcon_passwort(e)
+    datei = tmp_path / "minecraft-rcon.txt"
+    assert datei.read_text(encoding="utf-8").strip() == passwort
+    assert modi == [0o600]
+    assert oct(datei.stat().st_mode & 0o777) == "0o600"
