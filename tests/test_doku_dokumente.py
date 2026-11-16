@@ -409,3 +409,16 @@ def test_dateien_pfad_zu_gross_oder_falsch(dokumente):
 
 def test_pfad(tmp_path: Path):
     assert tmp_path.exists()
+
+
+def test_werkzeug_dokumente_anzeigen(dokumente, web):
+    kasten = Werkzeugkasten(dokument_werkzeuge(dokumente))
+    assert "noch kein Dokument" in ausfuehren(kasten, "dokumente_anzeigen", {}, "Welche Dokumente?")
+    ausfuehren(
+        kasten,
+        "zusammenfassen",
+        {"url": "https://shop.example.ch/rail-kit"},
+        "Fass mir das zusammen: https://shop.example.ch/rail-kit",
+    )
+    liste = ausfuehren(kasten, "dokumente_anzeigen", {}, "Welche Dokumente?")
+    assert liste.startswith("Geladene Dokumente") and "Neues Rail-Kit" in liste

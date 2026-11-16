@@ -456,3 +456,11 @@ def test_werkzeuge_nur_mit_konfiguration(caddy, tmp_path):
     )
     for name in ("subdomain_vorschlagen", "subdomain_aktivieren", "minecraft_neustarten"):
         assert name in mit
+
+
+def test_werkzeug_subdomains_anzeigen(caddy, tmp_path):
+    asyncio.run(caddy.aktivieren("spiel", "10.0.70.120:8080"))
+    kasten, protokoll = kasten_mit(caddy_werkzeuge(caddy), tmp_path)
+    anzeige = asyncio.run(kasten.ausfuehren("subdomains_anzeigen", {}))
+    assert "- spiel.louis-degiorgi.ch → 10.0.70.120:8080" in anzeige
+    assert protokoll.liste()[0].werkzeug == "subdomains_anzeigen"

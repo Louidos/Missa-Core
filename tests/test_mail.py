@@ -7,6 +7,7 @@ gelesenen Mail oder des Entwurfs selbst.
 
 from __future__ import annotations
 
+import asyncio
 import email
 import email.policy
 import inspect
@@ -18,7 +19,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 from missa.core.app import create_app
-from missa.core.werkzeuge import WerkzeugFehler, Werkzeugkasten
+from missa.core.werkzeuge import Stufe, WerkzeugFehler, Werkzeugkasten
 from missa.tools.gedaechtnis import Gedaechtnis
 from missa.tools.mail import MailDienst, gedaechtnis_adressen, mail_werkzeuge, sende_absicht
 from missa.tools.mail_konto import MailFehler, MailKonto, MailKopf, _datum, text_aus_mail
@@ -761,3 +762,39 @@ def test_notfall_stopp_sperrt_das_senden(app_client, llama, konto):
     assert "NICHT gesendet: Der Notfall-Stopp ist aktiv" in llama.system(-1)
     gesperrt = app_client.get("/api/aktionen", params={"status": "gesperrt_notfall"}).json()
     assert [a["werkzeug"] for a in gesperrt["aktionen"]] == ["email_senden"]
+
+
+# ---------------------------------------------------------------------- Werkzeuge
+
+
+def mail_kasten(dienst) -> Werkzeugkasten:
+    return Werkzeugkasten(mail_werkzeuge(dienst))
+
+
+def test_werkzeug_email_adresse_suchen(dienst):
+    kasten = mail_kasten(dienst)
+    gefunden = asyncio.run(kasten.ausfuehren("email_adresse_suchen", {"name": "Chef"}))
+    assert "peter.muster@firma.ch" in gefunden
+    leer = asyncio.run(kasten.ausfuehren("email_adresse_suchen", {"name": "Nachbar"}))
+    assert "keine Adresse gefunden" in leer
+
+
+def test_werkzeug_schreibstil_anzeigen_und_lernen(dienst, konto):
+    kasten = mail_kasten(dienst)
+    for inhalt in GESENDET:
+        konto.ordner["Sent"].append(mail("louis@example.ch", "x@y.ch", "Betreff", inhalt))
+    gelernt = asyncio.run(kasten.ausfuehren("schreibstil_lernen", {"anzahl": 10}))
+    assert gelernt.startswith("Schreibstil neu gelernt")
+    profil = asyncio.run(kasten.ausfuehren("schreibstil_anzeigen", {}))
+    assert "Liebe Grüsse" in profil
+
+
+def test_werkzeug_email_entwurf_verwerfen_ist_zerstoererisch(dienst):
+    stufen = {w.name: w.stufe for w in mail_werkzeuge(dienst)}
+    assert stufen["email_entwurf_verwerfen"] is Stufe.ZERSTOERERISCH
+
+
+def test_werkzeug_emails_anzeigen(dienst, konto):
+    konto.ordner["INBOX"].append(mail("anna@schule.ch", "louis@example.ch", "Hallo", "Text 1"))
+    liste = asyncio.run(mail_kasten(dienst).ausfuehren("emails_anzeigen", {}))
+    assert "[INBOX:1]" in liste
