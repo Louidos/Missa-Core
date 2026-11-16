@@ -18,6 +18,10 @@ die Versionsnummern folgen [Semantic Versioning](https://semver.org/lang/de/).
   werden abgelehnt (#86)
 - Missa startet nicht mehr mit dem Beispielschlüssel `bitte-aendern` aus der
   Beispiel-Konfiguration; ein sehr kurzer Schlüssel erzeugt eine Warnung im Log (#86)
+- Die Anmeldung an der API wird geprüft, bevor eine Anfrage gelesen wird; sehr grosse
+  Anfragen (über 20 MB) werden abgelehnt, wiederholte falsche Schlüssel sperren die Adresse
+  für 15 Minuten, und die öffentliche API-Beschreibung (`/docs`) ist abgeschaltet (#86)
+- `/health` zeigt ohne Anmeldung keine Fehlertexte von Missa Control mehr (#86)
 
 ## 0.10.0 – 2026-11-16
 

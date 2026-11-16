@@ -31,6 +31,7 @@ from missa.core.chat import (
 from missa.core.config import Einstellungen
 from missa.core.hintergrund import Hintergrund
 from missa.core.llama import LlamaClient, LlamaFehler
+from missa.core.schutz import Schutz
 from missa.core.verlauf import Verlauf
 from missa.core.werkzeuge import Werkzeugkasten
 from missa.core.zeitplaner import Zeitplaner
@@ -66,6 +67,15 @@ HTTP_CODES = {
     404: "nicht_gefunden",
     405: "methode_nicht_erlaubt",
 }
+
+
+def _angemeldet(kopf: str, api_key: str) -> bool:
+    art, _, token = kopf.partition(" ")
+    return (
+        bool(api_key)
+        and art.lower() == "bearer"
+        and secrets.compare_digest(token.strip().encode(), api_key.encode())
+    )
 
 
 def _fehler(
@@ -484,7 +494,15 @@ def create_app(
         version=__version__,
         description="OpenAI-kompatible API von Missa",
         lifespan=lebenszyklus,
+        # Keine öffentliche API-Beschreibung: /docs, /redoc und /openapi.json gibt es nicht.
+        docs_url=None,
+        redoc_url=None,
+        openapi_url=None,
     )
+    from missa.channels.nextcloud_talk import WEBHOOK_PFAD
+
+    # Anmeldung, Grössengrenze und Sperre nach Fehlversuchen, bevor ein Body gelesen wird.
+    app.add_middleware(Schutz, api_key=einstellungen.api_key, offen=("/health", WEBHOOK_PFAD))
     app.state.einstellungen = einstellungen
     app.state.dienst = dienst
     app.state.gedaechtnis = gedaechtnis
@@ -569,8 +587,11 @@ def create_app(
     # -------------------------------------------------------------- Endpunkte
 
     @app.get("/health", tags=["Betrieb"])
-    async def health() -> JSONResponse:
-        """Ohne Anmeldung. 200, wenn llama-server antwortet, sonst 503."""
+    async def health(request: Request) -> JSONResponse:
+        """Ohne Anmeldung. 200, wenn llama-server antwortet, sonst 503.
+
+        Fehlertexte von Missa Control (können Adressen enthalten) gibt es nur mit Anmeldung.
+        """
         llama_ok = await llama.gesund()
         charakter_ok = einstellungen.charakter_datei.is_file()
         inhalt: dict[str, Any] = {
@@ -586,6 +607,10 @@ def create_app(
                 **panel.status(),
                 "ereignisse": panel_ereignisse.status() if panel_ereignisse else "aus",
             }
+            if inhalt["missa_control"].get("fehler") and not _angemeldet(
+                request.headers.get("authorization", ""), einstellungen.api_key
+            ):
+                inhalt["missa_control"]["fehler"] = "Fehler (Details nur mit Anmeldung)"
         return JSONResponse(status_code=200 if llama_ok else 503, content=inhalt)
 
     def modell_info() -> dict[str, Any]:
