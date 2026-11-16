@@ -333,3 +333,18 @@ def test_nachricht_mit_teilen(client, llama: FakeLlama):
     assert gespeichert[0]["content"] == "Was siehst du?\n[image_url]"
     # An llama-server geht der Inhalt unverändert.
     assert llama.anfragen[0]["messages"][-1]["content"] == inhalt
+
+
+def test_werkzeug_argumente_im_log_sind_geschwaerzt(client, llama: FakeLlama, caplog):
+    llama.antworten = [
+        werkzeug_aufruf("wetter", {"ort": "Bern", "passwort": "hunter2-ganz-geheim"}),
+        text("Sonnig."),
+    ]
+    with caplog.at_level("INFO", logger="missa.core.chat"):
+        client.post(
+            "/v1/chat/completions",
+            json={"model": "missa", "messages": [{"role": "user", "content": "Wetter?"}]},
+        )
+    assert "Werkzeug-Aufruf: wetter(" in caplog.text
+    assert "hunter2-ganz-geheim" not in caplog.text
+    assert '"passwort": "***"' in caplog.text
