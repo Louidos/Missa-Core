@@ -38,6 +38,8 @@ die Versionsnummern folgen [Semantic Versioning](https://semver.org/lang/de/).
   ganzen Gesprächsverlauf, sondern nur Nachrichten, die den Text wirklich enthalten (#86)
 - Das Homelab-Inventar prüft die Antworten von Proxmox, bevor es damit weitere Abfragen
   baut; ein kaputter Eintrag bricht nicht mehr das ganze Inventar ab (#86)
+- Der Notfall-Stopp hält jetzt auch eine VM-Erstellung an, die schon läuft – vor dem
+  nächsten Schritt statt erst am Ende (#86)
 
 ## 0.10.0 – 2026-11-16
 

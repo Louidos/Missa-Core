@@ -547,10 +547,21 @@ class VmVerwaltung:
                 kanal="hintergrund",
                 account="missa",
             )
+        if status == "ausgefuehrt" and schritt != "fertig":
+            self._notfall_pruefen()
+
+    def _notfall_pruefen(self) -> None:
+        """Notfall-Stopp hält auch eine laufende VM-Erstellung vor dem nächsten Schritt an."""
+        if self.rechte is not None and self.rechte.notfall_aktiv():
+            raise WerkzeugFehler(
+                "Notfall-Stopp ist aktiv – die VM-Erstellung wurde vor dem nächsten Schritt "
+                "angehalten."
+            )
 
     async def _ablauf(self, auftrag: int, plan: VmPlan) -> None:
         schritt = "start"
         try:
+            self._notfall_pruefen()
             netz = self.netze[plan.vlan]
             schritt = "vm-id"
             vmid = await self.proxmox.freie_vmid()
