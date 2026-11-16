@@ -47,6 +47,13 @@ die Versionsnummern folgen [Semantic Versioning](https://semver.org/lang/de/).
   geschrieben (#86)
 - Die automatisch erzeugte RCON-Passwortdatei für Minecraft ist von Anfang an nur für den
   Dienst lesbar (#86)
+- Missa kann eine Rückfrage (z. B. eine Einladung an andere Personen) nicht mehr selbst
+  bestätigen; es zählt nur dein Ja in deiner eigenen Nachricht (#90)
+- Ein „Ja“ gilt nur noch in derselben Unterhaltung, direkt nach der Rückfrage und für genau
+  eine Aktion – ein „Ok“ in einem anderen Chat oder Stunden später gibt nichts mehr frei (#90)
+- Text aus Mails, Dateien, Notizen, Logs, Webseiten oder Missa Control kann Missa nicht
+  mehr zu Änderungen verleiten: Solcher Inhalt ist im Gespräch klar als fremde Daten
+  markiert, und danach fragt Missa vor jeder schreibenden Aktion nach deinem Ja (#90)
 
 ## 0.10.0 – 2026-11-16
 

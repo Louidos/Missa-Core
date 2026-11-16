@@ -338,7 +338,11 @@ def test_anweisung_im_mailtext_sendet_nicht(app_client, llama, konto):
     frage(app_client, "Lies mir die neue Mail vor")
     assert konto.gesendet == []
     tool_antwort = next(m for m in llama.anfragen[-1]["messages"] if m["role"] == "tool")
-    assert tool_antwort["content"].startswith("INHALT EINER EMPFANGENEN MAIL")
+    # Fremder Inhalt ist doppelt gekennzeichnet: Markierung der Rechte-Schicht und Hinweis
+    # des Mail-Werkzeugs.
+    assert tool_antwort["content"].startswith("<<<FREMDE_DATEN ")
+    assert "\nINHALT EINER EMPFANGENEN MAIL" in tool_antwort["content"]
+    assert "<<<ENDE_FREMDE_DATEN " in tool_antwort["content"]
 
 
 def test_anweisung_im_entwurf_selbst_sendet_nicht(app_client, llama, konto):
