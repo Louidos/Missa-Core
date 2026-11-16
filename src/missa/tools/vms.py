@@ -431,7 +431,7 @@ class VmVerwaltung:
         namen, ips = await self._belegt()
         if name:
             name = str(name).strip().casefold()
-            if not NAME.match(name):
+            if not NAME.fullmatch(name):
                 raise WerkzeugFehler("Der Name darf nur a–z, 0–9 und - enthalten (z. B. mc01).")
             if name in namen:
                 raise WerkzeugFehler(f"Den Namen „{name}“ gibt es schon.")

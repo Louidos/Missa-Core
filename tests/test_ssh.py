@@ -670,3 +670,19 @@ def test_caddy_programme_bestehen_shellcheck(caddy_befehl, caddy_wrapper):
         check=False,
     )
     assert ergebnis.returncode == 0, ergebnis.stdout
+
+
+@pytest.mark.parametrize("wert", ["unit=x\n", "missa\nrm -rf /", "a;b", "a b", "x\r", "$(id)"])
+def test_angaben_mit_zeilenumbruch_oder_sonderzeichen_werden_abgelehnt(wert):
+    from missa.integrationen.ssh import angabe_pruefen
+
+    with pytest.raises(SshFehler):
+        angabe_pruefen(wert)
+
+
+@pytest.mark.parametrize("name", ["a\nb", "web;id", "-x", "a b"])
+def test_container_namen_mit_sonderzeichen_werden_abgelehnt(name):
+    from missa.integrationen.ssh import container_name_pruefen
+
+    with pytest.raises(SshFehler):
+        container_name_pruefen(name)

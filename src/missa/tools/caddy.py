@@ -34,7 +34,7 @@ DnsAbfrage = Callable[[str, str], Awaitable[list[str]]]
 
 def name_pruefen(name: object) -> str:
     text = str(name or "").strip().casefold()
-    if not NAME.match(text):
+    if not NAME.fullmatch(text):
         raise WerkzeugFehler(
             f"„{name}“ geht nicht als Subdomain: nur a–z, 0–9 und -, z. B. „spiel“ oder „mc“."
         )
@@ -44,7 +44,7 @@ def name_pruefen(name: object) -> str:
 def ziel_pruefen(ziel: object) -> str:
     """``10.0.70.120:8080`` oder ``http://mc01:8080`` – Host und Port sind Pflicht."""
     text = str(ziel or "").strip()
-    treffer = ZIEL.match(text)
+    treffer = ZIEL.fullmatch(text)
     if not treffer or not 0 < int(treffer.group(3)) < 65536:
         raise WerkzeugFehler(
             f"„{ziel}“ ist kein Ziel, das ich verstehe – bitte Host und Port, "

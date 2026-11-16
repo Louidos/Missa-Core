@@ -32,6 +32,8 @@ die Versionsnummern folgen [Semantic Versioning](https://semver.org/lang/de/).
   Dienst-Log (journalctl), sondern geschwärzt wie im Aktionsprotokoll (#86)
 - Empfänger mit Zeilenumbrüchen oder anderen Steuerzeichen werden abgelehnt, statt einen
   irreführend angezeigten Entwurf anzulegen, der danach still nicht gesendet wird (#86)
+- Angaben für Befehle auf anderen Hosts (SSH) werden strenger geprüft; ein angehängter
+  Zeilenumbruch wird jetzt ebenfalls abgelehnt (#86)
 
 ## 0.10.0 – 2026-11-16
 
