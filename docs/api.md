@@ -83,6 +83,10 @@ curl $MISSA/health
 Bei Störung: `"status": "gestoert"`, `"llama": "nicht erreichbar"`. `"charakter": "fehlt"`
 heißt, die Charakterdatei ist nicht lesbar (Missa antwortet dann mit einem Ersatztext).
 
+Ist Missa Control angebunden ([missa-control.md](missa-control.md)), kommt zusätzlich
+`"missa_control": {"verbunden": true, "funktionen": 12, "letzte_aktualisierung": "…", "fehler": null}`
+dazu. Ein ausgefallenes Panel macht `/health` nicht zu 503 – Missa arbeitet ohne es weiter.
+
 ### `GET /v1/models` – verfügbare Modelle
 
 ```bash

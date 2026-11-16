@@ -209,12 +209,20 @@ und das App-Passwort lässt sich jederzeit einzeln widerrufen.
 | `MAIL_ORDNER_ENTWUERFE` | `Drafts` | nein | IMAP-Ordner für Entwürfe (so wie er auf dem Server heißt). |
 | `MAIL_ORDNER_GESENDET` | `Sent` | nein | IMAP-Ordner für gesendete Mails (Quelle für das Stilprofil). |
 | `MAIL_STIL_DATEI` | `MISSA_DATEN/schreibstil.md` | nein | Bearbeitbare Datei mit deinem Schreibstil-Profil. |
+| `MISSA_CONTROL_URL` | – | für Missa Control | Adresse des Panels Missa Control, z. B. `http://127.0.0.1:8090`. Leer = aus. |
+| `MISSA_CONTROL_TOKEN` | – | für Missa Control | Client-Token aus dem Panel (**Clients**). Alternativ `MISSA_CONTROL_TOKEN_FILE` mit einer Datei, in der nur der Token steht. |
+| `MISSA_CONTROL_AKTUALISIEREN` | `60` | nein | Alle so viele Sekunden die Funktionsliste des Panels neu holen. |
+| `MISSA_CONTROL_ZEITLIMIT` | `330` | nein | Höchstdauer eines Aufrufs in Sekunden (Freigaben im Panel dauern bis zu 5 Minuten). |
+| `MISSA_CONTROL_MAX_WERKZEUGE` | `40` | nein | Höchstens so viele Panel-Funktionen laden. |
+| `MISSA_CONTROL_AUSLASSEN` | – | nein | Namens-Vorsilben, die nicht geladen werden, z. B. `kalender_,gedaechtnis_`. |
+| `MISSA_CONTROL_IM_HINTERGRUND` | `nur_lesen` | nein | `alles` erlaubt Routinen und Nachtschicht auch schreibende Panel-Funktionen. |
 
 Fehlen `NEXTCLOUD_URL`, `NEXTCLOUD_USER` oder `NEXTCLOUD_APP_PASSWORD`, bietet Missa
 keine Kalender- und Aufgaben-Werkzeuge an. Das Gedächtnis ist immer da. Nextcloud Talk ist
 nur an, wenn `NC_TALK_ENABLED=true` und Adresse und Secret gesetzt sind – Einrichtung:
 [nextcloud-talk.md](nextcloud-talk.md). E-Mail ist nur an, wenn `MAIL_IMAP_HOST`, `MAIL_SMTP_HOST`,
-`MAIL_USER` und `MAIL_PASSWORD` gesetzt sind – siehe [email.md](email.md).
+`MAIL_USER` und `MAIL_PASSWORD` gesetzt sind – siehe [email.md](email.md). Missa Control ist nur
+an, wenn `MISSA_CONTROL_URL` und ein Token gesetzt sind – siehe [missa-control.md](missa-control.md).
 
 Beim Start von Hand (ohne systemd) liest `missa-core` die Datei `/etc/missa/missa.env`
 selbst; ein anderer Ort geht mit `MISSA_ENV_DATEI=/pfad/zur/datei`. Schon gesetzte

@@ -85,6 +85,8 @@ class Werkzeugkasten:
         #: Die zentrale Rechte-Schicht: Stufen, Bestätigung, Protokoll, Notfall-Stopp.
         self.rechte: Rechte = rechte if rechte is not None else Rechte()
         self._werkzeuge: dict[str, Werkzeug] = {}
+        #: Austauschbare Gruppen (z. B. die Funktionen aus Missa Control): Name → Werkzeugnamen.
+        self._gruppen: dict[str, tuple[str, ...]] = {}
         for werkzeug in werkzeuge:
             self.hinzufuegen(werkzeug)
 
@@ -96,7 +98,40 @@ class Werkzeugkasten:
             )
         if werkzeug.name in self._werkzeuge:
             raise ValueError(f"Werkzeug {werkzeug.name} ist schon vorhanden")
-        self._werkzeuge[werkzeug.name] = werkzeug
+        self._werkzeuge = {**self._werkzeuge, werkzeug.name: werkzeug}
+
+    def gruppe(self, gruppe: str) -> tuple[str, ...]:
+        """Namen der Werkzeuge, die gerade zur Gruppe ``gruppe`` gehören."""
+        return self._gruppen.get(gruppe, ())
+
+    def ist_eingebaut(self, name: str) -> bool:
+        """``True``, wenn ``name`` ein fest eingebautes Werkzeug ist (keiner Gruppe zugehörig)."""
+        return name in self._werkzeuge and not any(
+            name in namen for namen in self._gruppen.values()
+        )
+
+    def gruppe_ersetzen(self, gruppe: str, werkzeuge: Iterable[Werkzeug]) -> list[str]:
+        """Tauscht alle Werkzeuge der Gruppe ``gruppe`` auf einmal aus.
+
+        Eingebaute Werkzeuge und andere Gruppen bleiben unberührt. Ein Werkzeug, dessen
+        Name schon außerhalb dieser Gruppe vergeben ist, wird ausgelassen – das vorhandene
+        gewinnt. Gibt die Namen der ausgelassenen Werkzeuge zurück.
+        """
+        alt = set(self._gruppen.get(gruppe, ()))
+        behalten = {n: w for n, w in self._werkzeuge.items() if n not in alt}
+        neu: dict[str, Werkzeug] = {}
+        ausgelassen: list[str] = []
+        for werkzeug in werkzeuge:
+            if not isinstance(werkzeug.stufe, Stufe):
+                raise ValueError(f"Werkzeug {werkzeug.name} hat keine Stufe")
+            if werkzeug.name in behalten or werkzeug.name in neu:
+                ausgelassen.append(werkzeug.name)
+                continue
+            neu[werkzeug.name] = werkzeug
+        # In einem Schritt austauschen, damit niemand einen halben Stand sieht.
+        self._werkzeuge = {**behalten, **neu}
+        self._gruppen[gruppe] = tuple(neu)
+        return ausgelassen
 
     def get(self, name: str) -> Werkzeug | None:
         return self._werkzeuge.get(name)

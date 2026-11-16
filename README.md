@@ -82,6 +82,9 @@ Talk nutzen dieselbe Logik.
   offene Pull Requests zusammenfassen, alte Branches wöchentlich melden; GitHub nur
   lesend (fehlgeschlagene Builds, neue Releases und Issues); Claude-Code-Prompts aus
   groben Ideen nach Vorlage, als Issue erst nach Ja (siehe docs/git-github-prompts.md)
+- Fertig: Anbindung an Missa Control – mit `MISSA_CONTROL_URL` und `MISSA_CONTROL_TOKEN`
+  nutzt Missa alle Funktionen, die im Panel eingerichtet sind; neue erscheinen ohne Neustart,
+  Freigaben entscheidet das Panel (siehe docs/missa-control.md)
 - Später als eigene Aufträge: Telefon, Push, Smart Home
 - Änderungen im Detail: [CHANGELOG.md](CHANGELOG.md)
 
@@ -118,6 +121,8 @@ Talk nutzen dieselbe Logik.
   per Gespräch, Hinweise auf Auffälliges, Erreichbarkeit, nur lesendes Proxmox-Token
 - **[docs/monitoring.md](docs/monitoring.md)** – Schnittstelle und JSON-Formate der
   Monitoring-Quellen
+- **[docs/missa-control.md](docs/missa-control.md)** – Funktionen aus dem Panel Missa Control:
+  Einrichtung in zwei Zeilen, Einstellungen, Freigaben, Ausfall
 - **[docs/netzfreigaben.md](docs/netzfreigaben.md)** – welche Verbindungen ai01 braucht
 - **[docs/container-logs-logins.md](docs/container-logs-logins.md)** – Container, Fehlersuche
   in Logs, Login-Überwachung und der Benutzer `missa` auf den Hosts
