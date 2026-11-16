@@ -58,8 +58,12 @@ PROPFIND = """<?xml version="1.0"?>
 </d:prop></d:propfind>"""
 
 
+def _xml_text(text: str) -> str:
+    return text.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
+
+
 def _such_xml(scope: str, wort: str) -> str:
-    wort = wort.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
+    wort = _xml_text(wort)
     return f"""<?xml version="1.0" encoding="UTF-8"?>
 <d:searchrequest xmlns:d="DAV:" xmlns:oc="http://owncloud.org/ns">
  <d:basicsearch>
@@ -103,7 +107,14 @@ class Dateien:
     # -------------------------------------------------------------- Pfade
 
     def _url(self, pfad: str) -> str:
-        return self.basis + self.wurzel_pfad + quote(pfad.strip("/"))
+        """URL eines Pfads im eigenen Speicher – nie eine fremde Adresse, nie ``..``."""
+        roh = str(pfad).replace("\\", "/")
+        if "\x00" in roh or "://" in roh:
+            raise WerkzeugFehler(f"„{pfad}“ ist kein gültiger Pfad in Nextcloud.")
+        teile = [t for t in roh.split("/") if t not in ("", ".")]
+        if ".." in teile:
+            raise WerkzeugFehler(f"„{pfad}“ ist kein gültiger Pfad in Nextcloud („..“).")
+        return self.basis + self.wurzel_pfad + quote("/".join(teile))
 
     def _relativ(self, href: str) -> str:
         pfad = unquote(httpx.URL(href).path if "://" in href else href)
@@ -137,8 +148,17 @@ class Dateien:
 
     # -------------------------------------------------------------- HTTP
 
-    def _anfrage(self, methode: str, pfad_oder_url: str, **weiter: Any) -> httpx.Response:
-        url = pfad_oder_url if pfad_oder_url.startswith("http") else self._url(pfad_oder_url)
+    def _anfrage(
+        self, methode: str, pfad: str, *, url: str | None = None, **weiter: Any
+    ) -> httpx.Response:
+        """Anfrage an die eigene Nextcloud.
+
+        ``pfad`` ist immer ein Pfad im eigenen Speicher; eine vollständige Adresse wird nie
+        aus Eingaben übernommen, damit die Anmeldedaten nur an die eigene Nextcloud gehen.
+        """
+        url = self._url(pfad) if url is None else url
+        if not url.startswith(self.basis + "/remote.php/dav/"):
+            raise WerkzeugFehler("Anfragen gehen nur an die eigene Nextcloud.")
         try:
             antwort = self._client.request(methode, url, **weiter)
         except httpx.HTTPError as fehler:
@@ -188,12 +208,16 @@ class Dateien:
         if not woerter:
             raise WerkzeugFehler("Wonach soll ich suchen? (Teil eines Datei- oder Ordnernamens)")
         bereich = str(ordner or "").strip("/")
-        scope = f"/files/{self.benutzer}" + (f"/{bereich}" if bereich else "")
+        if bereich:
+            # Gleiche Prüfung wie bei allen Pfaden (kein ``..``, keine Adresse).
+            self._url(bereich)
+        scope = _xml_text(f"/files/{self.benutzer}" + (f"/{bereich}" if bereich else ""))
         gefunden: dict[str, dict[str, Any]] = {}
         for wort in woerter:
             antwort = self._anfrage(
                 "SEARCH",
-                f"{self.basis}/remote.php/dav/",
+                "",
+                url=f"{self.basis}/remote.php/dav/",
                 content=_such_xml(scope, wort).encode("utf-8"),
                 headers={"Content-Type": "text/xml; charset=utf-8"},
             )

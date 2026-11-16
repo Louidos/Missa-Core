@@ -12,6 +12,11 @@ die Versionsnummern folgen [Semantic Versioning](https://semver.org/lang/de/).
 - Die automatische Prüfung sucht jetzt zusätzlich nach bekannten Lücken in Abhängigkeiten
   und nach versehentlich eingecheckten Passwörtern (#84)
 
+### Behoben
+
+- Missa ruft Dateien nur noch aus deiner eigenen Nextcloud ab; Pfade, die woandershin zeigen,
+  werden abgelehnt (#86)
+
 ## 0.10.0 – 2026-11-16
 
 ### Hinzugefügt
