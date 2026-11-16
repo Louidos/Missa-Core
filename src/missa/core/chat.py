@@ -17,7 +17,7 @@ from missa.core.llama import ANFRAGE_ZU_GROSS, LlamaClient, LlamaFehler, unerwar
 from missa.core.prompt import charakter_lesen, systemprompt_bauen
 from missa.core.rechte import schwaerzen, sitzungs_schluessel
 from missa.core.verlauf import Verlauf
-from missa.core.werkzeuge import Werkzeugkasten
+from missa.core.werkzeuge import Werkzeugkasten, fremd_markieren
 
 log = logging.getLogger(__name__)
 
@@ -377,7 +377,9 @@ class ChatDienst:
                     "role": "tool",
                     "tool_call_id": aufruf.get("id") or f"aufruf-{nummer}",
                     "name": name,
-                    "content": ergebnis,
+                    "content": fremd_markieren(name, ergebnis)
+                    if self.werkzeuge.ist_fremd(name)
+                    else ergebnis,
                 }
             )
 
