@@ -334,12 +334,21 @@ class Gedaechtnis:
     def vergessen_thema(self, thema: str, nur_zaehlen: bool = False) -> tuple[list[Fakt], int]:
         """Löscht alle Fakten und Gesprächsnachrichten zu ``thema`` (oder zählt sie nur)."""
         fakten = [f for f in self.suchen(thema, 50) if _passt(thema, f.text)]
-        muster = f"%{' '.join(str(thema).split()).lower()}%"
+        # % und _ im Thema sind normale Zeichen, keine Platzhalter (sonst trifft „%“ alles).
+        roh = " ".join(str(thema).split()).lower()
+        such = roh.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
+        muster = f"%{such}%"
         with verbinden(self.datei) as db:
             try:
-                anzahl = db.execute(
-                    "SELECT COUNT(*) AS n FROM nachrichten WHERE lower(inhalt) LIKE ?", (muster,)
-                ).fetchone()["n"]
+                anzahl = (
+                    db.execute(
+                        "SELECT COUNT(*) AS n FROM nachrichten "
+                        "WHERE lower(inhalt) LIKE ? ESCAPE '\\'",
+                        (muster,),
+                    ).fetchone()["n"]
+                    if len(roh) >= 2
+                    else 0
+                )
             except sqlite3.OperationalError:
                 anzahl = 0
             if nur_zaehlen:
@@ -348,7 +357,9 @@ class Gedaechtnis:
             for fakt in fakten:
                 db.execute("DELETE FROM fakten WHERE id = ?", (fakt.id,))
             if anzahl:
-                db.execute("DELETE FROM nachrichten WHERE lower(inhalt) LIKE ?", (muster,))
+                db.execute(
+                    "DELETE FROM nachrichten WHERE lower(inhalt) LIKE ? ESCAPE '\\'", (muster,)
+                )
         log.info("Thema vergessen: %d Fakt(en), %d Nachricht(en)", len(fakten), anzahl)
         return fakten, int(anzahl)
 

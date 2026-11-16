@@ -34,6 +34,8 @@ die Versionsnummern folgen [Semantic Versioning](https://semver.org/lang/de/).
   irreführend angezeigten Entwurf anzulegen, der danach still nicht gesendet wird (#86)
 - Angaben für Befehle auf anderen Hosts (SSH) werden strenger geprüft; ein angehängter
   Zeilenumbruch wird jetzt ebenfalls abgelehnt (#86)
+- „Vergiss alles zu …“ mit Zeichen wie `%` oder `_` löscht nicht mehr versehentlich den
+  ganzen Gesprächsverlauf, sondern nur Nachrichten, die den Text wirklich enthalten (#86)
 
 ## 0.10.0 – 2026-11-16
 
