@@ -31,6 +31,7 @@ missa-core = "missa.core.__main__:main"
 dev = [
     "pytest>=8",
     "ruff>=0.6",
+    "pip-audit>=2.7",
 ]
 # Für das Einrichten neuer VMs per Playbook (auf ai01): pip install ".[vms]"
 vms = [
