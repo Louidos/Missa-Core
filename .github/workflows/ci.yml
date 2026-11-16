@@ -67,6 +67,8 @@ jobs:
           tar -xzf "$RUNNER_TEMP/$archiv" -C "$RUNNER_TEMP" gitleaks
 
       - name: Ganze Historie durchsuchen
-        # --redact: gefundene Werte erscheinen nie im Log.
+        # Ganze Historie des geprüften Stands und alle Tags – nicht die anderer Branches,
+        # damit ein PR nie an fremden, noch offenen Branches scheitert.
+        # --redact: gefundene Werte erscheinen nie im Log; -v nennt Datei, Zeile und Commit.
         run: |
-          "$RUNNER_TEMP/gitleaks" git --log-opts="--all" --redact --no-banner --exit-code 1 .
+          "$RUNNER_TEMP/gitleaks" git --log-opts="HEAD --tags" --redact -v --no-banner --exit-code 1 .

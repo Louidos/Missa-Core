@@ -200,7 +200,7 @@ scripts/pruefen.sh
 ```
 
 Das Skript führt `ruff check`, `ruff format --check`, `shellcheck`, `pip-audit` (bekannte Lücken
-in Abhängigkeiten), `gitleaks` (versehentlich eingecheckte Geheimnisse, ganze Historie) und
+in Abhängigkeiten), `gitleaks` (versehentlich eingecheckte Geheimnisse, ganze Historie des Stands und alle Tags) und
 `pytest` aus – genau wie die CI. Fehlt `shellcheck` oder `gitleaks` lokal, gibt es nur einen
 Hinweis; die CI prüft trotzdem. Ausnahmen für erfundene Platzhalter stehen in `.gitleaks.toml`.
 
