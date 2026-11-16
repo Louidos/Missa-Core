@@ -7,6 +7,8 @@ die Versionsnummern folgen [Semantic Versioning](https://semver.org/lang/de/).
 
 ## Unveröffentlicht
 
+## 0.10.1 – 2026-11-16
+
 ### Hinzugefügt
 
 - Sicherheitsbericht (docs/sicherheit.md) und Hinweise zum Melden von Lücken
