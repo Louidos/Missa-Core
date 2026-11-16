@@ -136,6 +136,9 @@ Talk nutzen dieselbe Logik.
   Firewall-Logs
 - **[docs/updates-zertifikate.md](docs/updates-zertifikate.md)** – Updates, Wartungsfenster,
   Zertifikate, Domains und DNS
+- **[docs/sicherheit.md](docs/sicherheit.md)** – Sicherheitsprüfung, Schutzmassnahmen und
+  was du nach einem Update selbst tun musst; Lücken vertraulich melden:
+  [.github/SECURITY.md](.github/SECURITY.md)
 
 ## Installation
 

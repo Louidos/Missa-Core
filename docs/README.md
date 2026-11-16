@@ -26,4 +26,5 @@
 - [gedaechtnis.md](gedaechtnis.md) – Langzeitgedächtnis, Lernen aus Korrekturen, Vergessen
 - [sicherung.md](sicherung.md) – tägliches Backup und Wiederherstellen auf ai01
 - [doku-wissen.md](doku-wissen.md) – Fragen zur eigenen Doku mit Quelle, Zusammenfassungen von PDFs, Mails und Webseiten
+- [sicherheit.md](sicherheit.md) – Sicherheitsprüfung: was geprüft wurde, behobene Lücken, Schutzmassnahmen, was du selbst tun musst ([Lücken melden](../.github/SECURITY.md))
 - [stand.md](stand.md) – Stand aller Funktionen gegen die Soll-Liste (Bestandsaufnahme)

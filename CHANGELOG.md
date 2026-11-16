@@ -7,6 +7,11 @@ die Versionsnummern folgen [Semantic Versioning](https://semver.org/lang/de/).
 
 ## Unveröffentlicht
 
+### Hinzugefügt
+
+- Sicherheitsbericht (docs/sicherheit.md) und Hinweise zum Melden von Lücken
+  (.github/SECURITY.md); Doku auf den aktuellen Stand gebracht (#99)
+
 ### Geändert
 
 - Die automatische Prüfung sucht jetzt zusätzlich nach bekannten Lücken in Abhängigkeiten

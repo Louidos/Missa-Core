@@ -37,6 +37,9 @@ GIT_SERVER_URL=https://git.louis-degiorgi.ch
 GIT_SERVER_TOKEN=…
 ```
 
+Hat der Git-Server ein Zertifikat einer eigenen CA, zeigt `GIT_SERVER_CA_DATEI` auf die
+CA-Datei (die Zertifikatsprüfung bleibt immer an).
+
 ## GitHub (nur lesend)
 
 Alle `GITHUB_INTERVALL_MINUTEN` (Standard 30) schaut Missa in die eigenen Repos des Kontos
@@ -72,6 +75,8 @@ GITHUB_KONTO=Louidos
 # Optional, sonst alle eigenen Repos, die das Token lesen darf:
 GITHUB_REPOS=Louidos/Missa-Core
 ```
+
+Nur für GitHub Enterprise: `GITHUB_API_URL` (Standard `https://api.github.com`).
 
 ## Claude-Code-Prompts aus groben Ideen
 
