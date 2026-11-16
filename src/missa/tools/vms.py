@@ -563,6 +563,15 @@ class VmVerwaltung:
         if status == "ausgefuehrt" and schritt != "fertig":
             self._notfall_pruefen()
 
+    async def _homelab_aktualisieren(self) -> None:
+        """Inventar neu einlesen – ein Fehler dabei ändert am Ergebnis nichts, steht aber im Log."""
+        if self.homelab is None:
+            return
+        try:
+            await self.homelab.scannen()
+        except Exception:
+            log.warning("Homelab-Inventar konnte nicht aktualisiert werden", exc_info=True)
+
     def _notfall_pruefen(self) -> None:
         """Notfall-Stopp hält auch eine laufende VM-Erstellung vor dem nächsten Schritt an."""
         if self.rechte is not None and self.rechte.notfall_aktiv():
@@ -631,9 +640,7 @@ class VmVerwaltung:
             schritt = "fertig"
             self._setzen(auftrag, status="fertig", schritt=schritt)
             self._schritt(auftrag, plan, schritt, f"{plan.name} läuft auf {plan.ip}")
-            if self.homelab is not None:
-                with contextlib.suppress(Exception):
-                    await self.homelab.scannen()
+            await self._homelab_aktualisieren()
             text = (
                 f"{plan.beschreibung} läuft auf {plan.name} "
                 f"({plan.ip}, VLAN {plan.vlan}, VM {vmid})."
@@ -749,9 +756,7 @@ class VmVerwaltung:
             db.execute(
                 "UPDATE vm_auftraege SET status = 'geloescht' WHERE vmid = ?", (int(vm["vmid"]),)
             )
-        if self.homelab is not None:
-            with contextlib.suppress(Exception):
-                await self.homelab.scannen()
+        await self._homelab_aktualisieren()
         return f"{vm.get('name')} ist gelöscht."
 
 
