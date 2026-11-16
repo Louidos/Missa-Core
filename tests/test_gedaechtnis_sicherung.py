@@ -482,3 +482,32 @@ def test_script_wiederherstellen(installation):
         check=False,
     )
     assert abbruch.returncode == 1
+
+
+@pytest.mark.skipif(os.geteuid() != 0, reason="nur als root: prüft chown im Script")
+def test_script_wiederherstellen_aendert_keine_verlinkten_dateien(installation, tmp_path):
+    import pwd
+
+    datei = sicherung_fuer(installation).erstellen()
+    fremd = tmp_path / "fremd-root.txt"
+    fremd.write_text("root\n", encoding="utf-8")
+    installation["db"].parent.joinpath("link-nach-aussen").symlink_to(fremd)
+    benutzer = pwd.getpwnam("daemon")  # Benutzer und Gruppe gleichen Namens
+    umgebung = {
+        **os.environ,
+        **_umgebung(installation),
+        "MISSA_PYTHON": sys.executable,
+        "MISSA_BENUTZER": "daemon",
+        "MISSA_DATEN": str(installation["db"].parent),
+        "MISSA_WIEDERHERSTELLEN_OHNE_ROOT": "1",
+    }
+    lauf = subprocess.run(
+        ["bash", str(REPO / "scripts" / "wiederherstellen.sh"), str(datei), "--ja"],
+        env=umgebung,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    assert lauf.returncode == 0, lauf.stderr
+    assert installation["db"].stat().st_uid == benutzer.pw_uid
+    assert fremd.stat().st_uid == 0

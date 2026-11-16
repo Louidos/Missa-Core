@@ -13,6 +13,8 @@ die Versionsnummern folgen [Semantic Versioning](https://semver.org/lang/de/).
   und nach versehentlich eingecheckten Passwörtern (#84)
 - Der Code wurde vollständig auf Sicherheitslücken geprüft; strengere Prüfregeln (ruff `S`)
   sind jetzt dauerhaft aktiv (#86)
+- Der Dienst und die Wartungs-Scripts sind strenger abgesichert; nach dem Update einmal
+  `systemctl status missa-core` prüfen (#92)
 
 ### Behoben
 

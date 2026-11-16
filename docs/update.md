@@ -142,6 +142,15 @@ er liegt in `MISSA_DATEN/notfall-stopp`, nicht im Code. Aufheben nur mit
 Jeder Lauf schreibt nach `logs/update.log` im Repo-Ordner (nicht im Git). Dort stehen auch
 die vollständigen Ausgaben von `git` und `pip`. Der Probelauf (`--dry-run`) schreibt nichts.
 
+## Herkunft und Versionen
+
+Das Script holt nur vom erwarteten Repo: `origin` muss auf `github.com/Louidos/Missa-Core`
+zeigen (HTTPS oder SSH), sonst bricht es ab, bevor etwas geholt wird. Für einen eigenen
+Fork lässt sich das mit `MISSA_UPDATE_QUELLE=github.com/<du>/<repo>` ändern. Ohne Option
+nimmt es den neuesten Release-Tag `vX.Y.Z`; `--version` nimmt nur Versionsnummern
+(`v0.2.0` oder `0.2.0`), keine Branches oder sonstigen Namen. `--main` muss ausdrücklich
+angegeben werden.
+
 ## Wenn sich die systemd-Unit ändert
 
 Das Script übernimmt `deploy/missa-core.service` nicht selbst (die installierte Unit könnte
@@ -154,6 +163,25 @@ sudo install -m 644 /opt/missa/app/deploy/missa-core.service /etc/systemd/system
 ```bash
 sudo systemctl daemon-reload && sudo systemctl restart missa-core
 ```
+
+**Danach immer prüfen**, ob der Dienst mit den Absicherungen läuft – sie wurden nicht auf
+ai01 getestet (z. B. `UMask=0077`, `SystemCallFilter=@system-service`,
+`RestrictAddressFamilies`, `PrivateDevices`):
+
+```bash
+sudo systemctl status missa-core
+```
+
+```bash
+sudo journalctl -u missa-core -n 50
+```
+
+Dann einmal eine Frage stellen, die ssh braucht (z. B. „Wie geht's rp01?“), und – falls VMs
+eingerichtet sind – `playbooks_anzeigen`. Startet der Dienst nicht oder meldet ein Werkzeug
+„Operation not permitted“, die zuletzt ergänzten Zeilen in
+`/etc/systemd/system/missa-core.service` auskommentieren, `daemon-reload` und neu starten –
+und den Fehler melden. `systemd-analyze security missa-core` zeigt die Bewertung (vorher
+7.4 „MEDIUM“, jetzt etwa 1.4 „OK“).
 
 ## Testen
 
