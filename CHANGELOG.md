@@ -7,6 +7,8 @@ die Versionsnummern folgen [Semantic Versioning](https://semver.org/lang/de/).
 
 ## Unveröffentlicht
 
+## 0.10.0 – 2026-11-16
+
 ### Hinzugefügt
 
 - Anbindung an Missa Control: Mit zwei Zeilen in der Konfiguration (`MISSA_CONTROL_URL`,
