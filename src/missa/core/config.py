@@ -183,6 +183,14 @@ class Einstellungen:
     github_api_url: str = "https://api.github.com"
     github_intervall_minuten: int = 30
     prompt_vorlage: Path | None = None
+    missa_control_url: str = ""
+    missa_control_token: str = ""
+    missa_control_token_file: Path | None = None
+    missa_control_aktualisieren: int = 60
+    missa_control_zeitlimit: float = 330.0
+    missa_control_max_werkzeuge: int = 40
+    missa_control_auslassen: tuple[str, ...] = ()
+    missa_control_im_hintergrund: str = "nur_lesen"
 
     @property
     def notfall_datei(self) -> Path:
@@ -203,10 +211,22 @@ class Einstellungen:
             self.minecraft_rcon_passwort,
             self.git_server_token,
             self.github_token,
+            self.missa_control_token,
         ]
         with contextlib.suppress(OSError):
             werte.append(self.llama_api_key_file.read_text(encoding="utf-8").strip())
+        if self.missa_control_token_file is not None:
+            with contextlib.suppress(OSError):
+                werte.append(self.missa_control_token_file.read_text(encoding="utf-8").strip())
         return tuple(w for w in werte if w)
+
+    @property
+    def missa_control_konfiguriert(self) -> bool:
+        """Missa Control ist an, sobald Adresse und Token (oder Token-Datei) gesetzt sind."""
+        return bool(
+            self.missa_control_url
+            and (self.missa_control_token or self.missa_control_token_file is not None)
+        )
 
     @property
     def talk_aktiv(self) -> bool:
@@ -419,6 +439,7 @@ class Einstellungen:
         pb_ordner = env.get("PLAYBOOK_ORDNER", "").strip()
         git_ca = env.get("GIT_SERVER_CA_DATEI", "").strip()
         vorlage = env.get("PROMPT_VORLAGE", "").strip()
+        mc_token_datei = env.get("MISSA_CONTROL_TOKEN_FILE", "").strip()
         try:
             warn_tage = tuple(
                 sorted({int(t) for t in liste("ZERTIFIKAT_WARNUNG_TAGE")}, reverse=True)
@@ -599,6 +620,16 @@ class Einstellungen:
             github_api_url=wert("GITHUB_API_URL", cls.github_api_url).rstrip("/"),
             github_intervall_minuten=max(5, zahl("GITHUB_INTERVALL_MINUTEN", 30)),
             prompt_vorlage=Path(vorlage) if vorlage else None,
+            missa_control_url=env.get("MISSA_CONTROL_URL", "").strip().rstrip("/"),
+            missa_control_token=env.get("MISSA_CONTROL_TOKEN", "").strip(),
+            missa_control_token_file=Path(mc_token_datei) if mc_token_datei else None,
+            missa_control_aktualisieren=max(10, zahl("MISSA_CONTROL_AKTUALISIEREN", 60)),
+            missa_control_zeitlimit=kommazahl("MISSA_CONTROL_ZEITLIMIT", 330.0),
+            missa_control_max_werkzeuge=max(0, zahl("MISSA_CONTROL_MAX_WERKZEUGE", 40)),
+            missa_control_auslassen=liste("MISSA_CONTROL_AUSLASSEN"),
+            missa_control_im_hintergrund=wert(
+                "MISSA_CONTROL_IM_HINTERGRUND", cls.missa_control_im_hintergrund
+            ).casefold(),
         )
 
     def pruefen(self) -> None:
@@ -617,6 +648,16 @@ class Einstellungen:
             )
         if self.wartung_von >= self.wartung_bis:
             raise KonfigurationsFehler("WARTUNG_VON muss vor WARTUNG_BIS liegen")
+        if self.missa_control_im_hintergrund not in ("nur_lesen", "alles"):
+            raise KonfigurationsFehler(
+                "MISSA_CONTROL_IM_HINTERGRUND muss nur_lesen oder alles sein"
+            )
+        if self.missa_control_zeitlimit <= 0:
+            raise KonfigurationsFehler("MISSA_CONTROL_ZEITLIMIT muss größer als 0 sein")
+        if self.missa_control_url and not self.missa_control_url.startswith(
+            ("http://", "https://")
+        ):
+            raise KonfigurationsFehler("MISSA_CONTROL_URL muss mit http:// oder https:// beginnen")
         if self.erreichbarkeit_stufe not in ("info", "wichtig", "notfall"):
             raise KonfigurationsFehler("ERREICHBARKEIT_STUFE muss info, wichtig oder notfall sein")
         try:

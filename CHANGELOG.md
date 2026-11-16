@@ -9,6 +9,10 @@ die Versionsnummern folgen [Semantic Versioning](https://semver.org/lang/de/).
 
 ### Hinzugefügt
 
+- Anbindung an Missa Control: Mit zwei Zeilen in der Konfiguration (`MISSA_CONTROL_URL`,
+  `MISSA_CONTROL_TOKEN`) nutzt Missa alle Funktionen, die im Panel eingerichtet sind – neue
+  erscheinen ohne Neustart. Freigaben entscheidest du im Panel, im Hintergrund darf Missa dort
+  nur lesen, fällt das Panel aus, läuft Missa normal weiter; `/health` zeigt den Stand (#78)
 - Charaktertest gegen das echte Modell: `scripts/charaktertest` stellt Missa die Fragen aus
   `tests/charakter/fragen.yaml` und prüft, ob sie duzt, keine japanischen Wörter benutzt, in
   Krisen ruhig bleibt und nichts Zerstörerisches ohne dein Ja anstösst (Werkzeuge werden dabei

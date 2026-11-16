@@ -25,6 +25,7 @@ nur wb01. Jede Gruppe des Server-Updates trägt hier ein, was sie zusätzlich br
 | ai01 | Minecraft-Server (`MINECRAFT_RCON_HOST`) | TCP 25575 (`MINECRAFT_RCON_PORT`) | Minecraft: Spieler, Whitelist, Neustart per RCON (unverschlüsselt, nur intern) | Caddy und Minecraft | `MINECRAFT_RCON_HOST` gesetzt |
 | ai01 | Git-Server (`GIT_SERVER_URL`, git.louis-degiorgi.ch – intern über rp01 bzw. den Host des Git-Servers) | TCP 443 | Git-Server: Repos, Pull Requests, Branches lesen, Issues anlegen | Git und GitHub | `GIT_SERVER_URL` gesetzt |
 | ai01 | api.github.com | TCP 443 | GitHub nur lesend: Builds, Releases, Issues – die einzige Verbindung nach außen dieser Gruppe | Git und GitHub | `GITHUB_TOKEN` gesetzt |
+| ai01 (missa-core) | Missa Control auf ai01 (`MISSA_CONTROL_URL`, meist `127.0.0.1`) | TCP 8090 | Funktionen des Panels (`/mcp`) – bleibt auf ai01, keine Firewall-Regel nötig, solange beide dort laufen | Missa Control | `MISSA_CONTROL_URL` gesetzt |
 | ZyWALL | ai01 | UDP 514 | Firewall-Logs per Syslog an rsyslog auf ai01 (Missa liest die Datei) | Homelab-Wissen und Firewall | `FIREWALL_LOG_DATEI` gesetzt |
 | ai01 | data.iana.org | TCP 443 | Domains: Liste der RDAP-Server (IANA) | Zertifikate und Domains | `RDAP_AKTIV=true` und Domains gesetzt |
 | ai01 | RDAP-Server der Endung (für `.ch`: rdap.nic.ch) | TCP 443 | Domains: Ablaufdatum abfragen – die einzige Abfrage nach außen dieser Prüfung | Zertifikate und Domains | `RDAP_AKTIV=true` und Domains gesetzt |

@@ -14,6 +14,7 @@
 - [rechte.md](rechte.md) – Rechte-Stufen, Bestätigung, Aktionsprotokoll, Notfall-Stopp, Rechte pro Dienst
 - [server-alarme.md](server-alarme.md) – Server-Alarme: Stufen, Ruhezeit, Regeln per Gespräch, Auffälliges, Erreichbarkeit, Proxmox-Token
 - [monitoring.md](monitoring.md) – Schnittstelle der Monitoring-Quellen und JSON-Formate (eigenes Tool, Homepage, Proxmox)
+- [missa-control.md](missa-control.md) – Funktionen aus dem Panel Missa Control als Werkzeuge: Einrichtung, Einstellungen, Freigaben, Ausfall
 - [netzfreigaben.md](netzfreigaben.md) – welche Verbindungen ai01 braucht (Vorlage für die Firewall-Regeln)
 - [container-logs-logins.md](container-logs-logins.md) – Container, Fehlersuche in Logs, Login-Überwachung, Benutzer `missa` auf den Hosts
 - [homelab-firewall.md](homelab-firewall.md) – Homelab-Wissen aus Proxmox (VMs, IPs, VLANs) und Firewall-Logs der ZyWALL (nur lesend)

@@ -110,6 +110,7 @@ def create_app(
     git: Any = None,
     github: Any = None,
     git_transport: httpx.AsyncBaseTransport | None = None,
+    panel_transport: httpx.AsyncBaseTransport | None = None,
 ) -> FastAPI:
     """Baut die App. Parameter außer ``einstellungen`` sind vor allem für Tests da."""
     from missa.channels.nextcloud_talk import TalkClient, talk_einrichten
@@ -365,6 +366,16 @@ def create_app(
 
         for werkzeug in protokoll_werkzeuge(protokoll, rechte, einstellungen.zone):
             werkzeuge.hinzufuegen(werkzeug)
+    # Funktionen aus Missa Control (nur mit MISSA_CONTROL_URL und Token).
+    from missa.tools.panel import panel_bauen
+
+    panel = panel_bauen(einstellungen, werkzeuge, panel_transport, uhr)
+    if panel is not None:
+        zeitplaner.regelmaessig(
+            "missa-control",
+            timedelta(seconds=einstellungen.missa_control_aktualisieren),
+            panel.aktualisieren,
+        )
     if mail_dienst is not None:
         mail_dienst.rechte = rechte
     if pausen is not None:
@@ -443,6 +454,8 @@ def create_app(
                 "Kein Kanal für Erinnerungen eingerichtet (NC_TALK_NOTIFY_CONVERSATION) – "
                 "Erinnerungen werden gespeichert, aber erst zugestellt, wenn ein Kanal da ist"
             )
+        if panel is not None:
+            await panel.aktualisieren()
         zeitplaner.starten()
         hintergrund.starten()
         yield
@@ -451,6 +464,8 @@ def create_app(
             await vms.warten()
         await zeitplaner.stoppen()
         await llama.schliessen()
+        if panel is not None:
+            await panel.schliessen()
         if talk_client is not None:
             await talk_client.schliessen()
 
@@ -488,6 +503,7 @@ def create_app(
     app.state.git = git
     app.state.github = github
     app.state.prompts = prompts
+    app.state.panel = panel
 
     # -------------------------------------------------------------- Fehlerformat
 
@@ -546,16 +562,17 @@ def create_app(
         """Ohne Anmeldung. 200, wenn llama-server antwortet, sonst 503."""
         llama_ok = await llama.gesund()
         charakter_ok = einstellungen.charakter_datei.is_file()
-        return JSONResponse(
-            status_code=200 if llama_ok else 503,
-            content={
-                "status": "ok" if llama_ok else "gestoert",
-                "version": __version__,
-                "llama": "ok" if llama_ok else "nicht erreichbar",
-                "charakter": "ok" if charakter_ok else "fehlt",
-                "werkzeuge": [w.name for w in werkzeuge],
-            },
-        )
+        inhalt: dict[str, Any] = {
+            "status": "ok" if llama_ok else "gestoert",
+            "version": __version__,
+            "llama": "ok" if llama_ok else "nicht erreichbar",
+            "charakter": "ok" if charakter_ok else "fehlt",
+            "werkzeuge": [w.name for w in werkzeuge],
+        }
+        if panel is not None:
+            # Das Panel ist optional: ohne Verbindung bleibt /health trotzdem 200.
+            inhalt["missa_control"] = panel.status()
+        return JSONResponse(status_code=200 if llama_ok else 503, content=inhalt)
 
     def modell_info() -> dict[str, Any]:
         return {"id": MODELL, "object": "model", "created": gestartet, "owned_by": "missa"}
