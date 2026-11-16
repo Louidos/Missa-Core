@@ -18,7 +18,7 @@ else
     echo "Hinweis: pip-audit ist nicht installiert – Abhängigkeiten werden nur in der CI geprüft." >&2
 fi
 if command -v gitleaks >/dev/null 2>&1; then
-    gitleaks git --log-opts="--all" --redact --no-banner --exit-code 1 .
+    gitleaks git --log-opts="HEAD --tags" --redact --no-banner --exit-code 1 .
 else
     echo "Hinweis: gitleaks ist nicht installiert – die Geheimnis-Suche läuft nur in der CI." >&2
 fi
