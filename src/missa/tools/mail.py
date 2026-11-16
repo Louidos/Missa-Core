@@ -37,7 +37,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any
 from zoneinfo import ZoneInfo
 
-from missa.core.datenbank import verbinden
+from missa.core.datenbank import verbinden, zeile_aendern
 from missa.core.werkzeuge import Stufe, Werkzeug, WerkzeugFehler, aktuelle_anfrage, im_hintergrund
 from missa.tools.mail_konto import MailFehler, MailKonto, text_aus_mail
 from missa.tools.schreibstil import Schreibstil
@@ -225,6 +225,10 @@ def sende_absicht(text: str) -> tuple[str, int | None] | None:
 
 def _adresse_gueltig(adresse: str) -> bool:
     return bool(re.fullmatch(r"[^@\s<>,;]+@[^@\s<>,;]+\.[^@\s<>,;]+", adresse))
+
+
+#: Spalten, die beim Ändern eines Entwurfs gesetzt werden dürfen.
+GEAENDERT_SPALTEN = frozenset({"an", "cc", "betreff", "text", "geaendert"})
 
 
 @dataclass(frozen=True)
@@ -558,11 +562,15 @@ class MailDienst:
         if not felder:
             raise WerkzeugFehler("Was soll sich am Entwurf ändern?")
         felder["geaendert"] = self._jetzt()
-        zuweisung = ", ".join(f"{name} = ?" for name in felder)
         with verbinden(self.datei) as db:
-            db.execute(
-                f"UPDATE mail_entwuerfe SET {zuweisung}, version = version + 1 WHERE id = ?",  # noqa: S608 – Namen fest im Code, Werte als Parameter
-                (*felder.values(), alt.id),
+            zeile_aendern(
+                db,
+                "mail_entwuerfe",
+                felder,
+                wo="id",
+                wert=alt.id,
+                erlaubt=GEAENDERT_SPALTEN,
+                zusatz="version = version + 1",
             )
         neu = self.holen(alt.id)
         assert neu is not None  # noqa: S101 – nur Typ-Eingrenzung, keine Eingabeprüfung

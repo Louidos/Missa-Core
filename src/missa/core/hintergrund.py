@@ -29,7 +29,7 @@ from pathlib import Path
 from typing import Any
 from zoneinfo import ZoneInfo
 
-from missa.core.datenbank import verbinden
+from missa.core.datenbank import verbinden, zeile_aendern
 from missa.core.vorgaben import Vorgaben
 from missa.core.werkzeuge import WerkzeugFehler, im_hintergrund
 from missa.core.zeitangaben import wandzeit
@@ -110,6 +110,15 @@ def naechster_beginn(jetzt: datetime, von: time, bis: time) -> datetime:
     assert isinstance(zone, ZoneInfo)  # noqa: S101 – nur Typ-Eingrenzung, keine Eingabeprüfung
     heute = wandzeit(jetzt.date(), von, zone)
     return heute if heute > jetzt else wandzeit(jetzt.date() + timedelta(days=1), von, zone)
+
+
+SPALTEN = frozenset(
+    {
+        "titel", "anweisung", "art", "herkunft", "routine_id", "status", "erstellt",
+        "gestartet", "beendet", "ergebnis", "fehler", "versuche", "naechster_versuch",
+        "zustellen", "verspaetet", "gemeldet", "erwaehnt",
+    }
+)  # fmt: skip
 
 
 @dataclass(frozen=True)
@@ -392,11 +401,9 @@ class Hintergrund:
         return auftrag
 
     def _setzen(self, auftrag_id: int, **felder: Any) -> None:
-        zuweisung = ", ".join(f"{name} = ?" for name in felder)
         with self._sperre, verbinden(self.datei) as db:
-            db.execute(
-                f"UPDATE hintergrund_auftraege SET {zuweisung} WHERE id = ?",  # noqa: S608 – Namen fest im Code, Werte als Parameter
-                (*felder.values(), auftrag_id),
+            zeile_aendern(
+                db, "hintergrund_auftraege", felder, wo="id", wert=auftrag_id, erlaubt=SPALTEN
             )
 
     # -------------------------------------------------------------- Ausführen

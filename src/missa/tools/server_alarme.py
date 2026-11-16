@@ -31,7 +31,7 @@ from typing import Any
 from zoneinfo import ZoneInfo
 
 from missa.core.alarme import Alarm, Alarme, AlarmStufe, stufe_verstehen
-from missa.core.datenbank import verbinden
+from missa.core.datenbank import verbinden, zeile_aendern
 from missa.core.werkzeuge import Stufe, Werkzeug, WerkzeugFehler
 from missa.integrationen.monitoring import (
     METRIK_EINHEITEN,
@@ -133,6 +133,13 @@ def _minuten_text(minuten: float) -> str:
     if minuten == 1:
         return "länger als 1 Minute"
     return f"länger als {minuten:g} Minuten"
+
+
+#: Spalten einer Alarm-Regel, die sich ändern lassen.
+REGEL_SPALTEN = frozenset(
+    {"ziel", "metrik", "richtung", "grenze", "dauer_minuten", "stufe", "ruhefenster_minuten",
+     "geaendert"}
+)  # fmt: skip
 
 
 @dataclass(frozen=True)
@@ -319,12 +326,8 @@ class ServerWaechter:
         if "stufe" in felder:
             felder["stufe"] = str(felder["stufe"])
         felder["geaendert"] = self.jetzt().isoformat(timespec="seconds")
-        zuweisung = ", ".join(f"{name} = ?" for name in felder)
         with verbinden(self.datei) as db:
-            db.execute(
-                f"UPDATE alarm_regeln SET {zuweisung} WHERE id = ?",  # noqa: S608 – Namen fest im Code, Werte als Parameter
-                (*felder.values(), alt.id),
-            )
+            zeile_aendern(db, "alarm_regeln", felder, wo="id", wert=alt.id, erlaubt=REGEL_SPALTEN)
         self._zustand_vergessen(alt.id)
         return self.regel(alt.id)
 

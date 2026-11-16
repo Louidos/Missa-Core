@@ -47,7 +47,6 @@ if TYPE_CHECKING:
 log = logging.getLogger(__name__)
 
 STANDARD_GUELTIGKEIT_MINUTEN = 10
-NOTFALL_DATEINAME = "notfall-stopp"
 FREIGABE_BEFEHL = "sudo /opt/missa/app/scripts/notfall-freigabe.sh"
 #: So viele Zeichen eines Ergebnisses kommen ins Protokoll.
 MAX_ERGEBNIS = 500

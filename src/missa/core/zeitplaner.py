@@ -39,7 +39,7 @@ from pathlib import Path
 from typing import Any
 from zoneinfo import ZoneInfo
 
-from missa.core.datenbank import verbinden
+from missa.core.datenbank import verbinden, zeile_aendern
 from missa.core.prompt import datum_lang
 from missa.core.werkzeuge import WerkzeugFehler
 from missa.core.zeitangaben import Wiederholung, wandzeit
@@ -135,6 +135,15 @@ def abstand_text(von: datetime, bis: datetime) -> str:
     if minuten and not tage:
         teile.append(f"{minuten} Minute{'n' if minuten != 1 else ''}")
     return "in " + " ".join(teile)
+
+
+SPALTEN = frozenset(
+    {
+        "text", "nachricht", "faellig", "uhrzeit", "regel", "status", "erstellt",
+        "zugestellt", "naechster_versuch", "versuche", "schluessel", "kanal", "herkunft",
+        *NEUE_SPALTEN,
+    }
+)  # fmt: skip
 
 
 @dataclass(frozen=True)
@@ -400,11 +409,9 @@ class Zeitplaner:
         if wiederholung is not False:
             felder["regel"] = wiederholung.speichern() if wiederholung else None  # type: ignore[union-attr]
         if felder:
-            zuweisung = ", ".join(f"{name} = ?" for name in felder)
             with self._sperre, verbinden(self.datei) as db:
-                db.execute(
-                    f"UPDATE erinnerungen SET {zuweisung} WHERE id = ?",  # noqa: S608 – Namen fest im Code, Werte als Parameter
-                    (*felder.values(), erinnerung_id),
+                zeile_aendern(
+                    db, "erinnerungen", felder, wo="id", wert=erinnerung_id, erlaubt=SPALTEN
                 )
             self.wecken()
         neu = self.holen(erinnerung_id)
@@ -439,12 +446,8 @@ class Zeitplaner:
         if not pausiert and alt.faellig <= jetzt and alt.wiederholung is not None:
             felder["faellig"] = _utc_text(alt.wiederholung.naechster(jetzt, alt.uhrzeit, self.zone))
             felder["naechster_versuch"] = None
-        zuweisung = ", ".join(f"{name} = ?" for name in felder)
         with self._sperre, verbinden(self.datei) as db:
-            db.execute(
-                f"UPDATE erinnerungen SET {zuweisung} WHERE id = ?",  # noqa: S608 – Namen fest im Code, Werte als Parameter
-                (*felder.values(), erinnerung_id),
-            )
+            zeile_aendern(db, "erinnerungen", felder, wo="id", wert=erinnerung_id, erlaubt=SPALTEN)
         log.info(
             "%s #%s %s: „%s“",
             ART_NAMEN[art],

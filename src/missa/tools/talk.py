@@ -16,9 +16,6 @@ from missa.channels.nextcloud_talk import TalkClient, TalkFehler, aufteilen
 from missa.core.werkzeuge import Stufe, Werkzeug, WerkzeugFehler
 from missa.core.zustellung import ZustellFehler
 
-#: Standard: höchstens so viele Nachrichten pro Minute.
-STANDARD_RATE = 10
-
 
 class Ratenbegrenzer:
     """Erlaubt höchstens ``anzahl`` Ereignisse je gleitendem 60-Sekunden-Fenster."""

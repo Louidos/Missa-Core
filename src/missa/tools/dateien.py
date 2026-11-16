@@ -14,7 +14,6 @@ from __future__ import annotations
 import logging
 import posixpath
 import xml.etree.ElementTree as ET
-from datetime import datetime
 from email.utils import parsedate_to_datetime
 from typing import Any
 from urllib.parse import quote, unquote
@@ -366,10 +365,6 @@ def _groesse(anzahl: int) -> str:
     if anzahl < 1024 * 1024:
         return f"{anzahl / 1024:.0f} KB"
     return f"{anzahl / 1024 / 1024:.1f} MB"
-
-
-def jetzt_text(zone: ZoneInfo) -> str:
-    return f"{datetime.now(zone):%d.%m.%Y %H:%M}"
 
 
 def dateien_werkzeuge(dateien: Dateien) -> list[Werkzeug]:

@@ -15,6 +15,8 @@ die Versionsnummern folgen [Semantic Versioning](https://semver.org/lang/de/).
   sind jetzt dauerhaft aktiv (#86)
 - Der Dienst und die Wartungs-Scripts sind strenger abgesichert; nach dem Update einmal
   `systemctl status missa-core` prüfen (#92)
+- Code aufgeräumt (ungenutzte Teile entfernt, Doppeltes zusammengeführt), ohne Änderung im
+  Verhalten (#94)
 
 ### Behoben
 
