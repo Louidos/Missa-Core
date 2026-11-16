@@ -7,6 +7,11 @@ die Versionsnummern folgen [Semantic Versioning](https://semver.org/lang/de/).
 
 ## Unveröffentlicht
 
+### Hinzugefügt
+
+- Sicherheitsbericht (docs/sicherheit.md) und Hinweise zum Melden von Lücken
+  (.github/SECURITY.md); Doku auf den aktuellen Stand gebracht (#99)
+
 ### Geändert
 
 - Die automatische Prüfung sucht jetzt zusätzlich nach bekannten Lücken in Abhängigkeiten
@@ -66,11 +71,6 @@ die Versionsnummern folgen [Semantic Versioning](https://semver.org/lang/de/).
   legt Missa keine Minecraft-VM an, und das Playbook prüft Adresse und Passwortlänge (#92)
 - Die Geheimnis-Suche der CI prüft die ganze Historie des geprüften Stands und alle Tags,
   aber nicht mehr fremde offene Branches – ein PR scheitert nicht mehr an anderen PRs (#97)
-
-### Hinzugefügt
-
-- Sicherheitsbericht (docs/sicherheit.md) und Hinweise zum Melden von Lücken
-  (.github/SECURITY.md); Doku auf den aktuellen Stand gebracht (#99)
 
 ## 0.10.0 – 2026-11-16
 
