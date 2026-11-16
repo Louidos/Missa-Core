@@ -370,12 +370,18 @@ def create_app(
     from missa.tools.panel import panel_bauen
 
     panel = panel_bauen(einstellungen, werkzeuge, panel_transport, uhr)
+    panel_ereignisse = None
     if panel is not None:
         zeitplaner.regelmaessig(
             "missa-control",
             timedelta(seconds=einstellungen.missa_control_aktualisieren),
             panel.aktualisieren,
         )
+        if einstellungen.missa_control_ereignisse:
+            # Ereignisse des Panels (Freigabe wartet, Regel ausgelöst …) von sich aus melden.
+            from missa.tools.panel_ereignisse import PanelEreignisse
+
+            panel_ereignisse = PanelEreignisse(panel.verbindung, alarme, einstellungen.datenbank)
     if mail_dienst is not None:
         mail_dienst.rechte = rechte
     if pausen is not None:
@@ -458,7 +464,11 @@ def create_app(
             await panel.aktualisieren()
         zeitplaner.starten()
         hintergrund.starten()
+        if panel_ereignisse is not None:
+            panel_ereignisse.starten()
         yield
+        if panel_ereignisse is not None:
+            await panel_ereignisse.stoppen()
         await hintergrund.stoppen()
         if vms is not None:
             await vms.warten()
@@ -504,6 +514,7 @@ def create_app(
     app.state.github = github
     app.state.prompts = prompts
     app.state.panel = panel
+    app.state.panel_ereignisse = panel_ereignisse
 
     # -------------------------------------------------------------- Fehlerformat
 
@@ -571,7 +582,10 @@ def create_app(
         }
         if panel is not None:
             # Das Panel ist optional: ohne Verbindung bleibt /health trotzdem 200.
-            inhalt["missa_control"] = panel.status()
+            inhalt["missa_control"] = {
+                **panel.status(),
+                "ereignisse": panel_ereignisse.status() if panel_ereignisse else "aus",
+            }
         return JSONResponse(status_code=200 if llama_ok else 503, content=inhalt)
 
     def modell_info() -> dict[str, Any]:

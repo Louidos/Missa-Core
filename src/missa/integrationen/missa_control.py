@@ -1,4 +1,8 @@
-"""Verbindung zu Missa Control (Panel auf ai01): MCP-Gateway unter ``<URL>/mcp``.
+"""Verbindung zu Missa Control (Panel auf ai01): MCP-Gateway und Ereignisse.
+
+- Funktionen: MCP-Gateway unter ``<URL>/mcp``.
+- Ereignisse: Server-Sent Events unter ``<URL>/api/events/stream`` (fortsetzen mit
+  ``Last-Event-ID``) und auf Abruf unter ``<URL>/api/events?nach_id=``.
 
 Das Panel bündelt die Funktionen aller dort eingerichteten Integrationen an einem
 MCP-Endpunkt (Streamable HTTP, zustandslos). Hier steckt ein kleiner eigener Client mit
@@ -20,7 +24,8 @@ from __future__ import annotations
 import itertools
 import json
 import logging
-from dataclasses import dataclass
+from collections.abc import AsyncIterator
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
@@ -32,6 +37,10 @@ log = logging.getLogger(__name__)
 LISTE_ZEITLIMIT = 15.0
 #: Höchstens so viele Seiten ``tools/list`` (Schutz vor einer Endlosschleife).
 MAX_SEITEN = 20
+#: Das Panel schickt alle ~15 s ein Lebenszeichen; kommt so lange gar nichts, neu verbinden.
+STREAM_LESEZEIT = 60.0
+#: So viele Ereignisse holt ein Abruf von ``/api/events`` höchstens (Maximum des Panels).
+EREIGNISSE_SEITE = 1000
 
 
 class PanelFehler(Exception):
@@ -113,6 +122,40 @@ def ergebnis_lesen(ergebnis: dict[str, Any], max_zeichen: int) -> PanelErgebnis:
         text = f"{text}\n[Hinweis: {len(ausgelassen)} Inhalt(e) ohne Text ausgelassen ({arten})]"
     fehler = bool(ergebnis.get("isError"))
     return PanelErgebnis(text.strip() or ("Fehler ohne Text." if fehler else "Erledigt."), fehler)
+
+
+@dataclass(frozen=True)
+class PanelEreignis:
+    """Ein Ereignis aus Missa Control (Freigabe wartet, Regel ausgelöst, …)."""
+
+    id: int
+    art: str
+    titel: str
+    nachricht: str = ""
+    quelle: str = ""
+    dringlichkeit: str = "normal"
+    zeit: str = ""
+    daten: dict[str, Any] = field(default_factory=dict)
+
+    @classmethod
+    def aus_json(cls, daten: Any) -> PanelEreignis | None:
+        if not isinstance(daten, dict):
+            return None
+        try:
+            nummer = int(daten["id"])
+        except (KeyError, TypeError, ValueError):
+            return None
+        zusatz = daten.get("daten")
+        return cls(
+            id=nummer,
+            art=str(daten.get("art") or ""),
+            titel=" ".join(str(daten.get("titel") or "").split()),
+            nachricht=str(daten.get("nachricht") or "").strip(),
+            quelle=str(daten.get("quelle") or ""),
+            dringlichkeit=str(daten.get("dringlichkeit") or "normal").casefold(),
+            zeit=str(daten.get("zeit") or ""),
+            daten=zusatz if isinstance(zusatz, dict) else {},
+        )
 
 
 class MissaControl:
@@ -252,6 +295,94 @@ class MissaControl:
         """Ruft eine Funktion auf (``tools/call``); wartet ggf. auf die Freigabe im Panel."""
         ergebnis = await self._rpc("tools/call", {"name": name, "arguments": argumente})
         return ergebnis_lesen(ergebnis, self.max_zeichen)
+
+    # ------------------------------------------------------------------ Ereignisse
+
+    def _status_pruefen(self, status: int, text: str) -> None:
+        if status == 401:
+            raise PanelTokenUngueltig(
+                "Missa Control lehnt den Token ab (401) – im Panel unter „Clients“ einen "
+                "gültigen Token anlegen und in MISSA_CONTROL_TOKEN eintragen"
+            )
+        if status >= 500:
+            raise PanelNichtErreichbar(f"Missa Control antwortete mit {status}: {text[:300]}")
+        if status >= 400:
+            raise PanelFehler(f"Missa Control antwortete mit {status}: {text[:300]}")
+
+    async def ereignisse_seit(self, nach_id: int | None) -> list[PanelEreignis]:
+        """Ereignisse mit grösserer Nummer als ``nach_id`` (älteste zuerst, eine Seite)."""
+        parameter: dict[str, Any] = {"limit": EREIGNISSE_SEITE}
+        if nach_id is not None:
+            parameter["nach_id"] = nach_id
+        try:
+            antwort = await self._client.get(
+                "/api/events",
+                params=parameter,
+                headers=self.kopfzeilen(),
+                timeout=httpx.Timeout(LISTE_ZEITLIMIT, connect=10.0),
+            )
+        except httpx.HTTPError as fehler:
+            raise PanelNichtErreichbar(
+                f"Missa Control ist nicht erreichbar ({self.url})"
+            ) from fehler
+        self._status_pruefen(antwort.status_code, antwort.text)
+        try:
+            liste = antwort.json().get("ereignisse") or []
+        except (ValueError, AttributeError) as fehler:
+            raise PanelFehler("Missa Control lieferte keine gültige Ereignisliste") from fehler
+        return [e for e in map(PanelEreignis.aus_json, liste) if e is not None]
+
+    async def letzte_ereignis_id(self) -> int:
+        """Die Nummer des neuesten Ereignisses (0, wenn es noch keines gibt)."""
+        letzte = 0
+        for _ in range(100):  # höchstens 100 000 Ereignisse – das Panel behält 30 Tage
+            seite = await self.ereignisse_seit(letzte)
+            if not seite:
+                break
+            letzte = max(letzte, *(e.id for e in seite))
+            if len(seite) < EREIGNISSE_SEITE:
+                break
+        return letzte
+
+    async def ereignis_stream(self, nach_id: int | None) -> AsyncIterator[PanelEreignis | None]:
+        """Hält ``/api/events/stream`` offen und liefert jedes Ereignis.
+
+        Ein Lebenszeichen des Panels kommt als ``None`` (zeigt: die Verbindung steht).
+        Endet, wenn das Panel die Verbindung schliesst; Fehler kommen als ``PanelFehler``.
+        """
+        kopf = {**self.kopfzeilen(), "Accept": "text/event-stream"}
+        parameter: dict[str, Any] = {}
+        if nach_id is not None:
+            kopf["Last-Event-ID"] = str(nach_id)
+            parameter["nach_id"] = nach_id
+        zeitlimit = httpx.Timeout(10.0, read=STREAM_LESEZEIT)
+        try:
+            async with self._client.stream(
+                "GET", "/api/events/stream", params=parameter, headers=kopf, timeout=zeitlimit
+            ) as antwort:
+                if antwort.status_code >= 400:
+                    text = (await antwort.aread()).decode("utf-8", "replace")
+                    self._status_pruefen(antwort.status_code, text)
+                daten: list[str] = []
+                async for zeile in antwort.aiter_lines():
+                    if zeile.startswith(":"):
+                        yield None  # Lebenszeichen
+                    elif zeile.startswith("data:"):
+                        daten.append(zeile.removeprefix("data:").removeprefix(" "))
+                    elif not zeile.strip() and daten:
+                        roh = "\n".join(daten)
+                        daten = []
+                        try:
+                            ereignis = PanelEreignis.aus_json(json.loads(roh))
+                        except ValueError:
+                            log.warning("Missa Control: Ereignis ist kein JSON: %.200s", roh)
+                            continue
+                        if ereignis is not None:
+                            yield ereignis
+        except httpx.HTTPError as fehler:
+            raise PanelNichtErreichbar(
+                f"Ereignis-Stream von Missa Control unterbrochen ({type(fehler).__name__})"
+            ) from fehler
 
     async def schliessen(self) -> None:
         await self._client.aclose()

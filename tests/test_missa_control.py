@@ -388,12 +388,10 @@ def test_start_ohne_panel_laeuft_normal(mit_panel, llama, panel):
     with TestClient(app) as client:
         daten = client.get("/health").json()
         assert client.get("/health").status_code == 200
-    assert daten["missa_control"] == {
-        "verbunden": False,
-        "funktionen": 0,
-        "letzte_aktualisierung": None,
-        "fehler": daten["missa_control"]["fehler"],
-    }
+    status = daten["missa_control"]
+    assert status["verbunden"] is False
+    assert status["funktionen"] == 0
+    assert status["letzte_aktualisierung"] is None
     assert "nicht erreichbar" in daten["missa_control"]["fehler"]
 
 

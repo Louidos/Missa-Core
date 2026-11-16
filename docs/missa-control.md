@@ -32,6 +32,9 @@ Verbindung steht und wie viele Funktionen geladen sind:
 }
 ```
 
+Danach im Panel **Protokoll → Ereignisse → Test-Ereignis senden**: Die Bestätigung kommt in
+Nextcloud Talk an (dafür muss `NC_TALK_NOTIFY_CONVERSATION` gesetzt sein).
+
 Ohne die beiden Zeilen ist alles wie bisher: kein Eintrag in `/health`, keine zusätzlichen
 Werkzeuge, keine Verbindung zum Panel.
 
@@ -47,6 +50,7 @@ Werkzeuge, keine Verbindung zum Panel.
 | `MISSA_CONTROL_MAX_WERKZEUGE` | `40` | Höchstens so viele Panel-Funktionen; der Rest wird ausgelassen und im Log genannt. Jede Funktion macht jede Anfrage ans Sprachmodell grösser. |
 | `MISSA_CONTROL_AUSLASSEN` | – | Funktionen mit diesen Namens-Vorsilben nicht laden, mit Komma getrennt, z. B. `kalender_,gedaechtnis_`. |
 | `MISSA_CONTROL_IM_HINTERGRUND` | `nur_lesen` | Routinen und Nachtschicht dürfen Panel-Funktionen nur lesen. `alles` erlaubt dort auch schreibende Funktionen. |
+| `MISSA_CONTROL_EREIGNISSE` | `an` | Ereignisse des Panels von sich aus melden (siehe unten). `aus` schaltet nur das ab, die Funktionen bleiben. |
 
 ## Was Missa daraus macht
 
@@ -76,6 +80,40 @@ Lehnst du ab oder läuft die Zeit ab, gibt Missa den fertigen Satz des Panels we
 Im Hintergrund (Routinen, Nachtschicht) laufen schreibende Panel-Funktionen nur mit
 `MISSA_CONTROL_IM_HINTERGRUND=alles`; sonst bekommt Missa einen klaren Satz zurück und schlägt
 dir die Aktion im nächsten Gespräch vor.
+
+## Ereignisse: Missa meldet sich von selbst
+
+Was das Panel meldet – eine Freigabe wartet, eine Integration ist ausgefallen, eine Regel hat
+ausgelöst, ein Gerät meldet etwas –, schreibt dir Missa über Nextcloud Talk, ohne dass du
+fragst. Dafür hält Missa-Core den Ereignis-Stream des Panels (`/api/events/stream`) offen.
+
+| Dringlichkeit im Panel | Was Missa tut |
+|------------------------|---------------|
+| `niedrig` | nur ins Log |
+| `normal` | Hinweis (Alarm-Stufe `info`) |
+| `hoch` | Wichtig (Alarm-Stufe `wichtig`) |
+| `dringend` | Notfall (Alarm-Stufe `notfall`) – kommt auch in der Ruhezeit |
+
+- Es gelten **Ruhezeit** und **Ruhefenster** der Alarme (siehe
+  [server-alarme.md](server-alarme.md)): In der Ruhezeit warten Hinweise und Wichtiges bis zum
+  Morgen; dasselbe Ereignis (gleiche Art, Quelle und Titel) kommt im Ruhefenster nur einmal.
+- **Freigabe wartet:** kommt sofort, mit dem Text des Panels und dem Hinweis „Im Panel unter
+  ‚Freigaben‘ erlauben“. In der Ruhezeit nur ins Log (ausser sie ist `dringend`) – eine
+  Freigabe läuft nach 5 Minuten ab, eine Nachricht am Morgen wäre wertlos. Jede Freigabe
+  kommt einzeln, auch zwei gleiche hintereinander.
+- **Test-Ereignis** (im Panel: **Protokoll → Ereignisse → Test-Ereignis senden**): kommt als
+  kurze Bestätigung „✅ Test-Ereignis aus Missa Control ist angekommen.“ – sofort, auch in der
+  Ruhezeit, weil du es gerade selbst ausgelöst hast.
+- Der Text kommt **wörtlich** aus Titel und Nachricht des Ereignisses, ohne Umweg über das
+  Sprachmodell – schnell und zuverlässig auch auf dem CPU-Server.
+- **Nichts doppelt, nichts verloren:** Missa-Core merkt sich die Nummer des letzten Ereignisses
+  in der Datenbank (Tabelle `stand`). Nach einem Neustart von Missa-Core oder des Panels setzt
+  der Stream genau dort fort (`Last-Event-ID`) und liefert Verpasstes nach.
+- **Erster Start:** Missa beginnt bei „jetzt“ – ältere Ereignisse werden nicht nachgeliefert.
+- Bricht die Verbindung ab, verbindet Missa neu: erst nach 2 Sekunden, dann mit wachsender
+  Wartezeit bis höchstens 5 Minuten.
+- `/health` zeigt unter `missa_control.ereignisse`, ob der Stream steht und welche Nummer
+  zuletzt gemeldet wurde (`"aus"` bei `MISSA_CONTROL_EREIGNISSE=aus`).
 
 ## Wenn das Panel ausfällt
 
@@ -113,4 +151,7 @@ MISSA_CONTROL_AUSLASSEN=kalender_,gedaechtnis_
   wie die anderen Gegenstellen mit `httpx.MockTransport` testen.
 - Werkzeuge: `src/missa/tools/panel.py` tauscht die Gruppe `missa_control` im Werkzeugkasten
   mit `Werkzeugkasten.gruppe_ersetzen` in einem Schritt aus.
-- Tests: `tests/test_missa_control.py` mit dem Nachbau `tests/missa_control_fake.py`.
+- Ereignisse: `src/missa/tools/panel_ereignisse.py` (Stream, Neuverbinden, Zustellung über
+  `Alarme`), letzte Nummer über `stand_lesen`/`stand_setzen` in `src/missa/core/datenbank.py`.
+- Tests: `tests/test_missa_control.py` und `tests/test_missa_control_ereignisse.py` mit dem
+  Nachbau `tests/missa_control_fake.py`.
