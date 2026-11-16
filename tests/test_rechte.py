@@ -204,6 +204,51 @@ def test_ja_gilt_nur_fuer_genau_diese_aktion(kasten, ablage):
     assert ablage.geloescht == []
 
 
+def test_ja_aus_einer_anderen_sitzung_zaehlt_nicht(kasten, ablage):
+    ausfuehren(kasten, "alles_loeschen", {"was": "Fotos"}, "a1", kanal="talk", sitzung="raum-1")
+    for kanal, sitzung in (("api", None), ("talk", "raum-2"), ("api", "raum-1")):
+        antwort = ausfuehren(
+            kasten, "alles_loeschen", {"was": "Fotos"}, "a2", "ok danke",
+            kanal=kanal, sitzung=sitzung,
+        )  # fmt: skip
+        assert antwort.startswith("NICHT AUSGEFÜHRT")
+    assert ablage.geloescht == []
+    antwort = ausfuehren(
+        kasten, "alles_loeschen", {"was": "Fotos"}, "a3", "Ja", kanal="talk", sitzung="raum-1"
+    )
+    assert antwort == "Fotos gelöscht."
+
+
+def test_ein_ja_gibt_hoechstens_eine_aktion_frei(kasten, ablage):
+    ausfuehren(kasten, "alles_loeschen", {"was": "Fotos"}, "a1")
+    ausfuehren(kasten, "alles_loeschen", {"was": "Mails"}, "a1")
+    ausfuehren(kasten, "alles_loeschen", {"was": "Fotos"}, "a2", "ok")
+    ausfuehren(kasten, "alles_loeschen", {"was": "Mails"}, "a2", "ok")
+    assert ablage.geloescht == ["Fotos"]
+
+
+def test_ja_gilt_nur_in_der_naechsten_nachricht(einstellungen, llama, ablage, rechte):
+    kasten = Werkzeugkasten(ablage.werkzeuge(), rechte=rechte)
+    app = create_app(einstellungen, werkzeuge=kasten, llama_transport=llama.transport)
+    kopf = {"Authorization": f"Bearer {API_KEY}", "X-Missa-Session": "s1"}
+    llama.antworten = [
+        werkzeug_aufruf("alles_loeschen", {"was": "Fotos"}),
+        text("Soll ich die Fotos wirklich löschen?"),
+        text("Das Wetter wird schön."),  # Louis redet über etwas anderes
+        werkzeug_aufruf("alles_loeschen", {"was": "Fotos"}, "c2"),
+        text("Erledigt."),
+    ]
+    with TestClient(app) as client:
+        for inhalt in ("Lösch die Fotos", "Wie wird das Wetter?", "ok"):
+            client.post(
+                "/v1/chat/completions",
+                headers=kopf,
+                json={"messages": [{"role": "user", "content": inhalt}]},
+            )
+    # Das „ok“ kam zwei Nachrichten nach der Rückfrage – es zählt nicht mehr.
+    assert ablage.geloescht == []
+
+
 def test_bestaetigung_verfaellt_nach_10_minuten(kasten, ablage, uhr):
     ausfuehren(kasten, "alles_loeschen", {"was": "Fotos"}, "a1")
     uhr.jetzt += 10 * 60 + 1

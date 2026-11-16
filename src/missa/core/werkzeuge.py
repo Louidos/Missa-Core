@@ -166,6 +166,7 @@ class Werkzeugkasten:
         nachricht: str | None = None,
         kanal: str = "intern",
         account: str = "",
+        sitzung: str | None = None,
     ) -> str:
         """Führt ein Werkzeug über die Rechte-Schicht aus. Fehler kommen als Text zurück.
 
@@ -216,6 +217,9 @@ class Werkzeugkasten:
             protokoll("gesperrt_notfall", "Notfall-Stopp aktiv", argumente)
             return self.rechte.notfall_text(name)
 
+        from missa.core.rechte import sitzungs_schluessel
+
+        rueckfrage_bei = sitzungs_schluessel(kanal, account, sitzung)
         bestaetigt = False
         if werkzeug.stufe is Stufe.ZERSTOERERISCH:
             if im_hintergrund.get():
@@ -225,7 +229,7 @@ class Werkzeugkasten:
                     "im Hintergrund (Routine, Nachtschicht) geht das nie. Schlag es ihm "
                     "im nächsten Gespräch vor."
                 )
-            if self.rechte.freigegeben(name, argumente, anfrage_id, nachricht):
+            if self.rechte.freigegeben(name, argumente, anfrage_id, nachricht, rueckfrage_bei):
                 bestaetigt = True
                 if "bestaetigt" in signatur.parameters:
                     argumente = {**argumente, "bestaetigt": True}
@@ -239,7 +243,7 @@ class Werkzeugkasten:
                     log.exception("Vorschau für %s ist fehlgeschlagen", name)
                     protokoll("fehlgeschlagen", f"Vorschau: {fehler}", argumente)
                     return f"Fehler beim Prüfen von {name}: {fehler or type(fehler).__name__}"
-                self.rechte.vormerken(name, argumente, anfrage_id)
+                self.rechte.vormerken(name, argumente, anfrage_id, rueckfrage_bei)
                 protokoll("wartet_auf_bestaetigung", beschreibung, argumente)
                 return self.rechte.rueckfrage_text(name, beschreibung)
 

@@ -36,17 +36,21 @@ Ruft das Modell ein Werkzeug der Stufe `zerstoererisch` auf, passiert zunächst 
 Missa bekommt stattdessen eine Beschreibung, *was* passieren würde („Aufgabe ‚Milch kaufen‘
 wird gelöscht“), und fragt dich. Ausgeführt wird erst, wenn
 
-1. die Rückfrage in einer **früheren** Nachricht gestellt wurde (Missa kann nicht im selben
-   Zug fragen und löschen),
-2. deine **neue** Nachricht eine knappe, eindeutige Zustimmung ist – ein „Ja“ („Ja“,
+1. die Rückfrage in deiner **vorherigen** Nachricht gestellt wurde (Missa kann nicht im
+   selben Zug fragen und löschen; schreibst du dazwischen etwas anderes, verfällt sie),
+2. du in **derselben Sitzung** antwortest (gleicher Kanal, gleiches Konto, gleiche
+   Unterhaltung – ein „Ja“ aus einer anderen Talk-Unterhaltung oder App zählt nicht),
+3. deine **neue** Nachricht eine knappe, eindeutige Zustimmung ist – ein „Ja“ („Ja“,
    „Okay, mach“) **oder** ein klarer Auftrag wie „Lösch es“, „Entferne den Termin“,
    „Verwirf den Entwurf“. Ein extra „Ja“ ist also nicht nötig. Nicht zählen: „Ja, aber …“,
    „lösch es lieber nicht“, Fragen („Lösch es?“), „Vergiss es“ (heißt meist „lass es“) und
    lange Texte,
-3. Missa genau **dieselbe Aktion** mit denselben Angaben noch einmal aufruft und
-4. die Rückfrage höchstens **10 Minuten** alt ist (`MISSA_BESTAETIGUNG_MINUTEN`).
+4. Missa genau **dieselbe Aktion** mit denselben Angaben noch einmal aufruft und
+5. die Rückfrage höchstens **10 Minuten** alt ist (`MISSA_BESTAETIGUNG_MINUTEN`).
 
-Jedes Ja gilt genau **einmal**. Im Hintergrund (Routinen, Nachtschicht) läuft nie etwas
+Jedes Ja gilt genau **einmal** und für höchstens **eine** Aktion: Sind mehrere Rückfragen
+offen, gibt ein „Ok“ nur eine frei. Setzt das Modell bei einem Werkzeug selbst
+`bestaetigt=true`, zählt das nur, wenn deine neue Nachricht eine Zustimmung ist. Im Hintergrund (Routinen, Nachtschicht) läuft nie etwas
 Zerstörerisches – dort kann niemand Ja sagen. Nach einem Neustart sind offene Rückfragen
 weg; Missa fragt dann neu.
 

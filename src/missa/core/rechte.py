@@ -183,6 +183,11 @@ AUFTRAG = frozenset(
 MAX_ZUSTIMMUNG_WOERTER = 12
 
 
+def sitzungs_schluessel(kanal: str, account: str, sitzung: str | None) -> str:
+    """Wofür eine Rückfrage gilt: Kanal, Konto und Sitzung (z. B. eine Talk-Unterhaltung)."""
+    return f"{kanal}|{account}|{sitzung or ''}"
+
+
 def ist_zustimmung(text: str | None) -> bool:
     """``True`` für eine knappe, eindeutige Zustimmung oder einen ausdrücklichen Auftrag.
 
@@ -482,7 +487,12 @@ class Rechte:
         self.notfall = notfall
         self.gueltigkeit = gueltigkeit_minuten * 60
         self._uhr = uhr
-        self._offen: dict[str, tuple[str, float]] = {}
+        #: Offene Rückfragen: (Sitzung, Aktion) → (Anfrage, Zeit).
+        self._offen: dict[tuple[str, str], tuple[str, float]] = {}
+        #: Je Sitzung die Anfrage mit Louis' letzter Nachricht.
+        self._letzte_anfrage: dict[str, str] = {}
+        #: Welche Aktion eine Anfrage schon freigegeben hat (höchstens eine je Nachricht).
+        self._freigabe_in: dict[str, str] = {}
         self._sperre = threading.Lock()
 
     # -------------------------------------------------------------- Bestätigung
@@ -502,25 +512,59 @@ class Rechte:
         for s in [s for s, (_, zeit) in self._offen.items() if zeit < grenze]:
             del self._offen[s]
 
-    def vormerken(self, werkzeug: str, argumente: dict[str, Any], anfrage_id: str) -> None:
+    def vormerken(
+        self, werkzeug: str, argumente: dict[str, Any], anfrage_id: str, sitzung: str = ""
+    ) -> None:
         """Merkt die Rückfrage vor (eine schon offene bleibt mit ihrer Zeit bestehen)."""
         with self._sperre:
             self._aufraeumen()
-            self._offen.setdefault(self.schluessel(werkzeug, argumente), (anfrage_id, self._uhr()))
+            self._offen.setdefault(
+                (sitzung, self.schluessel(werkzeug, argumente)), (anfrage_id, self._uhr())
+            )
+
+    def nachricht_eingegangen(self, sitzung: str, anfrage_id: str) -> None:
+        """Louis hat in ``sitzung`` eine neue Nachricht geschickt (Anfrage ``anfrage_id``).
+
+        Ein Ja gilt nur in der Nachricht direkt nach der Rückfrage: Rückfragen aus früheren
+        Anfragen dieser Sitzung verfallen jetzt.
+        """
+        with self._sperre:
+            vorher = self._letzte_anfrage.get(sitzung)
+            self._letzte_anfrage[sitzung] = anfrage_id
+            for schluessel, (anfrage, _) in list(self._offen.items()):
+                if schluessel[0] == sitzung and anfrage not in (vorher, anfrage_id):
+                    del self._offen[schluessel]
+            while len(self._letzte_anfrage) > 10_000:
+                del self._letzte_anfrage[next(iter(self._letzte_anfrage))]
 
     def freigegeben(
-        self, werkzeug: str, argumente: dict[str, Any], anfrage_id: str, nachricht: str | None
+        self,
+        werkzeug: str,
+        argumente: dict[str, Any],
+        anfrage_id: str,
+        nachricht: str | None,
+        sitzung: str = "",
     ) -> bool:
-        """``True`` (und verbraucht), wenn Louis genau diese Aktion gerade bestätigt hat."""
+        """``True`` (und verbraucht), wenn Louis genau diese Aktion gerade bestätigt hat.
+
+        Nur in derselben Sitzung, in der gefragt wurde, und höchstens eine Aktion je
+        Nachricht – ein „Ok“ gibt nie mehrere offene Rückfragen auf einmal frei.
+        """
         if not ist_zustimmung(nachricht):
             return False
-        schluessel = self.schluessel(werkzeug, argumente)
+        schluessel = (sitzung, self.schluessel(werkzeug, argumente))
         with self._sperre:
             self._aufraeumen()
             eintrag = self._offen.get(schluessel)
             if eintrag is None or eintrag[0] == anfrage_id:
                 return False
+            schon = self._freigabe_in.get(anfrage_id)
+            if schon is not None and schon != schluessel[1]:
+                return False
             del self._offen[schluessel]
+            self._freigabe_in[anfrage_id] = schluessel[1]
+            while len(self._freigabe_in) > 1000:
+                del self._freigabe_in[next(iter(self._freigabe_in))]
             return True
 
     def rueckfrage_text(self, werkzeug: str, beschreibung: str) -> str:

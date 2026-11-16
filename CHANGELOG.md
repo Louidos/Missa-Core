@@ -49,6 +49,8 @@ die Versionsnummern folgen [Semantic Versioning](https://semver.org/lang/de/).
   Dienst lesbar (#86)
 - Missa kann eine Rückfrage (z. B. eine Einladung an andere Personen) nicht mehr selbst
   bestätigen; es zählt nur dein Ja in deiner eigenen Nachricht (#90)
+- Ein „Ja“ gilt nur noch in derselben Unterhaltung, direkt nach der Rückfrage und für genau
+  eine Aktion – ein „Ok“ in einem anderen Chat oder Stunden später gibt nichts mehr frei (#90)
 
 ## 0.10.0 – 2026-11-16
 

@@ -15,7 +15,7 @@ from typing import Any
 from missa.core.config import Einstellungen
 from missa.core.llama import ANFRAGE_ZU_GROSS, LlamaClient, LlamaFehler, unerwartet
 from missa.core.prompt import charakter_lesen, systemprompt_bauen
-from missa.core.rechte import schwaerzen
+from missa.core.rechte import schwaerzen, sitzungs_schluessel
 from missa.core.verlauf import Verlauf
 from missa.core.werkzeuge import Werkzeugkasten
 
@@ -247,6 +247,12 @@ class ChatDienst:
 
     async def _eingang(self, vorbereitet: Vorbereitet) -> None:
         """Lässt die Eingangsprüfer laufen und hängt ihre Hinweise an den Systemprompt."""
+        if vorbereitet.neue_nachricht is not None:
+            # Rückfragen gelten nur bis zu Louis' nächster Nachricht in dieser Sitzung.
+            self.werkzeuge.rechte.nachricht_eingegangen(
+                sitzungs_schluessel(vorbereitet.kanal, vorbereitet.account, vorbereitet.sitzung),
+                vorbereitet.anfrage_id,
+            )
         hinweise = []
         for pruefer in self.eingangs_pruefer:
             try:
@@ -364,6 +370,7 @@ class ChatDienst:
                 nachricht=vorbereitet.neue_nachricht,
                 kanal=vorbereitet.kanal,
                 account=vorbereitet.account,
+                sitzung=vorbereitet.sitzung,
             )
             vorbereitet.nachrichten.append(
                 {
