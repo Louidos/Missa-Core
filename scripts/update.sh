@@ -22,6 +22,8 @@ RUECKSPRUNG_WARTEZEIT="${MISSA_HEALTH_WARTEZEIT_RUECKSPRUNG:-60}"
 # Nur zum Ausprobieren: lässt die Prüfung nach dem Update absichtlich scheitern.
 TEST_FEHLER="${MISSA_UPDATE_TEST_FEHLER:-}"
 TEST_FUNKTION_FEHLER="${MISSA_UPDATE_TEST_FUNKTION:-}"
+# Erwartete Herkunft des Codes (origin). Nur für Tests oder einen eigenen Fork ändern.
+ERWARTETE_QUELLE="${MISSA_UPDATE_QUELLE:-github.com/Louidos/Missa-Core}"
 STANDARD_VENV="/opt/missa/venv"
 STANDARD_ENV_DATEI="/etc/missa/missa.env"
 
@@ -216,6 +218,27 @@ github_pruefen() {
     fi
 }
 
+# Vergleichbare Form einer Git-Adresse: github.com/owner/repo (klein, ohne .git).
+quelle_normal() {
+    local url="${1,,}"
+    url="${url%/}"
+    url="${url%.git}"
+    url="${url#https://}"
+    url="${url#http://}"
+    url="${url#ssh://}"
+    url="${url#git@}"
+    printf '%s' "${url/github.com:/github.com/}"
+}
+
+# Holt nur vom erwarteten Repo – nie von einem umgebogenen origin.
+quelle_pruefen() {
+    local url
+    url="$(g remote get-url origin 2>/dev/null || true)"
+    if [[ "$(quelle_normal "$url")" != "$(quelle_normal "$ERWARTETE_QUELLE")" ]]; then
+        abbruch "origin zeigt auf ${url:-nichts}, erwartet ist $ERWARTETE_QUELLE – Update abgebrochen. Prüfen mit: git -C $REPO remote -v"
+    fi
+}
+
 art_erkennen() {
     local datei unit exe
     for datei in compose.yaml compose.yml docker-compose.yaml docker-compose.yml; do
@@ -305,6 +328,8 @@ ziel_bestimmen() {
             ZIEL_NAME="$tag"
             ;;
         version)
+            [[ "$ZIEL_ANGABE" =~ ^v?[0-9]+\.[0-9]+\.[0-9]+$ ]] ||
+                abbruch "Version $ZIEL_ANGABE ist keine Versionsnummer (z. B. v0.2.0)."
             ZIEL_COMMIT="$(g rev-parse -q --verify "refs/tags/$ZIEL_ANGABE^{commit}" 2>/dev/null || true)"
             [[ -n "$ZIEL_COMMIT" ]] || abbruch "Version $ZIEL_ANGABE gibt es nicht. Vorhanden: $(g tag -l 'v*' --sort=-v:refname | head -n 5 | tr '\n' ' ')"
             ZIEL_NAME="$ZIEL_ANGABE"
@@ -585,6 +610,7 @@ main() {
     [[ -f "$ENV_DATEI" ]] || abbruch "Einstellungsdatei $ENV_DATEI fehlt. Siehe docs/installation.md."
 
     github_pruefen
+    quelle_pruefen
     leise g fetch --tags --prune origin || abbruch "git fetch fehlgeschlagen."
     alt_merken
     info "Aktuell: $ALT_NAME (Version ${ALT_VERSION:-?})"

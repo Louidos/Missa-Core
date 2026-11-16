@@ -56,6 +56,8 @@ die Versionsnummern folgen [Semantic Versioning](https://semver.org/lang/de/).
 - Text aus Mails, Dateien, Notizen, Logs, Webseiten oder Missa Control kann Missa nicht
   mehr zu Änderungen verleiten: Solcher Inhalt ist im Gespräch klar als fremde Daten
   markiert, und danach fragt Missa vor jeder schreibenden Aktion nach deinem Ja (#90)
+- `update.sh` holt nur noch vom erwarteten GitHub-Repo und nimmt bei `--version` nur
+  Versionsnummern an (#92)
 
 ## 0.10.0 – 2026-11-16
 
