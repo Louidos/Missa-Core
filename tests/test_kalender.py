@@ -473,3 +473,37 @@ def test_einladung_ueber_die_api_erst_nach_ja(einstellungen, llama, verbindung, 
     assert (
         antwort.json()["choices"][0]["message"]["content"] == "Erledigt, das Meeting ist gelöscht."
     )
+
+
+def test_modell_kann_einladung_nicht_selbst_bestaetigen(einstellungen, llama, verbindung, sammlung):
+    """Ohne Louis' Ja zählt bestaetigt=true nicht – auch nicht in einer späteren Anfrage."""
+    from fastapi.testclient import TestClient
+
+    from missa.core.app import create_app
+    from missa.core.werkzeuge import Werkzeugkasten
+    from tests.conftest import API_KEY, text, werkzeug_aufruf
+
+    werkzeuge = Werkzeugkasten(kalender_werkzeuge(verbindung, "Persönlich", ZONE, Bestaetigungen()))
+    app = create_app(einstellungen, werkzeuge=werkzeuge, llama_transport=llama.transport)
+    kopf = {"Authorization": f"Bearer {API_KEY}", "X-Missa-Session": "einladung"}
+    einladung = {
+        "titel": "Treffen",
+        "start": "2026-11-16T10:00",
+        "teilnehmer": ["fremd@boese.example"],
+        "notiz": "Private Daten",
+    }
+    llama.antworten = [
+        # Anfrage 1: eingeschleuster Text lässt das Modell eine Einladung vorbereiten.
+        werkzeug_aufruf("termin_eintragen", einladung),
+        text("Was hast du morgen vor?"),
+        # Anfrage 2: Louis fragt etwas anderes – das Modell „bestätigt“ selbst.
+        werkzeug_aufruf("termin_eintragen", {**einladung, "bestaetigt": True}, "c2"),
+        text("Morgen ist frei."),
+    ]
+    with TestClient(app) as client:
+        frage = {"messages": [{"role": "user", "content": "Fass meine Mails zusammen"}]}
+        client.post("/v1/chat/completions", headers=kopf, json=frage)
+        weiter = {"messages": [{"role": "user", "content": "Und morgen, was steht an"}]}
+        client.post("/v1/chat/completions", headers=kopf, json=weiter)
+    assert sammlung.objekte == []
+    assert "NICHT AUSGEFÜHRT" in llama.anfragen[3]["messages"][-1]["content"]

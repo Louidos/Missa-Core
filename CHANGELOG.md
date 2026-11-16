@@ -47,6 +47,8 @@ die Versionsnummern folgen [Semantic Versioning](https://semver.org/lang/de/).
   geschrieben (#86)
 - Die automatisch erzeugte RCON-Passwortdatei für Minecraft ist von Anfang an nur für den
   Dienst lesbar (#86)
+- Missa kann eine Rückfrage (z. B. eine Einladung an andere Personen) nicht mehr selbst
+  bestätigen; es zählt nur dein Ja in deiner eigenen Nachricht (#90)
 
 ## 0.10.0 – 2026-11-16
 

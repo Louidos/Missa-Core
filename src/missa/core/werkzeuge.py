@@ -76,6 +76,12 @@ class Werkzeug:
         }
 
 
+def _ja_von_louis(nachricht: str | None) -> bool:
+    from missa.core.rechte import ist_zustimmung
+
+    return not im_hintergrund.get() and ist_zustimmung(nachricht)
+
+
 class Werkzeugkasten:
     """Sammlung aller Werkzeuge, die Missa gerade zur Verfügung stehen."""
 
@@ -236,6 +242,15 @@ class Werkzeugkasten:
                 self.rechte.vormerken(name, argumente, anfrage_id)
                 protokoll("wartet_auf_bestaetigung", beschreibung, argumente)
                 return self.rechte.rueckfrage_text(name, beschreibung)
+
+        if (
+            not bestaetigt
+            and argumente.get("bestaetigt") not in (None, False)
+            and not _ja_von_louis(nachricht)
+        ):
+            # ``bestaetigt=true`` darf das Modell nur nach Louis' Ja setzen – sonst zählt es
+            # nicht (das Werkzeug fragt dann wie ohne Bestätigung nach).
+            argumente = {**argumente, "bestaetigt": False}
 
         marke = aktuelle_anfrage.set(anfrage_id)
         freigabe = zentral_freigegeben.set(bestaetigt)
