@@ -526,7 +526,7 @@ class MailDienst:
             )
             nummer = int(cursor.lastrowid)
         entwurf = self.holen(nummer)
-        assert entwurf is not None
+        assert entwurf is not None  # noqa: S101 – nur Typ-Eingrenzung, keine Eingabeprüfung
         hinweis = self._im_ordner_ablegen(entwurf, ersetzen=False)
         self._zum_zeigen_vormerken(nummer)
         return (
@@ -561,11 +561,11 @@ class MailDienst:
         zuweisung = ", ".join(f"{name} = ?" for name in felder)
         with verbinden(self.datei) as db:
             db.execute(
-                f"UPDATE mail_entwuerfe SET {zuweisung}, version = version + 1 WHERE id = ?",
+                f"UPDATE mail_entwuerfe SET {zuweisung}, version = version + 1 WHERE id = ?",  # noqa: S608 – Namen fest im Code, Werte als Parameter
                 (*felder.values(), alt.id),
             )
         neu = self.holen(alt.id)
-        assert neu is not None
+        assert neu is not None  # noqa: S101 – nur Typ-Eingrenzung, keine Eingabeprüfung
         hinweis = self._im_ordner_ablegen(neu, ersetzen=True)
         self._zum_zeigen_vormerken(neu.id)
         return (

@@ -322,7 +322,8 @@ class ServerWaechter:
         zuweisung = ", ".join(f"{name} = ?" for name in felder)
         with verbinden(self.datei) as db:
             db.execute(
-                f"UPDATE alarm_regeln SET {zuweisung} WHERE id = ?", (*felder.values(), alt.id)
+                f"UPDATE alarm_regeln SET {zuweisung} WHERE id = ?",  # noqa: S608 – Namen fest im Code, Werte als Parameter
+                (*felder.values(), alt.id),
             )
         self._zustand_vergessen(alt.id)
         return self.regel(alt.id)

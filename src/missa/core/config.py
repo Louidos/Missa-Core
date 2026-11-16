@@ -37,7 +37,7 @@ class KonfigurationsFehler(ValueError):
 class Einstellungen:
     """Alle Einstellungen von Missa-Core."""
 
-    host: str = "0.0.0.0"
+    host: str = "0.0.0.0"  # noqa: S104 – bewusste Vorgabe, siehe missa.env.example
     port: int = 8000
     api_key: str = ""
     charakter_datei: Path = Path("/etc/missa/charakter.md")

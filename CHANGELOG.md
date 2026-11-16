@@ -11,6 +11,8 @@ die Versionsnummern folgen [Semantic Versioning](https://semver.org/lang/de/).
 
 - Die automatische Prüfung sucht jetzt zusätzlich nach bekannten Lücken in Abhängigkeiten
   und nach versehentlich eingecheckten Passwörtern (#84)
+- Der Code wurde vollständig auf Sicherheitslücken geprüft; strengere Prüfregeln (ruff `S`)
+  sind jetzt dauerhaft aktiv (#86)
 
 ### Behoben
 

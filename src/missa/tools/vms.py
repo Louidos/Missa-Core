@@ -529,7 +529,8 @@ class VmVerwaltung:
         zuweisung = ", ".join(f"{k} = ?" for k in felder)
         with verbinden(self.datei) as db:
             db.execute(
-                f"UPDATE vm_auftraege SET {zuweisung} WHERE id = ?", (*felder.values(), auftrag)
+                f"UPDATE vm_auftraege SET {zuweisung} WHERE id = ?",  # noqa: S608 – Namen fest im Code, Werte als Parameter
+                (*felder.values(), auftrag),
             )
 
     def _schritt(

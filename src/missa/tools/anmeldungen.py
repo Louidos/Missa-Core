@@ -237,7 +237,7 @@ class LoginWaechter:
                 host, "ssh-log", f"seit=@{int(seit.timestamp())}", "zeilen=5000", timeout=60
             )
             return ssh_lesen(host, text)
-        assert self.nextcloud_log is not None
+        assert self.nextcloud_log is not None  # noqa: S101 – nur Typ-Eingrenzung, keine Eingabeprüfung
         text = await self.nextcloud_log.lesen(self.ssh, 2000, seit)
         return [e for e in nextcloud_lesen(host, text) if e.zeit >= seit]
 
@@ -381,7 +381,8 @@ class LoginWaechter:
             werte.append(host.casefold())
         with verbinden(self.datei) as db:
             zeilen = db.execute(
-                f"SELECT * FROM anmeldungen WHERE {bedingung} ORDER BY zeit", werte
+                f"SELECT * FROM anmeldungen WHERE {bedingung} ORDER BY zeit",  # noqa: S608 – Namen fest im Code, Werte als Parameter
+                werte,
             ).fetchall()
         bekannt = {b["ip"]: b["notiz"] for b in self.bekannte()}
         erfolge = [z for z in zeilen if z["erfolg"]]

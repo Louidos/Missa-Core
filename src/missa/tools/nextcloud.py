@@ -187,7 +187,7 @@ class NextcloudVerbindung:
 
 def kurz_id(uid: str) -> str:
     """Kurze, stabile ID (8 Zeichen) aus der UID – leichter für das Modell."""
-    return hashlib.sha1(uid.encode("utf-8")).hexdigest()[:8]
+    return hashlib.sha1(uid.encode("utf-8"), usedforsecurity=False).hexdigest()[:8]
 
 
 def passt_zu_id(uid: str, gesucht: str) -> bool:

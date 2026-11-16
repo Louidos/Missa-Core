@@ -169,7 +169,7 @@ class Dateien:
 
     def _eintraege(self, xml: bytes) -> list[dict[str, Any]]:
         try:
-            wurzel = ET.fromstring(xml)
+            wurzel = ET.fromstring(xml)  # noqa: S314 – eigene Nextcloud; ElementTree lädt keine externen Entitäten
         except ET.ParseError as fehler:
             raise WerkzeugFehler("Nextcloud-Dateien lieferten ungültiges XML") from fehler
         eintraege = []

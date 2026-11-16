@@ -41,7 +41,7 @@ NICHT_ERREICHBAR = (
     "ausgeführt. Sag Louis das ehrlich; sobald das Panel wieder läuft, geht es wieder."
 )
 TOKEN_UNGUELTIG = (
-    "Missa Control lehnt Missas Zugang ab (Token ungültig oder widerrufen) – „{name}“ wurde "
+    "Missa Control lehnt Missas Zugang ab (Token ungültig oder widerrufen) – „{name}“ wurde "  # noqa: S105 – Fehlercode, kein Passwort
     "nicht ausgeführt. Louis muss im Panel unter „Clients“ einen neuen Token anlegen und in "
     "MISSA_CONTROL_TOKEN eintragen."
 )
