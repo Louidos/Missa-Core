@@ -1,0 +1,30 @@
+#!/usr/bin/env bash
+# Charaktertest gegen das echte Modell auf ai01 – mit Bericht und Modellvergleich.
+#
+#   scripts/charaktertest                          aktuelles Modell prüfen
+#   scripts/charaktertest --modell a --modell b    zwei Modelle nebeneinander
+#   scripts/charaktertest --modell b=http://127.0.0.1:8081   anderer llama-server
+#   scripts/charaktertest --help                   alle Optionen
+#
+# Liest die Einstellungen aus /etc/missa/missa.env (oder MISSA_ENV_DATEI).
+# Der Bericht landet in logs/charaktertest/. Mehr dazu: docs/charaktertest.md
+
+set -Eeuo pipefail
+
+REPO="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+PYTHON="${MISSA_PYTHON:-}"
+if [[ -z "$PYTHON" ]]; then
+    for kandidat in /opt/missa/venv/bin/python "$REPO/.venv/bin/python" python3; do
+        if command -v "$kandidat" >/dev/null 2>&1; then
+            PYTHON="$kandidat"
+            break
+        fi
+    done
+fi
+[[ -n "$PYTHON" ]] || {
+    echo "Kein Python gefunden (MISSA_PYTHON setzen)." >&2
+    exit 2
+}
+
+cd "$REPO"
+PYTHONPATH="$REPO/src${PYTHONPATH:+:$PYTHONPATH}" exec "$PYTHON" -m missa.charaktertest "$@"
