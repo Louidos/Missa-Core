@@ -14,7 +14,14 @@ Restart=always
 RestartSec=10
 NoNewPrivileges=true
 ProtectSystem=full
+ProtectHome=true
 PrivateTmp=true
+PrivateDevices=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+RestrictSUIDSGID=true
+UMask=0027
 
 [Install]
 WantedBy=multi-user.target

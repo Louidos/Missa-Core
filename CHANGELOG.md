@@ -60,6 +60,8 @@ die Versionsnummern folgen [Semantic Versioning](https://semver.org/lang/de/).
   Versionsnummern an (#92)
 - Das Notfall-Script folgt in seiner Notlösung ohne Python keiner Verknüpfung im
   Datenordner mehr (#92)
+- RCON eines neuen Minecraft-Servers ist nie mehr für alle offen: ohne `VM_VERWALTUNG_IP`
+  legt Missa keine Minecraft-VM an, und das Playbook prüft Adresse und Passwortlänge (#92)
 
 ## 0.10.0 – 2026-11-16
 

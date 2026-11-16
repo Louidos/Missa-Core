@@ -83,6 +83,9 @@ wird die [Minecraft-EULA](https://aka.ms/MinecraftEULA) akzeptiert.
    `PROXMOX_VM_TOKEN_SECRET`, `VM_NODE`, `VM_TEMPLATE_ID`, `VM_NETZE` (z. B.
    `70:10.0.70.100-10.0.70.149/24:10.0.70.1`) und `VM_VERWALTUNG_IP` (IP von ai01, nur sie darf
    per SSH und RCON auf die neuen VMs). Danach `sudo systemctl restart missa-core`.
+   Ohne `VM_VERWALTUNG_IP` legt Missa **keine Minecraft-VM** an (RCON wäre sonst von überall
+   erreichbar); das Playbook selbst lehnt `rcon_erlaubt_von: any` und RCON-Passwörter unter
+   16 Zeichen ab.
 
 Netzfreigaben: [netzfreigaben.md](netzfreigaben.md).
 

@@ -427,3 +427,25 @@ def test_vm_stoppen_nur_nach_ja(kasten, proxmox):
     assert "heruntergefahren" in rueckfrage and proxmox.aenderungen == []
     assert "gestoppt" in rufen(kasten, "vm_stoppen", {"name": "mc04"}, "a2", ja=True)
     assert proxmox.wege() == ["POST nodes/pve-id01/qemu/212/status/shutdown"]
+
+
+def test_minecraft_ohne_verwaltungs_ip_wird_abgelehnt(kasten, verwaltung, proxmox, ansible):
+    """Ohne VM_VERWALTUNG_IP wäre RCON von überall erreichbar – dann keine Minecraft-VM."""
+    verwaltung.verwaltung_ip = ""
+    rufen(kasten, "vm_planen", {"zweck": "minecraft"})
+    antwort = rufen(kasten, "vm_erstellen", {"plan_id": 1}, "a1")
+    assert "VM_VERWALTUNG_IP" in antwort
+    antwort = erstellen_und_warten(kasten, verwaltung, 1)
+    assert "VM_VERWALTUNG_IP" in antwort
+    assert proxmox.aenderungen == []
+    assert ansible.laeufe == []
+
+
+def test_minecraft_playbook_lehnt_rcon_fuer_alle_ab():
+    inhalt = yaml.safe_load((PLAYBOOKS / "minecraft.yml").read_text(encoding="utf-8"))[0]
+    assert inhalt["vars"]["rcon_erlaubt_von"] == ""
+    pruefung = inhalt["tasks"][0]["ansible.builtin.assert"]
+    assert any("rcon_erlaubt_von" in b and "match" in b for b in pruefung["that"])
+    assert "rcon_passwort | length >= 16" in pruefung["that"]
+    vorlage = next(t for t in inhalt["tasks"] if "server.properties" in t["name"])
+    assert vorlage["diff"] is False
