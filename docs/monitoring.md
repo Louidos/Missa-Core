@@ -15,7 +15,7 @@ class Messwert:
 
 Eine neue Quelle ist eine Klasse mit `name` und `async def messwerte() -> list[Messwert]`,
 die bei Problemen `QuellenFehler` wirft (siehe `src/missa/integrationen/monitoring.py`).
-Sie wird in `server_waechter_bauen` (`src/missa/tools/__init__.py`) eingehängt.
+Sie wird in `server_waechter_bauen` (`src/missa/tools/homelab_bauen.py`) eingehängt.
 
 ## Eigenes Monitoring-Tool (`MONITORING_URL`)
 
