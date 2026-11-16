@@ -691,3 +691,10 @@ kennen – man fragt einfach in normaler Sprache.
 | Eigene VMs (nur mit VM-Token) | „Richte einen Minecraft-Server ein“, „Welche VMs hast du angelegt?“, „Lösch mc01“ (nur nach Ja) | `vm_planen`, `vm_erstellen`, `missa_vms_anzeigen`, `playbooks_anzeigen`, `vm_starten`, `vm_stoppen`, `vm_loeschen` |
 | Firewall (nur mit `FIREWALL_LOG_DATEI`, nur lesen) | „Was war gestern an der Firewall los?“ | `firewall_zusammenfassung` |
 | Anmeldungen (nur wenn `SSH_HOSTS` gesetzt ist) | „Wer hat sich heute angemeldet?“, „10.0.30.5 ist mein Laptop“ | `anmeldungen_anzeigen`, `ip_als_bekannt_markieren`, `ip_nicht_mehr_bekannt`, `bekannte_ips_anzeigen`, `login_einstellungen` |
+| Caddy (nur mit Caddy-Host und Domain) | „Mach spiel.louis-degiorgi.ch auf 10.0.70.120:8080“, „Welche Subdomains hast du angelegt?“, „Nimm spiel wieder raus“ (nur nach Ja) | `subdomain_vorschlagen`, `subdomain_aktivieren`, `subdomains_anzeigen`, `subdomain_entfernen` (siehe [caddy-minecraft.md](caddy-minecraft.md)) |
+| Minecraft (nur mit RCON) | „Wer ist online?“, „Setz Lea auf die Whitelist“, „Starte den Minecraft-Server neu“ (nur nach Ja) | `minecraft_spieler`, `minecraft_whitelist`, `minecraft_whitelist_hinzufuegen`, `minecraft_whitelist_entfernen`, `minecraft_neustarten` |
+| Git-Server und GitHub (nur mit Token, GitHub nur lesen) | „Leg im Repo Missa-Core ein Issue an: …“, „Was ist auf dem Git-Server offen?“, „Wie steht's auf GitHub?“ | `git_issue_anlegen`, `git_ueberblick`, `git_alte_branches`, `github_ueberblick` (siehe [git-github-prompts.md](git-github-prompts.md)) |
+| Claude-Code-Prompts | „Mach mir einen Prompt für Missa-Core: Missa soll …“, „Ja, leg ihn als Issue an“ | `claude_prompt_erstellen`, `claude_prompt_als_issue` |
+| Aktionsprotokoll | „Was hast du heute gemacht?“ | `aktionen_anzeigen` (siehe [rechte.md](rechte.md)) |
+
+Alle Werkzeuge mit Stufe und Voraussetzung: [werkzeuge.md](werkzeuge.md).
