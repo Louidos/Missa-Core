@@ -12,4 +12,6 @@ regexTarget = "match"
 regexes = [
   '''DEIN_MISSA_API_KEY''',
   '''bitte-aendern''',
+  # Beispiel-Key für den Start von Hand in docs/entwicklung.md
+  '''lokal-geheim-123''',
 ]

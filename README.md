@@ -6,6 +6,16 @@ und leitet Anfragen an ein lokal laufendes Sprachmodell (llama-server) weiter.
 Jede App verbindet sich nur mit der API von Missa-Core; weitere Kanäle wie Nextcloud
 Talk nutzen dieselbe Logik.
 
+Zu Missa gehören drei Repos – die ganze Logik liegt hier:
+
+| Repo | Aufgabe |
+|------|---------|
+| **Missa-Core** (dieses Repo) | Missa selbst: API, Charakter, Gedächtnis, Werkzeuge, Zeitplaner |
+| [missa-control](https://github.com/Louidos/missa-control) | Admin-Panel auf ai01: Integrationen, Freigaben, Regeln, Geräte, Modelle |
+| [missa-chat](https://github.com/Louidos/missa-chat) | Chat-App (PWA) für Browser und Handy |
+
+Wie alles zusammenspielt: [docs/architektur.md](docs/architektur.md).
+
 ## Projektstand
 
 - Version: 0.10.0 (2026-11-16)
@@ -91,6 +101,13 @@ Talk nutzen dieselbe Logik.
 
 ## Dokumentation
 
+Alle Seiten im Überblick: [docs/README.md](docs/README.md).
+
+- **[docs/architektur.md](docs/architektur.md)** – wie Missa aufgebaut ist: die drei Repos,
+  Ablauf einer Nachricht, Werkzeuge und Rechte, Zeitplaner, Daten
+- **[docs/werkzeuge.md](docs/werkzeuge.md)** – alle Werkzeuge mit Stufe und Voraussetzung
+- **[docs/entwicklung.md](docs/entwicklung.md)** – Entwicklung: Tests, neues Werkzeug, neue
+  Einstellung, Arbeitsweise im Repo
 - **[docs/installation.md](docs/installation.md)** – Installation auf ai01 als systemd-Dienst
   unter dem Benutzer `missa`, alle Variablen erklärt
 - **[docs/api.md](docs/api.md)** – alle Endpunkte mit curl-Beispielen und wie sich eine App
@@ -136,6 +153,9 @@ Talk nutzen dieselbe Logik.
   Firewall-Logs
 - **[docs/updates-zertifikate.md](docs/updates-zertifikate.md)** – Updates, Wartungsfenster,
   Zertifikate, Domains und DNS
+- **[docs/charaktertest.md](docs/charaktertest.md)** – Charaktertest gegen das echte Modell,
+  Modellvergleich
+- **[docs/stand.md](docs/stand.md)** – Bestandsaufnahme aller Funktionen gegen die Soll-Liste
 
 ## Installation
 
@@ -144,7 +164,7 @@ Code nach `/opt/missa/app`, Python-Umgebung `/opt/missa/venv`, Konfiguration in
 `/etc/missa/missa.env`, Charakter in `/etc/missa/charakter.md`, Dienst aus
 [deploy/missa-core.service](deploy/missa-core.service).
 
-Für die Entwicklung (Python 3.13, Linux):
+Für die Entwicklung (Python 3.13, Linux; ausführlich in [docs/entwicklung.md](docs/entwicklung.md)):
 
 ```bash
 python3.13 -m venv .venv

@@ -7,6 +7,13 @@ die Versionsnummern folgen [Semantic Versioning](https://semver.org/lang/de/).
 
 ## Unveröffentlicht
 
+### Hinzugefügt
+
+- Neue Doku für alle, die an Missa weiterbauen: Aufbau und Zusammenspiel der drei Repos
+  (`docs/architektur.md`), alle Werkzeuge mit Stufe und Voraussetzung (`docs/werkzeuge.md`)
+  und eine Anleitung für die Entwicklung (`docs/entwicklung.md`); ein Test sorgt dafür, dass
+  die Werkzeug-Liste vollständig bleibt
+
 ### Geändert
 
 - Die automatische Prüfung sucht jetzt zusätzlich nach bekannten Lücken in Abhängigkeiten

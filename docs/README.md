@@ -1,5 +1,13 @@
 # Dokumentation
 
+## Aufbau und Entwicklung
+
+- [architektur.md](architektur.md) – Gesamtbild der drei Repos, Aufbau des Codes, Ablauf einer Nachricht, Rechte, Zeitplaner, Daten und Tabellen
+- [werkzeuge.md](werkzeuge.md) – alle Werkzeuge mit Stufe (lesen, schreiben, zerstörerisch) und Voraussetzung
+- [entwicklung.md](entwicklung.md) – Umgebung, Prüfungen, Tests, neues Werkzeug / neue Einstellung / neuer Kanal, Arbeitsweise im Repo
+
+## Betrieb und Funktionen
+
 - [installation.md](installation.md) – Installation auf ai01 als systemd-Dienst, alle Variablen erklärt
 - [api.md](api.md) – alle Endpunkte mit curl-Beispielen und wie sich eine App verbindet
 - [update.md](update.md) – Update auf ai01 mit einem Befehl, Ersteinrichtung, Rücksprung
