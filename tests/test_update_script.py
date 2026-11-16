@@ -261,6 +261,7 @@ def welt(tmp_path: Path) -> Welt:
         "FAKE_ENV": str(env_datei),
         "FAKE_VENV": str(venv),
         "MISSA_UPDATE_OHNE_ROOT": "1",
+        "MISSA_UPDATE_QUELLE": str(origin),
         "MISSA_HEALTH_WARTEZEIT": "4",
         "MISSA_HEALTH_WARTEZEIT_RUECKSPRUNG": "4",
         "NO_COLOR": "1",
@@ -385,6 +386,46 @@ def test_github_nicht_erreichbar(welt: Welt):
     ergebnis = welt.update()
     assert ergebnis.returncode == 1
     assert "nicht erreichbar" in ergebnis.stderr
+
+
+def test_fremde_quelle_wird_abgelehnt(welt: Welt):
+    fremd = welt.app.parent / "fremd.git"
+    git(welt.app.parent, "clone", "-q", "--bare", str(welt.app.parent / "origin.git"), str(fremd))
+    git(welt.app, "remote", "set-url", "origin", str(fremd))
+    ergebnis = welt.update()
+    assert ergebnis.returncode != 0
+    assert "erwartet ist" in ergebnis.stdout + ergebnis.stderr
+    assert welt.head() == welt.commits["v0.1.0"]
+    assert welt.laeuft() == "0.1.0"
+
+
+@pytest.mark.parametrize(
+    "url",
+    [
+        "https://github.com/Louidos/Missa-Core.git",
+        "https://github.com/Louidos/Missa-Core",
+        "git@github.com:louidos/missa-core.git",
+        "ssh://git@github.com/Louidos/Missa-Core.git",
+    ],
+)
+def test_github_adressen_gelten_als_erwartete_quelle(url):
+    script = Path(__file__).parent.parent / "scripts" / "update.sh"
+    funktion = subprocess.run(
+        ["sed", "-n", "/^quelle_normal()/,/^}/p", str(script)],
+        capture_output=True, text=True, check=True,
+    ).stdout  # fmt: skip
+    ergebnis = subprocess.run(
+        ["bash", "-c", f'{funktion}\nquelle_normal "$1"', "-", url],
+        capture_output=True, text=True, check=True,
+    )  # fmt: skip
+    assert ergebnis.stdout == "github.com/louidos/missa-core"
+
+
+def test_version_muss_eine_versionsnummer_sein(welt: Welt):
+    ergebnis = welt.update("--version", "main")
+    assert ergebnis.returncode != 0
+    assert "keine Versionsnummer" in ergebnis.stdout + ergebnis.stderr
+    assert welt.head() == welt.commits["v0.1.0"]
 
 
 def test_ohne_root_nur_probelauf(welt: Welt):

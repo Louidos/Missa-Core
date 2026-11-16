@@ -1,5 +1,7 @@
 # systemd-Unit für Missa-Core.
 # Installation: siehe docs/installation.md
+# Nach einer Änderung an den Absicherungen unten: sudo systemctl status missa-core prüfen
+# (und einmal eine Frage mit Werkzeug stellen, z. B. „Wie geht's rp01?“, damit ssh läuft).
 #   sudo install -m 644 deploy/missa-core.service /etc/systemd/system/missa-core.service
 #   sudo systemctl daemon-reload && sudo systemctl enable --now missa-core
 
@@ -30,9 +32,30 @@ ReadWritePaths=/opt/missa/data
 ReadWritePaths=-/opt/missa/backup
 ProtectKernelTunables=true
 ProtectKernelModules=true
+ProtectKernelLogs=true
 ProtectControlGroups=true
 RestrictSUIDSGID=true
 LockPersonality=true
+# Neue Dateien (Datenbank, Backups, Schlüssel) nur für den Dienst-Benutzer lesbar.
+UMask=0077
+# Keine Geräte, keine fremden Prozesse sehen, Uhr und Hostname nicht verstellen.
+PrivateDevices=true
+ProtectProc=invisible
+ProtectClock=true
+ProtectHostname=true
+# Keine Rechte über die des Benutzers missa hinaus (ssh und ansible-playbook brauchen keine).
+CapabilityBoundingSet=
+AmbientCapabilities=
+RestrictNamespaces=true
+RestrictRealtime=true
+RemoveIPC=true
+# Netz nur über IPv4/IPv6 und lokale Sockets (Netlink für die Netzwerk-Abfragen von Python).
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6 AF_NETLINK
+# Nur die Systemaufrufe, die ein normaler Dienst braucht (gilt auch für ssh/ansible).
+SystemCallArchitectures=native
+SystemCallFilter=@system-service
+SystemCallFilter=~@privileged
+SystemCallErrorNumber=EPERM
 
 [Install]
 WantedBy=multi-user.target

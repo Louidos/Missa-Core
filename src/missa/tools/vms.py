@@ -484,8 +484,18 @@ class VmVerwaltung:
 
     # -------------------------------------------------------------- Erstellen
 
+    def _rcon_pruefen(self, plan: VmPlan) -> None:
+        """RCON nie für alle offen: ohne VM_VERWALTUNG_IP keine Minecraft-VM."""
+        if plan.zweck == "minecraft" and not self.verwaltung_ip:
+            raise WerkzeugFehler(
+                "ABGELEHNT – VM_VERWALTUNG_IP ist nicht gesetzt. Ohne sie wäre RCON (die "
+                "Fernsteuerung des Minecraft-Servers) von überall erreichbar. Louis muss in "
+                "/etc/missa/missa.env VM_VERWALTUNG_IP=<IP von ai01> eintragen."
+            )
+
     async def erstellen_vorschau(self, plan_id: int | str) -> str:
         plan = self._plan(plan_id)
+        self._rcon_pruefen(plan)
         gruende = await self.grenzen_pruefen(plan)
         if gruende:
             raise WerkzeugFehler("ABGELEHNT – inzwischen über den Grenzen: " + "; ".join(gruende))
@@ -498,6 +508,7 @@ class VmVerwaltung:
     async def erstellen(self, plan_id: int | str) -> str:
         """Legt die VM nach Louis' Ja an – im Hintergrund, jeder Schritt ins Protokoll."""
         plan = self._plan(plan_id)
+        self._rcon_pruefen(plan)
         gruende = await self.grenzen_pruefen(plan)
         if gruende:
             raise WerkzeugFehler("ABGELEHNT – inzwischen über den Grenzen: " + "; ".join(gruende))

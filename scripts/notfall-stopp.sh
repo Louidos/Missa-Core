@@ -42,12 +42,24 @@ main() {
     fi
     # Notlösung ohne Python: nur die Sperrdatei anlegen (ohne Eintrag im Protokoll).
     echo "Hinweis: Python von Missa nicht nutzbar – lege nur die Sperrdatei an." >&2
+    local datei="$daten/notfall-stopp"
     mkdir -p "$daten"
-    if [[ ! -e "$daten/notfall-stopp" ]]; then
-        printf '{"seit": "%s", "grund": "%s", "quelle": "ai01/script"}\n' \
-            "$(date -Iseconds)" "${GRUND//\"/\'}" >"$daten/notfall-stopp"
+    # Der Datenordner gehört dem Dienst-Benutzer: nie einer Verknüpfung folgen (sonst
+    # könnte root eine fremde Datei beschreiben oder ihre Rechte ändern).
+    if [[ -L "$datei" ]]; then
+        rm -f -- "$datei"
     fi
-    chmod 644 "$daten/notfall-stopp"
+    if [[ ! -e "$datei" ]]; then
+        (
+            set -o noclobber
+            umask 022
+            printf '{"seit": "%s", "grund": "%s", "quelle": "ai01/script"}\n' \
+                "$(date -Iseconds)" "${GRUND//\"/\'}" >"$datei"
+        )
+    fi
+    if [[ -f "$datei" && ! -L "$datei" ]]; then
+        chmod 644 -- "$datei"
+    fi
     echo "NOTFALL-STOPP ausgelöst: Schreiben und Zerstörerisches sind gesperrt."
 }
 

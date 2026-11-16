@@ -78,7 +78,8 @@ main() {
         exit 1
     fi
     if [[ "$EUID" -eq 0 ]] && id "$BENUTZER" >/dev/null 2>&1; then
-        chown -R "$BENUTZER:$BENUTZER" "$daten"
+        # -h -P: Verknüpfungen selbst ändern, nie ihr Ziel.
+        chown -R -h -P "$BENUTZER:$BENUTZER" "$daten"
     fi
     dienst start
     echo "Fertig. Missa läuft wieder mit dem Stand aus dem Backup."

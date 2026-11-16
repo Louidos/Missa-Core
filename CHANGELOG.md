@@ -13,6 +13,8 @@ die Versionsnummern folgen [Semantic Versioning](https://semver.org/lang/de/).
   und nach versehentlich eingecheckten Passwörtern (#84)
 - Der Code wurde vollständig auf Sicherheitslücken geprüft; strengere Prüfregeln (ruff `S`)
   sind jetzt dauerhaft aktiv (#86)
+- Der Dienst und die Wartungs-Scripts sind strenger abgesichert; nach dem Update einmal
+  `systemctl status missa-core` prüfen (#92)
 
 ### Behoben
 
@@ -54,6 +56,12 @@ die Versionsnummern folgen [Semantic Versioning](https://semver.org/lang/de/).
 - Text aus Mails, Dateien, Notizen, Logs, Webseiten oder Missa Control kann Missa nicht
   mehr zu Änderungen verleiten: Solcher Inhalt ist im Gespräch klar als fremde Daten
   markiert, und danach fragt Missa vor jeder schreibenden Aktion nach deinem Ja (#90)
+- `update.sh` holt nur noch vom erwarteten GitHub-Repo und nimmt bei `--version` nur
+  Versionsnummern an (#92)
+- Das Notfall-Script folgt in seiner Notlösung ohne Python keiner Verknüpfung im
+  Datenordner mehr (#92)
+- RCON eines neuen Minecraft-Servers ist nie mehr für alle offen: ohne `VM_VERWALTUNG_IP`
+  legt Missa keine Minecraft-VM an, und das Playbook prüft Adresse und Passwortlänge (#92)
 
 ## 0.10.0 – 2026-11-16
 
