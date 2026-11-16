@@ -7,6 +7,24 @@ die Versionsnummern folgen [Semantic Versioning](https://semver.org/lang/de/).
 
 ## Unveröffentlicht
 
+### Hinzugefügt
+
+- Charaktertest gegen das echte Modell: `scripts/charaktertest` stellt Missa die Fragen aus
+  `tests/charakter/fragen.yaml` und prüft, ob sie duzt, keine japanischen Wörter benutzt, in
+  Krisen ruhig bleibt und nichts Zerstörerisches ohne dein Ja anstösst (Werkzeuge werden dabei
+  nie ausgeführt). Der Bericht landet als Markdown in `logs/charaktertest/`. Mit
+  `--modell a --modell b` vergleicht er zwei Modelle nebeneinander: Trefferquote, Zeit bis zum
+  ersten Token, Tokens pro Sekunde und Gesamtzeit (#75)
+- `sudo ./scripts/update.sh --zurueck` wechselt mit einem Befehl auf den letzten Release-Tag
+  vor dem installierten Stand zurück (#75)
+
+### Geändert
+
+- Das Update prüft nach dem Neustart zusätzlich, ob Anmeldung, Datenbank und Zeitplaner
+  antworten; sonst springt es automatisch auf die vorige Version zurück (#75)
+- Jedes Werkzeug hat jetzt mindestens einen Test, und die CI achtet darauf, dass das so
+  bleibt (#75)
+
 ## 0.9.0 – 2026-11-12
 
 ### Hinzugefügt

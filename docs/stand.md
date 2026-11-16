@@ -15,7 +15,7 @@ Legende: ✅ erledigt (Code auf main, Test grün, Einstellung in
 | Gruppe | Status | Was fehlt |
 |---|---|---|
 | F1 Rechte, Protokoll, Notfall | ✅ | – |
-| F2 Tests & Modelle | 🟡 | Charakter-Fragenset, `scripts/charaktertest`, Modellvergleich, `update.sh --zurueck`, Test nach dem Update, Tests für 8 Werkzeuge |
+| F2 Tests & Modelle | ✅ | nachgeholt (#75) |
 | F3 Push, Stufen, Ruhezeiten | 🟡 | ntfy, Push pro Stufe, Ausweichkanal-Test, Lernzeiten aus dem Kalender, Zusammenfassung am Morgen |
 | F4 Talk, Gespräch, Streaming | 🟡 | Fremde ins Aktionsprotokoll, ein Gespräch pro Person über alle Kanäle, Ereignis „erster Satz fertig“ |
 | O1 Erinnerungen, Routinen, Nachtschicht | ✅ | – |
@@ -47,12 +47,12 @@ Legende: ✅ erledigt (Code auf main, Test grün, Einstellung in
 | F1 | „Was hast du heute gemacht?“ → Liste | ✅ | Werkzeug `aktionen_anzeigen`; `::test_was_hast_du_heute_gemacht` |
 | F1 | Notfall-Stopp hält über Neustart, nur Freigabe-Script hebt auf | ✅ | `NotfallSchalter`; `::test_notfall_sperrt_schreiben_auch_nach_neustart`, `test_notfall_scripts.py::test_stopp_und_freigabe_per_script` |
 | F2 | CI läuft bei jedem PR und ist grün | ✅ | `.github/workflows/ci.yml` |
-| F2 | Jedes Tool mit mindestens einem Test | 🟡 | Ohne eigenen Test: `dokumente_anzeigen`, `email_adresse_suchen`, `email_entwurf_verwerfen`, `git_alte_branches`, `schreibstil_anzeigen`, `schreibstil_lernen`, `subdomains_anzeigen`, `vm_starten`; keine Prüfung, die das erzwingt |
-| F2 | Charakter-Fragenset mit Regelprüfungen | ❌ | kein `tests/charakter/` |
-| F2 | `scripts/charaktertest` erzeugt lesbaren Bericht | ❌ | Script fehlt |
-| F2 | Zwei Modelle nebeneinander verglichen (`--modell`) | ❌ | fehlt |
-| F2 | Update-Script testet nach dem Update | 🟡 | nur `/health` mit Versionsprüfung, kein Funktionstest |
-| F2 | Kaputtes Update erkannt, `--zurueck` stellt vorige Version her | 🟡 | automatischer Rücksprung da (`zurueck()`, `test_update_script.py::test_bei_fehler_laeuft_wieder_die_alte_version`); Option `--zurueck` fehlt |
+| F2 | Jedes Tool mit mindestens einem Test | ✅ | `test_werkzeug_abdeckung.py::test_jedes_werkzeug_hat_einen_test` erzwingt es; fehlende Tests ergänzt (auch `emails_anzeigen`, `vm_stoppen`) |
+| F2 | Charakter-Fragenset mit Regelprüfungen | ✅ | `tests/charakter/fragen.yaml`, `src/missa/charaktertest.py`; `test_charaktertest.py::test_fragenset_im_repo_ist_gueltig`, Regel-Tests |
+| F2 | `scripts/charaktertest` erzeugt lesbaren Bericht | ✅ | `scripts/charaktertest`, `docs/charaktertest.md`; `::test_zwei_modelle_nebeneinander_mit_lesbarem_bericht`, `::test_script_zeigt_hilfe` |
+| F2 | Zwei Modelle nebeneinander verglichen (`--modell`) | ✅ | Trefferquote, erstes Token, Tokens/s, Gesamtzeit; `::test_zwei_modelle_nebeneinander_mit_lesbarem_bericht`, `::test_messung_erstes_token_und_tokens_pro_sekunde` |
+| F2 | Update-Script testet nach dem Update | ✅ | `funktion_pruefen` (API, Datenbank, Zeitplaner); `test_update_script.py::test_funktionstest_nach_dem_update_mit_api_key` |
+| F2 | Kaputtes Update erkannt, `--zurueck` stellt vorige Version her | ✅ | `::test_bei_fehler_laeuft_wieder_die_alte_version` (auch Funktionstest), `::test_zurueck_auf_den_letzten_tag`, `::test_zurueck_von_main_auf_den_letzten_release` |
 | F3 | ntfy (URL/Topic/Token aus .env) mit Ausweichkanal | ❌ | kein ntfy-Kanal; `Zustellung` kann schon mehrere Kanäle der Reihe nach, registriert ist nur Talk |
 | F3 | Stufen info/wichtig/notfall | 🟡 | `core/alarme.py` `AlarmStufe`; alle Stufen gehen gleich über Talk, keine Priorität, keine Stelle für einen Anruf |
 | F3 | `wichtig` kommt als Push | ❌ | nur Talk |
