@@ -25,6 +25,9 @@ die Versionsnummern folgen [Semantic Versioning](https://semver.org/lang/de/).
 - Eine Talk-Nachricht wird nur einmal ausgeführt, auch wenn sie nach einem Neustart noch
   einmal zugestellt wird; ungewöhnliche Zeichen in den Kopfzeilen eines Webhooks führen nicht
   mehr zu einem Fehler 500 (#86)
+- Beim Zusammenfassen von Webseiten folgt Missa keiner Weiterleitung mehr auf interne
+  Adressen in deinem Netz; zu grosse Seiten werden nicht mehr ganz geladen, und PDFs mit
+  extrem vielen Seiten werden abgelehnt statt den Dienst zu blockieren (#86)
 
 ## 0.10.0 – 2026-11-16
 
