@@ -316,3 +316,4 @@ Ersteinrichtung, Optionen und Einzelheiten: [update.md](update.md).
 | Missa sagt, es gebe keinen Kalender „…“ | Die Meldung nennt die vorhandenen Namen – `NEXTCLOUD_KALENDER` bzw. `NEXTCLOUD_AUFGABEN_LISTE` genau so eintragen. |
 | `/health` meldet `"charakter":"fehlt"` | `/etc/missa/charakter.md` fehlt oder ist für `missa` nicht lesbar (Rechte `root:missa 640`). |
 | Antworten brechen nach langer Zeit ab | `LLAMA_TIMEOUT` erhöhen; auch den Timeout in Caddy und in der App großzügig setzen. |
+| Antwort ist ein Fehler mit `code` statt `choices` | `error.message` sagt, was los ist. Einzelheiten und Originaltext des llama-servers: `sudo journalctl -u missa-core --since "-1h" \| grep <anfrage_id>`. Codes: [api.md](api.md#fehler). |

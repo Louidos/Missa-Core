@@ -25,6 +25,16 @@ die Versionsnummern folgen [Semantic Versioning](https://semver.org/lang/de/).
 - Jedes Werkzeug hat jetzt mindestens einen Test, und die CI achtet darauf, dass das so
   bleibt (#75)
 
+### Behoben
+
+- Anfragen mit mehreren Aufgaben in einem Satz („Verschiebe das Home Office, trag morgen
+  Check-in ein und erinnere mich daran“) enden nicht mehr mit einem unverständlichen Fehler:
+  Lehnt das Sprachmodell die Anfrage als zu gross ab, versucht Missa es einmal mit gekürztem
+  Verlauf und gekürzten Werkzeug-Ergebnissen. Fehlerantworten sagen jetzt auf Deutsch, was los
+  ist und was hilft, und haben einen festen `error.code` (`zeitlimit`, `anfrage_zu_gross`,
+  `modell_nicht_erreichbar`, `unerwartete_antwort`, …) und eine `anfrage_id`, unter der im Log
+  der Originaltext des llama-servers steht (#77)
+
 ## 0.9.0 – 2026-11-12
 
 ### Hinzugefügt

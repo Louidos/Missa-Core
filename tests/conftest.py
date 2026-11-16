@@ -20,7 +20,9 @@ from missa.core.werkzeuge import Werkzeugkasten
 API_KEY = "test-schluessel"
 JETZT = datetime(2026, 11, 9, 19, 45, tzinfo=ZoneInfo("Europe/Zurich"))
 
-Antwort = dict[str, Any] | Callable[[dict[str, Any]], dict[str, Any]]
+#: Eine Antwort ist eine Nachricht des Modells, eine Funktion, die eine liefert, eine fertige
+#: ``httpx.Response`` (z. B. ein Fehler von llama-server) oder eine Ausnahme (z. B. Zeitlimit).
+Antwort = dict[str, Any] | Callable[[dict[str, Any]], Any] | httpx.Response | Exception
 
 
 def text(inhalt: str) -> dict[str, Any]:
@@ -66,6 +68,13 @@ class FakeLlama:
         antwort = self.antworten.pop(0) if self.antworten else text("Hallo, ich bin Missa.")
         if callable(antwort):
             antwort = antwort(nutzlast)
+        if isinstance(antwort, Exception):
+            raise antwort
+        if isinstance(antwort, httpx.Response):
+            # Kopie, damit dieselbe Antwort mehrmals in der Liste stehen kann.
+            return httpx.Response(
+                antwort.status_code, content=antwort.content, headers=antwort.headers
+            )
         if nutzlast.get("stream"):
             return httpx.Response(
                 200,
