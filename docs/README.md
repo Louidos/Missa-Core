@@ -24,3 +24,4 @@
 - [gedaechtnis.md](gedaechtnis.md) – Langzeitgedächtnis, Lernen aus Korrekturen, Vergessen
 - [sicherung.md](sicherung.md) – tägliches Backup und Wiederherstellen auf ai01
 - [doku-wissen.md](doku-wissen.md) – Fragen zur eigenen Doku mit Quelle, Zusammenfassungen von PDFs, Mails und Webseiten
+- [stand.md](stand.md) – Stand aller Funktionen gegen die Soll-Liste (Bestandsaufnahme)
