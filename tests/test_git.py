@@ -554,3 +554,9 @@ def test_app_verdrahtet_git_github_und_prompts(tmp_path, gitea, github_api):
     github_namen = [n for n in stufen if n.startswith("github")]
     assert all(stufen[n] is Stufe.LESEN for n in github_namen)
     assert app.state.git is not None and app.state.github is not None
+
+
+def test_werkzeug_git_alte_branches(git, tmp_path):
+    kasten = kasten_mit(git_werkzeuge(git), tmp_path)
+    text = asyncio.run(kasten.ausfuehren("git_alte_branches", {}))
+    assert "Branches ohne Commit seit 14 Tagen (2):" in text

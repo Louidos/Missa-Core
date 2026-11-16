@@ -29,7 +29,10 @@ Talk nutzen dieselbe Logik.
 - Fertig: Tägliches Backup (Gedächtnis, Charakter, Regeln, Routinen, Konfiguration ohne
   Geheimnisse, 14 behalten) und Wiederherstellen per Script (siehe docs/sicherung.md)
 - Fertig: systemd-Dienst, Installationsanleitung und API-Doku
-- Fertig: Update mit einem Befehl (`sudo ./scripts/update.sh`, mit automatischem Rücksprung)
+- Fertig: Update mit einem Befehl (`sudo ./scripts/update.sh`, mit Funktionstest danach,
+  automatischem Rücksprung und `--zurueck` auf die vorige Version)
+- Fertig: Charaktertest gegen das echte Modell mit Bericht und Modellvergleich
+  (`scripts/charaktertest --modell a --modell b`, siehe docs/charaktertest.md)
 - Fertig: Nextcloud Talk als Kanal (nur für erlaubte Accounts, siehe docs/nextcloud-talk.md);
   Missa kann dort auch von sich aus schreiben (z. B. Erinnerungen)
 - Fertig: Erinnerungen auf die Minute genau, auch wiederkehrend („jeden Montag um 7“),

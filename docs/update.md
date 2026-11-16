@@ -66,6 +66,7 @@ eigenen Speicherort.
 | `sudo ./scripts/update.sh` | auf den neuesten Release-Tag wechseln (stabil, empfohlen) |
 | `sudo ./scripts/update.sh --main` | auf den neuesten Stand von main wechseln (enthält auch noch nicht veröffentlichte Änderungen) |
 | `sudo ./scripts/update.sh --version v0.1.0` | auf genau diese Version wechseln, auch zurück auf eine ältere |
+| `sudo ./scripts/update.sh --zurueck` | zurück auf den letzten Release-Tag vor dem installierten Stand (von v0.9.0 auf v0.8.0, von main auf den neuesten Tag) |
 | `./scripts/update.sh --dry-run` | nur anzeigen, was passieren würde – ändert nichts, braucht kein `sudo` |
 | `sudo ./scripts/update.sh --erzwingen` | neu installieren und neu starten, auch wenn schon alles aktuell ist (z. B. zum Reparieren) |
 | `./scripts/update.sh --help` | Hilfe |
@@ -96,6 +97,11 @@ eigenen Speicherort.
    `GET /health`. Erfolgreich ist das Update, wenn `/health` die neue Versionsnummer meldet.
    Antwortet nur llama-server nicht, gibt es eine Warnung, aber keinen Rücksprung – das
    Problem hätte die alte Version genauso.
+9. **Funktionstest:** Mit `MISSA_API_KEY` aus der Einstellungsdatei fragt das Script
+   `/v1/models` (Anmeldung), `/api/aktionen` (Datenbank) und `/api/erinnerungen`
+   (Zeitplaner) ab. Antwortet einer davon nicht mit 200, gilt das Update als kaputt und
+   das Script springt zurück. Das Modell wird dafür nicht gebraucht; wie gut es antwortet,
+   prüft `scripts/charaktertest` (siehe [charaktertest.md](charaktertest.md)).
 
 ## Neue Einstellungen
 
@@ -115,7 +121,7 @@ Schlüssel, hängt es ihn unten an – mit dem Kommentar aus der Vorlage, dem Be
 
 ## Wenn etwas schiefgeht
 
-Schlägt die Installation, der Neustart oder die Gesundheitsprüfung fehl (oder bricht man
+Schlägt die Installation, der Neustart, die Gesundheitsprüfung oder der Funktionstest fehl (oder bricht man
 mit Strg+C ab), springt das Script automatisch zurück:
 
 1. `git checkout` auf den vorher installierten Stand,
@@ -156,7 +162,7 @@ Ersatzwelt: ein lokales Git-Repo spielt GitHub (Tags v0.1.0, v0.2.0 und ein neue
 main-Stand), `systemctl`, `pip` und `curl` sind kleine Ersatz-Scripts. Geprüft werden
 Update, „schon aktuell“, `--main`, `--version`, Probelauf, Ergänzen der Einstellungen,
 lokale Änderungen, GitHub nicht erreichbar, Ersteinrichtung und der Rücksprung, wenn die
-Installation, der Start oder `/health` fehlschlägt. `shellcheck` prüft das Script in der CI.
+Installation, der Start, `/health` oder der Funktionstest fehlschlägt, und `--zurueck`. `shellcheck` prüft das Script in der CI.
 
 ```bash
 pytest tests/test_update_script.py
@@ -174,3 +180,6 @@ pytest tests/test_update_script.py
 
    Erwartet: „Testmodus … absichtlich fehlgeschlagen“, dann „Die alte Version … läuft wieder“,
    und `curl http://127.0.0.1:8000/health` meldet weiter dieselbe Version.
+3. Funktionstest proben: `sudo MISSA_UPDATE_TEST_FUNKTION=1 ./scripts/update.sh --erzwingen`
+   lässt den Funktionstest absichtlich scheitern – auch dann läuft danach die alte Version.
+4. Eine Version zurück: `sudo ./scripts/update.sh --zurueck` (vorher mit `--dry-run` ansehen).

@@ -379,3 +379,25 @@ def test_proxmox_missa_vergibt_nur_rechte_im_pool(tmp_path):
         ["bash", str(SCRIPT), "--template", "x"], capture_output=True, text=True, check=False
     )
     assert falsch.returncode == 1
+
+
+def test_vm_starten_nur_im_pool_und_nach_ja(kasten, proxmox):
+    proxmox.vms[211] = {
+        "vmid": 211, "name": "mc03", "type": "qemu", "status": "stopped",
+        "maxcpu": 2, "maxmem": 4 * GB, "maxdisk": 20 * GB, "pool": "missa",
+    }  # fmt: skip
+    rueckfrage = rufen(kasten, "vm_starten", {"name": "mc03"}, "a1")
+    assert "mc03" in rueckfrage and proxmox.aenderungen == []
+    assert "gestartet" in rufen(kasten, "vm_starten", {"name": "mc03"}, "a2", ja=True)
+    assert proxmox.wege() == ["POST nodes/pve-id01/qemu/211/status/start"]
+
+
+def test_vm_stoppen_nur_nach_ja(kasten, proxmox):
+    proxmox.vms[212] = {
+        "vmid": 212, "name": "mc04", "type": "qemu", "status": "running",
+        "maxcpu": 2, "maxmem": 4 * GB, "maxdisk": 20 * GB, "pool": "missa",
+    }  # fmt: skip
+    rueckfrage = rufen(kasten, "vm_stoppen", {"name": "mc04"}, "a1")
+    assert "heruntergefahren" in rueckfrage and proxmox.aenderungen == []
+    assert "gestoppt" in rufen(kasten, "vm_stoppen", {"name": "mc04"}, "a2", ja=True)
+    assert proxmox.wege() == ["POST nodes/pve-id01/qemu/212/status/shutdown"]

@@ -120,14 +120,29 @@ echo "$v" >"$FAKE_STATE/installiert"
 FAKE_CURL = """\
 #!/usr/bin/env bash
 ziel=""
+url=""
+kopf=""
 while [[ $# -gt 0 ]]; do
-    [[ "$1" == "-o" ]] && { ziel="$2"; shift; }
+    case "$1" in
+        -o) ziel="$2"; shift ;;
+        -H) kopf="$2"; shift ;;
+        http*) url="$1" ;;
+    esac
     shift
 done
 v="$(cat "$FAKE_STATE/laeuft" 2>/dev/null || true)"
 if [[ -z "$v" || "$v" == "${FAKE_HEALTH_FEHLER_VERSION:-}" ]]; then
     printf '000'
     exit 7
+fi
+if [[ "$url" != */health ]]; then
+    echo "curl $url $kopf" >>"$FAKE_STATE/aufrufe"
+    if [[ "$v" == "${FAKE_FUNKTION_FEHLER_VERSION:-}" ]]; then
+        printf '500'
+        exit 0
+    fi
+    printf '200'
+    exit 0
 fi
 printf '{"status":"ok","version":"%s","llama":"ok"}' "$v" >"$ziel"
 printf '200'
@@ -399,6 +414,7 @@ def test_ohne_root_nur_probelauf(welt: Welt):
             "Gesundheitsprüfung nach dem Update fehlgeschlagen",
         ),
         ({"FAKE_ABSTURZ_VERSION": "0.2.0"}, "abgestürzt"),
+        ({"FAKE_FUNKTION_FEHLER_VERSION": "0.2.0"}, "Funktionstest nach dem Update fehlgeschlagen"),
     ],
 )
 def test_bei_fehler_laeuft_wieder_die_alte_version(welt: Welt, fehler, meldung):
@@ -476,3 +492,62 @@ def test_ersteinrichtung_ohne_tag_der_alten_version(welt: Welt):
     assert welt.laeuft() == "0.2.0"
     assert "NC_TALK_BOT_SECRET" in welt.env_datei.read_text()
     assert "schon aktuell" in welt.update().stdout
+
+
+# ---------------------------------------------------------------------- Funktionstest und --zurueck
+
+
+def test_funktionstest_nach_dem_update_mit_api_key(welt: Welt):
+    ergebnis = welt.update()
+    assert ergebnis.returncode == 0, ergebnis.stdout + ergebnis.stderr
+    assert "Funktionstest bestanden" in ergebnis.stdout
+    aufrufe = welt.aufrufe()
+    for pfad in ("/v1/models", "/api/aktionen?anzahl=1", "/api/erinnerungen"):
+        assert f"http://127.0.0.1:8000{pfad} Authorization: Bearer mein-echter-schluessel" in (
+            aufrufe
+        )
+
+
+def test_funktionstest_testschalter_springt_zurueck(welt: Welt):
+    welt.update()
+    ergebnis = welt.update("--erzwingen", MISSA_UPDATE_TEST_FUNKTION="1")
+    assert ergebnis.returncode == 1
+    assert "Funktionstest absichtlich fehlgeschlagen" in ergebnis.stderr
+    assert welt.laeuft() == "0.2.0"
+
+
+def test_zurueck_auf_den_letzten_tag(welt: Welt):
+    assert welt.update().returncode == 0
+    assert welt.laeuft() == "0.2.0"
+    ergebnis = welt.update("--zurueck")
+    assert ergebnis.returncode == 0, ergebnis.stdout + ergebnis.stderr
+    assert "nicht neuer als" in ergebnis.stdout
+    assert welt.head() == welt.commits["v0.1.0"]
+    assert welt.laeuft() == "0.1.0"
+
+
+def test_zurueck_von_main_auf_den_letzten_release(welt: Welt):
+    assert welt.update("--main").returncode == 0
+    ergebnis = welt.update("--zurueck")
+    assert ergebnis.returncode == 0, ergebnis.stdout + ergebnis.stderr
+    assert welt.head() == welt.commits["v0.2.0"]
+    assert welt.laeuft() == "0.2.0"
+
+
+def test_zurueck_ohne_aelteren_tag_bricht_ab(welt: Welt):
+    ergebnis = welt.update("--zurueck")
+    assert ergebnis.returncode == 1
+    assert "keinen älteren Release-Tag" in ergebnis.stderr
+    assert welt.laeuft() == "0.1.0"
+
+
+def test_zurueck_probelauf_aendert_nichts(welt: Welt):
+    welt.update()
+    ergebnis = welt.update("--zurueck", "--dry-run")
+    assert ergebnis.returncode == 0, ergebnis.stderr
+    assert "Ziel:    v0.1.0" in ergebnis.stdout
+    assert welt.laeuft() == "0.2.0"
+
+
+def test_hilfe_nennt_zurueck(welt: Welt):
+    assert "--zurueck" in welt.update("--help").stdout
