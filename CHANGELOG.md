@@ -40,6 +40,9 @@ die Versionsnummern folgen [Semantic Versioning](https://semver.org/lang/de/).
   baut; ein kaputter Eintrag bricht nicht mehr das ganze Inventar ab (#86)
 - Der Notfall-Stopp hält jetzt auch eine VM-Erstellung an, die schon läuft – vor dem
   nächsten Schritt statt erst am Ende (#86)
+- Beim Wiederherstellen eines Backups bekommt die Datenbank enge Dateirechte (nur der
+  Dienst darf sie lesen), und es wird nie durch eine Verknüpfung an einen anderen Ort
+  geschrieben (#86)
 
 ## 0.10.0 – 2026-11-16
 

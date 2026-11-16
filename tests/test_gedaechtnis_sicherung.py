@@ -350,6 +350,29 @@ def test_wiederherstellen_hebt_bisherige_dateien_auf(installation, tmp_path):
     )
 
 
+def test_wiederherstellen_mit_engen_rechten_und_ohne_links(installation, tmp_path):
+    datei = sicherung_fuer(installation).erstellen()
+    neu = tmp_path / "neu"
+    (neu / "data").mkdir(parents=True)
+    (neu / "etc").mkdir()
+    aussen = tmp_path / "aussen.md"
+    # Ein Link ins Leere an der Stelle des Charakters darf nicht nach aussen schreiben.
+    (neu / "etc" / "charakter.md").symlink_to(aussen)
+    ziel = Quellen(neu / "data" / "missa.db", neu / "etc" / "charakter.md", None, None)
+    wiederherstellen(datei, ziel)
+    assert not aussen.exists()
+    assert not ziel.charakter.is_symlink()
+    assert ziel.charakter.read_text(encoding="utf-8") == "Du bist Missa. Frech, aber lieb."
+    assert oct(ziel.datenbank.stat().st_mode & 0o777) == "0o600"
+
+
+def test_wiederherstellen_behaelt_rechte_der_bisherigen_datei(installation):
+    datei = sicherung_fuer(installation).erstellen()
+    installation["charakter"].chmod(0o640)
+    wiederherstellen(datei, Quellen(installation["db"], installation["charakter"], None, None))
+    assert oct(installation["charakter"].stat().st_mode & 0o777) == "0o640"
+
+
 def test_kein_backup_wird_abgelehnt(tmp_path):
     fremd = tmp_path / "fremd.tar.gz"
     with tarfile.open(fremd, "w:gz") as archiv:

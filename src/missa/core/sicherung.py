@@ -216,11 +216,29 @@ def sicherungs_werkzeuge(sicherung: Sicherung) -> list[Werkzeug]:
 
 
 def _vorher_sichern(pfad: Path, zeit: str) -> Path | None:
-    if not pfad.exists():
+    if not pfad.exists() and not pfad.is_symlink():
         return None
     ziel = pfad.with_name(f"{pfad.name}.vor-wiederherstellung-{zeit}")
     shutil.move(pfad, ziel)
     return ziel
+
+
+def _einspielen(quelle: Path, ziel: Path, modus: int, vorher: Path | None = None) -> None:
+    """Schreibt ``quelle`` neu nach ``ziel`` – nie durch eine Verknüpfung hindurch.
+
+    Die Datei wird exklusiv neu angelegt (``O_EXCL | O_NOFOLLOW``): Liegt dort inzwischen
+    etwas (z. B. ein untergeschobener Link), bricht das Einspielen ab. Rechte: ``modus``,
+    oder die der bisherigen Datei (``vorher``), damit der Dienst sie weiter lesen kann.
+    """
+    if vorher is not None and not vorher.is_symlink():
+        alt = vorher.stat()
+        modus = alt.st_mode & 0o777
+    fd = os.open(ziel, os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW, modus)
+    with os.fdopen(fd, "wb") as aus, quelle.open("rb") as ein:
+        shutil.copyfileobj(ein, aus)
+    os.chmod(ziel, modus)
+    if vorher is not None and not vorher.is_symlink() and os.geteuid() == 0:
+        os.chown(ziel, alt.st_uid, alt.st_gid)
 
 
 def wiederherstellen(datei: Path, ziel: Quellen) -> dict[str, Any]:
@@ -255,21 +273,23 @@ def wiederherstellen(datei: Path, ziel: Quellen) -> dict[str, Any]:
                 Path(f"{ziel.datenbank}{rest}").unlink(missing_ok=True)
             if alt := _vorher_sichern(ziel.datenbank, zeit):
                 ergebnis["vorher_gesichert"].append(str(alt))
-            shutil.copyfile(arbeit / "missa.db", ziel.datenbank)
+            _einspielen(arbeit / "missa.db", ziel.datenbank, 0o600)
             ergebnis["wiederhergestellt"].append(str(ziel.datenbank))
         paare = [("charakter.md", ziel.charakter), ("schreibstil.md", ziel.schreibstil)]
         for name, pfad in paare:
             if pfad is None or not (arbeit / name).is_file():
                 continue
             pfad.parent.mkdir(parents=True, exist_ok=True)
-            if alt := _vorher_sichern(pfad, zeit):
+            alt = _vorher_sichern(pfad, zeit)
+            if alt:
                 ergebnis["vorher_gesichert"].append(str(alt))
-            shutil.copyfile(arbeit / name, pfad)
+            _einspielen(arbeit / name, pfad, 0o644, vorher=alt)
             ergebnis["wiederhergestellt"].append(str(pfad))
         if (arbeit / "missa.env.ohne-geheimnisse").is_file() and ziel.env_datei is not None:
             env_ziel = ziel.env_datei.with_name(ziel.env_datei.name + ".aus-backup")
             env_ziel.parent.mkdir(parents=True, exist_ok=True)
-            shutil.copyfile(arbeit / "missa.env.ohne-geheimnisse", env_ziel)
+            env_ziel.unlink(missing_ok=True)
+            _einspielen(arbeit / "missa.env.ohne-geheimnisse", env_ziel, 0o600)
             ergebnis["konfiguration"] = str(env_ziel)
     return ergebnis
 
