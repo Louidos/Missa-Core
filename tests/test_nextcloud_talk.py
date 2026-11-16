@@ -295,6 +295,58 @@ def test_doppelte_zustellung_wird_nur_einmal_beantwortet(talk, llama):
     assert len(llama.anfragen) == 1
 
 
+def test_wiederholte_nachricht_wird_auch_nach_neustart_nicht_ausgefuehrt(
+    talk_einstellungen, llama, nextcloud
+):
+    with talk_app(talk_einstellungen, llama, nextcloud) as client:
+        schicken(client, ereignis("Lösch alles", nachricht_id="500"))
+    assert len(llama.anfragen) == 1
+    # Neustart: dieselbe (abgefangene) Nachricht, neu signiert, wird nicht noch einmal ausgeführt.
+    with talk_app(talk_einstellungen, llama, nextcloud) as client:
+        schicken(client, ereignis("Lösch alles", nachricht_id="500"))
+        assert len(llama.anfragen) == 1
+        schicken(client, ereignis("Neue Frage", nachricht_id="501"))
+    assert len(llama.anfragen) == 2
+
+
+def test_alte_nachricht_ausserhalb_des_fensters_wird_ignoriert(
+    talk_einstellungen, llama, nextcloud
+):
+    from missa.channels.nextcloud_talk import GEMERKTE_IDS, GESEHEN_DATEI
+
+    datei = talk_einstellungen.daten / GESEHEN_DATEI
+    datei.parent.mkdir(parents=True, exist_ok=True)
+    datei.write_text(json.dumps({TOKEN: list(range(1000, 1000 + GEMERKTE_IDS))}))
+    with talk_app(talk_einstellungen, llama, nextcloud) as client:
+        schicken(client, ereignis(nachricht_id="999"))
+        assert llama.anfragen == []
+        schicken(client, ereignis(nachricht_id="1500"))
+    assert len(llama.anfragen) == 1
+    assert oct(datei.stat().st_mode & 0o777) == "0o600"
+
+
+def test_nachricht_ohne_nummer_wird_ignoriert(talk, llama):
+    schicken(talk, ereignis(nachricht_id=""))
+    schicken(talk, ereignis(nachricht_id="abc"))
+    assert llama.anfragen == []
+
+
+def test_sonderzeichen_in_der_signatur_ergeben_401(talk, llama):
+    body = json.dumps(ereignis()).encode()
+    antwort = talk.post(
+        WEBHOOK_PFAD,
+        content=body,
+        headers={
+            "Content-Type": "application/json",
+            "X-Nextcloud-Talk-Random": "r" * 64,
+            "X-Nextcloud-Talk-Signature": "ä".encode() * 32,
+            "X-Nextcloud-Talk-Backend": BASIS + "/",
+        },
+    )
+    assert antwort.status_code == 401
+    assert llama.anfragen == []
+
+
 def test_erwaehnungen_werden_lesbar():
     inhalt = json.dumps(
         {

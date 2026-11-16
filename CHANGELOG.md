@@ -22,6 +22,9 @@ die Versionsnummern folgen [Semantic Versioning](https://semver.org/lang/de/).
   Anfragen (über 20 MB) werden abgelehnt, wiederholte falsche Schlüssel sperren die Adresse
   für 15 Minuten, und die öffentliche API-Beschreibung (`/docs`) ist abgeschaltet (#86)
 - `/health` zeigt ohne Anmeldung keine Fehlertexte von Missa Control mehr (#86)
+- Eine Talk-Nachricht wird nur einmal ausgeführt, auch wenn sie nach einem Neustart noch
+  einmal zugestellt wird; ungewöhnliche Zeichen in den Kopfzeilen eines Webhooks führen nicht
+  mehr zu einem Fehler 500 (#86)
 
 ## 0.10.0 – 2026-11-16
 
