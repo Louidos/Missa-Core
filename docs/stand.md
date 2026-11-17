@@ -34,6 +34,7 @@ Legende: ✅ erledigt (Code auf main, Test grün, Einstellung in
 | S5 Proxmox-VMs | 🟡 | Test für den Eintrag ins Homelab-Wissen nach dem Erstellen |
 | S6 Caddy, Minecraft | ✅ | – |
 | S7 Git-Server, GitHub, Prompts | ✅ | – |
+| I1–I7 Missa Initiative | 🟡 | in Arbeit: Lagebild fertig, Denkschleife und Folgendes fehlen |
 
 ## Einzelpunkte
 
@@ -138,6 +139,15 @@ Legende: ✅ erledigt (Code auf main, Test grün, Einstellung in
 | S7 | Issue auf dem Git-Server anlegen | ✅ | `test_git.py::test_issue_anlegen_im_repo` |
 | S7 | Fehlgeschlagener GitHub-Build → Meldung | ✅ | `::test_fehlgeschlagener_build_wird_gemeldet` |
 | S7 | Grobe Idee → Prompt, nach Ja als Issue | ✅ | `::test_grobe_idee_wird_prompt_nach_vorlage`, `::test_prompt_erst_nach_ja_als_issue` |
+
+### Initiative
+
+| Gruppe | Punkt | Status | Fundstelle bzw. was fehlt |
+|---|---|---|---|
+| I1 | „Was ist gerade los?“ → Übersicht aus allen Quellen | ✅ | `core/lagebild.py`, Werkzeug `lagebild_anzeigen`; `test_lagebild.py::test_was_ist_gerade_los_im_gespraech` |
+| I1 | Ausfall einer Quelle → Hinweis, Rest kommt | ✅ | `::test_quelle_mit_fehler_ist_nicht_erreichbar_rest_kommt`, `::test_langsame_quelle_ist_nicht_erreichbar` |
+| I1 | Lagebild unter dem Limit | ✅ | `INITIATIVE_LAGEBILD_ZEICHEN`; `::test_lagebild_bleibt_unter_dem_limit_und_keine_quelle_faellt_weg` |
+| I1 | `GET /api/lagebild` nur lesend | ✅ | `::test_api_lagebild_liefert_text_und_quellen_und_aendert_nichts` |
 
 ## Weitere Beobachtungen
 

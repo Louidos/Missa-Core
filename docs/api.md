@@ -526,6 +526,36 @@ curl $MISSA/api/vms -H "Authorization: Bearer $KEY"
 
 Mehr dazu: [proxmox-vms.md](proxmox-vms.md).
 
+### `GET /api/lagebild` – was ist gerade los?
+
+Das aktuelle Lagebild aus allen eingerichteten Quellen (Termine, Erinnerungen, Alarme, Server,
+Hintergrund-Aufträge, Mails, Kontaktpflege, Uhrzeit, letzte Nachricht). Nur lesend; jeder
+Aufruf fragt die Quellen neu ab. Fällt eine Quelle aus, steht sie mit `"status": "nicht
+erreichbar"` in der Liste, der Rest kommt trotzdem. `text` ist ohne die Fremd-Markierungen,
+die Missa im Gespräch verwendet; `fremd` sagt, welche Abschnitte fremden Inhalt enthalten.
+
+```bash
+curl "$MISSA/api/lagebild" -H "Authorization: Bearer $KEY"
+```
+
+```json
+{
+  "zeit": "2026-11-17T14:05:00+01:00",
+  "fingerabdruck": "3f1c…",
+  "zeichen": 412,
+  "limit": 3000,
+  "text": "### Uhrzeit\nDienstag, 17. November 2026, 14:05 Uhr\n\n### Erinnerungen\n- #12 „Zahnarzt anrufen“ – …",
+  "quellen": [
+    {"name": "Uhrzeit", "status": "ok", "fremd": false},
+    {"name": "Termine", "status": "nicht erreichbar", "fremd": true},
+    {"name": "Erinnerungen", "status": "ok", "fremd": false}
+  ]
+}
+```
+
+`status` ist `ok`, `leer` oder `nicht erreichbar`. `fingerabdruck` ändert sich nur, wenn sich
+etwas ausser der Uhrzeit ändert. Mehr dazu: [initiative.md](initiative.md).
+
 ### `POST /channels/nextcloud-talk/webhook` – nur für Nextcloud Talk
 
 Kein Endpunkt für Apps: Hier liefert Nextcloud Talk Nachrichten an Missa (Bot-Webhook).
@@ -683,6 +713,7 @@ kennen – man fragt einfach in normaler Sprache.
 | E-Mail (nur wenn eingerichtet) | „Schreib dem Chef, dass ich morgen später komme“, „Was ist neu im Posteingang?“, „Schreib förmlicher an Lehrer“ – gesendet wird nur nach „Ja, abschicken“ | `emails_anzeigen`, `email_lesen`, `email_entwurf_erstellen`, `email_entwurf_aendern`, `email_entwuerfe_anzeigen`, `email_entwurf_verwerfen`, `email_adresse_suchen`, `schreibstil_anzeigen`, `schreibstil_lernen`, `schreibstil_anpassen` (kein Senden-Werkzeug – siehe [email.md](email.md)) |
 | Nextcloud Talk (nur wenn eingerichtet) | „Schick mir die Übersicht per Talk“, „Erinnere mich per Talk an …“ | `talk_nachricht_senden` |
 | Server-Alarme (nur wenn eine Monitoring-Quelle eingerichtet ist) | „Ruf mich an, wenn ai01 über 90 % ist“, „Wie ist die Auslastung von ai01?“, „Welche Alarm-Regeln gibt es?“, „Ruhezeit von 23 bis 6 Uhr“ | `server_werte_anzeigen`, `alarmregel_anlegen`, `alarmregeln_anzeigen`, `alarmregel_aendern`, `alarmregel_loeschen`, `alarme_anzeigen`, `alarm_einstellungen` |
+| Lagebild | „Was ist gerade los?“, „Gibt's was Neues?“ | `lagebild_anzeigen` (siehe [initiative.md](initiative.md)) |
 | Erreichbarkeit (nur wenn `ERREICHBARKEIT_DOMAINS` gesetzt ist) | „Ist git von außen erreichbar?“ | `erreichbarkeit_pruefen` |
 | Container und Logs (nur wenn `SSH_HOSTS` gesetzt ist) | „Welche Container laufen auf wb01?“, „Warum geht Nextcloud nicht?“, „Starte nextcloud neu“ (nur nach Ja) | `container_anzeigen`, `container_logs`, `container_neustarten`, `fehlersuche`, `journal_lesen` |
 | Updates (nur wenn `SSH_HOSTS` gesetzt ist) | „Welche Updates stehen an?“, „Plan ein Wartungsfenster“, „Spiel die Updates auf wb01 ein“ (nur nach Ja), „Starte wb01 neu“ (nur nach Ja) | `updates_anzeigen`, `wartungsfenster_vorschlagen`, `wartungsfenster_eintragen`, `updates_plan`, `updates_einspielen`, `host_neustarten` |

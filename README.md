@@ -35,6 +35,8 @@ Talk nutzen dieselbe Logik.
   (`scripts/charaktertest --modell a --modell b`, siehe docs/charaktertest.md)
 - Fertig: Nextcloud Talk als Kanal (nur für erlaubte Accounts, siehe docs/nextcloud-talk.md);
   Missa kann dort auch von sich aus schreiben (z. B. Erinnerungen)
+- Fertig: Lagebild – auf „Was ist gerade los?“ eine kurze Übersicht über Termine,
+  Erinnerungen, Alarme, Server und Mails (siehe docs/initiative.md)
 - Fertig: Erinnerungen auf die Minute genau, auch wiederkehrend („jeden Montag um 7“),
   mit Nachholen nach einem Neustart (siehe docs/erinnerungen.md)
 - Fertig: Routinen per Gespräch („jeden Freitag um 17 Uhr Wochenrückblick“) und Nachtschicht
@@ -118,6 +120,8 @@ Talk nutzen dieselbe Logik.
   Notfall-Stopp und welche Rechte jeder Dienst braucht
 - **[docs/routinen-nachtschicht.md](docs/routinen-nachtschicht.md)** – Routinen per Gespräch,
   Nachtschicht, Morgenbericht, Sicherheitsregeln im Hintergrund
+- **[docs/initiative.md](docs/initiative.md)** – Missa Initiative: Lagebild („Was ist gerade
+  los?“) aus allen eingerichteten Quellen
 - **[docs/server-alarme.md](docs/server-alarme.md)** – Server-Alarme: Stufen, Ruhezeit, Regeln
   per Gespräch, Hinweise auf Auffälliges, Erreichbarkeit, nur lesendes Proxmox-Token
 - **[docs/monitoring.md](docs/monitoring.md)** – Schnittstelle und JSON-Formate der
