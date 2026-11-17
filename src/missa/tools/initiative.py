@@ -112,6 +112,31 @@ def gedanken_text(initiative: Initiative, tage: int = 1) -> str:
     return "\n".join(zeilen)
 
 
+def gelerntes_text(initiative: Initiative) -> str:
+    """„Was hast du über meine Rückmeldungen gelernt?“"""
+    eintraege = initiative.gelerntes()
+    if not eintraege:
+        return (
+            "Du hast mir zu meinen eigenen Meldungen noch nichts zurückgemeldet. Sag einfach "
+            "„war gut“ oder „lass das“, kurz nachdem ich mich gemeldet habe."
+        )
+    gut = [e for e in eintraege if e["bewertung"] == "gut"]
+    schlecht = [e for e in eintraege if e["bewertung"] == "schlecht"]
+    zeilen = ["Das habe ich aus deinen Rückmeldungen gelernt:"]
+    if gut:
+        zeilen.append("Gern gesehen:")
+        zeilen += [f"- {e['schluessel']} („{e['wortlaut']}“, {e['zeit']:%d.%m.})" for e in gut]
+    if schlecht:
+        zeilen.append("Nicht erwünscht:")
+        for e in schlecht:
+            zeile = f"- {e['schluessel']} („{e['wortlaut']}“, {e['zeit']:%d.%m.})"
+            if e["stumm_bis"]:
+                zeile += f" – dazu melde ich mich bis {e['stumm_bis']:%d.%m.} nicht mehr"
+            zeilen.append(zeile)
+    zeilen.append("Alarme aus festen Regeln (Server, Erinnerungen …) betrifft das nie.")
+    return "\n".join(zeilen)
+
+
 def initiative_werkzeuge(initiative: Initiative) -> list[Werkzeug]:
     def einstellen(
         aktiv: bool | None = None,
@@ -165,7 +190,36 @@ def initiative_werkzeuge(initiative: Initiative) -> list[Werkzeug]:
             return letzte_meldung_text(initiative, max(tage, 7))
         return gedanken_text(initiative, tage)
 
+    def zuruecksetzen_vorschau() -> str:
+        anzahl = len(initiative.gelerntes(1000))
+        return (
+            f"Ich würde alles vergessen, was ich aus deinen Rückmeldungen gelernt habe "
+            f"({anzahl} Themen); stumm geschaltete Themen dürfte ich dann wieder melden."
+        )
+
+    def zuruecksetzen() -> str:
+        geloescht = initiative.gelerntes_zuruecksetzen()
+        return f"Erledigt: {geloescht} Rückmeldung(en) vergessen. Ich fange neu an."
+
     return [
+        Werkzeug(
+            "initiative_gelerntes_anzeigen",
+            "Zeigt, was du aus Louis' Rückmeldungen zu deinen eigenen Meldungen gelernt hast "
+            "(„war gut“ / „lass das“) und welche Themen gerade stumm sind. Für „Was hast du über "
+            "meine Rückmeldungen gelernt?“.",
+            {"type": "object", "properties": {}},
+            lambda: gelerntes_text(initiative),
+            stufe=Stufe.LESEN,
+        ),
+        Werkzeug(
+            "initiative_gelerntes_zuruecksetzen",
+            "Vergisst alles, was du aus Louis' Rückmeldungen zu deinen Meldungen gelernt hast "
+            "(stumme Themen werden wieder frei). Nur nach Louis' ausdrücklichem Ja.",
+            {"type": "object", "properties": {}},
+            zuruecksetzen,
+            stufe=Stufe.ZERSTOERERISCH,
+            vorschau=zuruecksetzen_vorschau,
+        ),
         Werkzeug(
             "gedanken_anzeigen",
             "Zeigt dein Gedanken-Journal: was du in der Denkschleife von selbst überlegt und "
