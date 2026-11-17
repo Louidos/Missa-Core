@@ -12,6 +12,7 @@ from typing import Any
 import pytest
 from fastapi.testclient import TestClient
 
+from missa.core.alarme import Alarme
 from missa.core.app import create_app
 from missa.core.initiative import Initiative, antwort_pruefen, schluessel_normalisieren
 from missa.core.lagebild import Lagebild
@@ -61,6 +62,10 @@ class Umgebung:
         self.lagebild = Lagebild(ZONE, self.uhr)
         self.lagebild.registrieren("Uhrzeit", lambda: f"{self.uhr():%H:%M}", im_fingerabdruck=False)
         self.lagebild.registrieren("Termine", lambda: self.inhalt["Termine"], fremd=True)
+        self.kanal = FakeKanal()
+        self.planer = Zeitplaner(self.datei, ZONE, Zustellung([self.kanal]), uhr=self.uhr)
+        self.alarme = Alarme(self.datei, ZONE, self.planer)
+        optionen.setdefault("alarme", self.alarme)
         self.beschaeftigt: str | None = None
         self.notfall = False
         charakter = tmp_path / "charakter.md"
@@ -81,6 +86,10 @@ class Umgebung:
 
     def lauf(self):
         return asyncio.run(self.initiative.lauf())
+
+    def zustellen(self) -> list[str]:
+        asyncio.run(self.planer.faellige_zustellen())
+        return self.kanal.nachrichten
 
 
 @pytest.fixture
@@ -304,3 +313,115 @@ def test_nie_zwei_laeufe_gleichzeitig(umgebung):
     ergebnisse = asyncio.run(zwei())
     assert sum(1 for e in ergebnisse if e is not None) == 1
     assert len(umgebung.modell.anfragen) == 1
+
+
+# ----------------------------------------------------------------------------- Meldungen
+
+
+def punkt(aktion: str, schluessel: str, titel: str, stufe: str = "info", text: str = "") -> dict:
+    return {"aktion": aktion, "stufe": stufe, "schluessel": schluessel, "titel": titel,
+            "text": text, "grund": "Test"}  # fmt: skip
+
+
+def test_melden_kommt_als_eine_nachricht_auch_bei_drei_punkten(umgebung):
+    umgebung.modell.antworten = [
+        json.dumps(
+            {
+                "punkte": [
+                    punkt("melden", "zahnarzt", "Zahnarzt um 15 Uhr", "wichtig", "Bald los!"),
+                    punkt("melden", "disk-ai01", "Disk auf ai01 bei 85 %"),
+                    punkt("melden", "oma", "Oma wartet auf einen Anruf"),
+                ]
+            }
+        )
+    ]
+    lauf = umgebung.lauf()
+    assert lauf.gemeldet and lauf.alarm_id is not None
+    nachrichten = umgebung.zustellen()
+    assert len(nachrichten) == 1
+    nachricht = nachrichten[0]
+    assert nachricht.startswith("⚠️ Wichtig: 3 Dinge, die mir aufgefallen sind")
+    for titel in ("Zahnarzt um 15 Uhr: Bald los!", "Disk auf ai01", "Oma wartet"):
+        assert titel in nachricht
+    alarm = umgebung.alarme.liste()[0]
+    assert alarm.quelle == "initiative"
+    assert [p["ergebnis"] for p in lauf.punkte] == ["gemeldet"] * 3
+
+
+def test_einzelne_meldung_nennt_klar_worum_es_geht(umgebung):
+    umgebung.modell.antworten = [
+        json.dumps(punkt("melden", "zahnarzt", "Zahnarzt um 15 Uhr", text="Na los, Zähne!"))
+    ]
+    umgebung.lauf()
+    assert umgebung.zustellen() == ["ℹ️ Hinweis: Zahnarzt um 15 Uhr\nNa los, Zähne!"]
+
+
+def test_in_der_ruhezeit_wartet_die_meldung(umgebung):
+    umgebung.uhr.jetzt = datetime(2026, 11, 11, 23, 30, tzinfo=ZONE)
+    umgebung.modell.antworten = [json.dumps(punkt("melden", "backup", "Backup fehlt", "wichtig"))]
+    lauf = umgebung.lauf()
+    assert lauf.gemeldet and "Ruhezeit" in lauf.punkte[0]["ergebnis"]
+    assert umgebung.zustellen() == []
+    umgebung.uhr.jetzt = datetime(2026, 11, 12, 7, 0, 30, tzinfo=ZONE)
+    nachrichten = umgebung.zustellen()
+    assert len(nachrichten) == 1 and "Backup fehlt" in nachrichten[0]
+
+
+def test_gleiches_thema_nicht_noch_einmal_im_ruhefenster(umgebung):
+    umgebung.modell.antworten = [
+        json.dumps(punkt("melden", "disk-ai01", "Disk voll")),
+        json.dumps(
+            {
+                "punkte": [
+                    punkt("melden", "disk-ai01", "Disk immer noch voll"),
+                    punkt("melden", "neu", "Etwas Neues"),
+                ]
+            }
+        ),
+    ]
+    umgebung.lauf()
+    umgebung.uhr.vor(minutes=20)
+    umgebung.inhalt["Termine"] = "- anders"
+    lauf = umgebung.lauf()
+    assert "im Ruhefenster" in lauf.punkte[0]["ergebnis"]
+    nachrichten = umgebung.zustellen()
+    assert len(nachrichten) == 2
+    assert "Disk immer noch voll" not in nachrichten[1] and "Etwas Neues" in nachrichten[1]
+    # nach dem Ruhefenster darf das Thema wieder kommen
+    umgebung.uhr.vor(minutes=61)
+    umgebung.inhalt["Termine"] = "- wieder anders"
+    umgebung.modell.antworten = [json.dumps(punkt("melden", "disk-ai01", "Disk voll (Tag 2)"))]
+    umgebung.lauf()
+    assert "Disk voll (Tag 2)" in umgebung.zustellen()[-1]
+
+
+def test_notieren_bleibt_still_und_wird_im_naechsten_gespraech_einmal_erwaehnt(umgebung):
+    umgebung.modell.antworten = [
+        json.dumps(punkt("notieren", "oma", "Oma", text="Oma hat bald Geburtstag"))
+    ]
+    lauf = umgebung.lauf()
+    assert lauf.aktion == "notieren" and not lauf.gemeldet
+    assert umgebung.zustellen() == []
+    erstes = umgebung.initiative.kontext("Hallo")
+    assert "- Oma hat bald Geburtstag" in erstes and "Erwähne" in erstes
+    assert umgebung.initiative.kontext("Und sonst?") is None
+
+
+def test_kontext_nicht_im_hintergrund(umgebung):
+    umgebung.initiative.notieren("x", "Notiz")
+    marke = im_hintergrund.set(True)
+    try:
+        assert umgebung.initiative.kontext("Routine") is None
+    finally:
+        im_hintergrund.reset(marke)
+    assert umgebung.initiative.kontext("Hallo") is not None
+
+
+def test_notiz_im_gespraech_genau_einmal(client, llama: FakeLlama):
+    client.app.state.initiative.notieren("kalender-pausen", "Morgen hast du keine Pause.")
+    for _ in range(2):
+        client.post(
+            "/v1/chat/completions", json={"messages": [{"role": "user", "content": "Hallo"}]}
+        )
+    assert "Morgen hast du keine Pause." in llama.system(0)
+    assert "Morgen hast du keine Pause." not in llama.system(1)

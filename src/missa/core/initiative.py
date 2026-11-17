@@ -37,13 +37,14 @@ from pathlib import Path
 from typing import Any
 from zoneinfo import ZoneInfo
 
+from missa.core.alarme import Alarme
 from missa.core.datenbank import verbinden
 from missa.core.lagebild import Lagebild
 from missa.core.llama import LlamaClient, LlamaFehler
 from missa.core.prompt import charakter_lesen
 from missa.core.rechte import schwaerzen
 from missa.core.vorgaben import Vorgaben
-from missa.core.werkzeuge import im_hintergrund
+from missa.core.werkzeuge import fremd_markieren, im_hintergrund
 
 log = logging.getLogger(__name__)
 
@@ -63,7 +64,43 @@ CREATE TABLE IF NOT EXISTS initiative_laeufe (
     antwort TEXT NOT NULL DEFAULT ''
 );
 CREATE INDEX IF NOT EXISTS initiative_laeufe_zeit ON initiative_laeufe (zeit);
+CREATE TABLE IF NOT EXISTS initiative_notizen (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    zeit TEXT NOT NULL,
+    schluessel TEXT NOT NULL,
+    text TEXT NOT NULL,
+    erledigt TEXT
+);
+CREATE INDEX IF NOT EXISTS initiative_notizen_offen ON initiative_notizen (erledigt, zeit);
+CREATE TABLE IF NOT EXISTS initiative_gemeldet (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    zeit TEXT NOT NULL,
+    schluessel TEXT NOT NULL,
+    stufe TEXT NOT NULL,
+    alarm_id INTEGER,
+    lauf_id INTEGER
+);
+CREATE INDEX IF NOT EXISTS initiative_gemeldet_schluessel ON initiative_gemeldet (schluessel, zeit);
 """
+
+#: Spalten, die nach der ersten Fassung dazugekommen sind (Migration nur ergänzend).
+NEUE_SPALTEN = {
+    "initiative_laeufe": {
+        "gemeldet": "INTEGER NOT NULL DEFAULT 0",
+        "alarm_id": "INTEGER",
+    },
+}
+
+
+def migrieren(db: Any) -> None:
+    """Ergänzt fehlende Spalten (alte Daten bleiben erhalten)."""
+    for tabelle, spalten in NEUE_SPALTEN.items():
+        vorhanden = {z["name"] for z in db.execute(f"PRAGMA table_info({tabelle})")}
+        for name, typ in spalten.items():
+            if name not in vorhanden:
+                log.info("Migration: Spalte %s.%s wird ergänzt", tabelle, name)
+                db.execute(f"ALTER TABLE {tabelle} ADD COLUMN {name} {typ}")
+
 
 AKTIONEN = ("nichts", "notieren", "melden")
 STUFEN = ("info", "wichtig")
@@ -122,7 +159,7 @@ def schluessel_normalisieren(text: Any) -> str:
     return re.sub(r"[^a-z0-9]+", "-", roh).strip("-")[:60].strip("-")
 
 
-@dataclass(frozen=True)
+@dataclass
 class Punkt:
     """Ein geprüfter Punkt einer Entscheidung."""
 
@@ -132,6 +169,8 @@ class Punkt:
     titel: str = ""
     text: str = ""
     grund: str = ""
+    #: Was daraus geworden ist (``gemeldet``, ``notiert``, ``im Ruhefenster`` …).
+    ergebnis: str = ""
 
     def als_dict(self) -> dict[str, str]:
         return {
@@ -141,7 +180,13 @@ class Punkt:
             "titel": self.titel,
             "text": self.text,
             "grund": self.grund,
+            "ergebnis": self.ergebnis,
         }
+
+    def notiz_text(self) -> str:
+        if self.text and self.titel and not self.text.startswith(self.titel):
+            return f"{self.titel}: {self.text}"
+        return self.text or self.titel
 
 
 @dataclass
@@ -248,6 +293,8 @@ class Lauf:
     uebersprungen: bool
     ursache: str
     fehler: str | None
+    gemeldet: bool = False
+    alarm_id: int | None = None
 
     def als_dict(self) -> dict[str, Any]:
         return {
@@ -260,6 +307,7 @@ class Lauf:
             "uebersprungen": self.uebersprungen,
             "ursache": self.ursache,
             "fehler": self.fehler,
+            "gemeldet": self.gemeldet,
             "fingerabdruck": self.fingerabdruck,
             "lagebild": self.lagebild,
         }
@@ -277,6 +325,7 @@ class Initiative:
         *,
         charakter_datei: Path,
         vorgaben: Vorgaben | None = None,
+        alarme: Alarme | None = None,
         aktiv: bool = False,
         intervall_minuten: int = 15,
         beschaeftigt: Callable[[], str | None] | None = None,
@@ -290,6 +339,8 @@ class Initiative:
         self.llama = llama
         self.charakter_datei = charakter_datei
         self.vorgaben = vorgaben or Vorgaben(datei)
+        #: Über die Alarme gehen Meldungen raus (Ruhezeit und Ruhefenster gelten dort).
+        self.alarme = alarme
         self.standard_aktiv = aktiv
         self.standard_intervall = max(MIN_INTERVALL, int(intervall_minuten))
         #: Liefert einen Grund, wenn Missa gerade beschäftigt ist (Chat, Hintergrund).
@@ -300,6 +351,7 @@ class Initiative:
         self._sperre = asyncio.Lock()
         with verbinden(datei) as db:
             db.executescript(SCHEMA)
+            migrieren(db)
 
     def jetzt(self) -> datetime:
         return self._uhr().astimezone(self.zone)
@@ -357,6 +409,7 @@ class Initiative:
         ursache: str = "",
         fehler: str | None = None,
         antwort: str = "",
+        alarm_id: int | None = None,
     ) -> Lauf:
         entscheidung = entscheidung or Entscheidung()
         punkte = [
@@ -365,8 +418,8 @@ class Initiative:
         with verbinden(self.datei) as db:
             cursor = db.execute(
                 "INSERT INTO initiative_laeufe (zeit, fingerabdruck, lagebild, aktion, "
-                "entscheidung, grund, dauer_ms, uebersprungen, ursache, fehler, antwort) "
-                "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                "entscheidung, grund, dauer_ms, uebersprungen, ursache, fehler, antwort, "
+                "gemeldet, alarm_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
                 (
                     _utc_text(self.jetzt()),
                     fingerabdruck,
@@ -379,6 +432,8 @@ class Initiative:
                     ursache,
                     self._schwaerzen(fehler) if fehler else None,
                     self._schwaerzen(antwort[:ANTWORT_SPEICHERN]),
+                    int(alarm_id is not None),
+                    alarm_id,
                 ),
             )
             zeile = db.execute(
@@ -403,6 +458,8 @@ class Initiative:
             uebersprungen=bool(zeile["uebersprungen"]),
             ursache=zeile["ursache"],
             fehler=zeile["fehler"],
+            gemeldet=bool(zeile["gemeldet"]),
+            alarm_id=zeile["alarm_id"],
         )
 
     def laeufe(self, anzahl: int = 50, seit: datetime | None = None) -> list[Lauf]:
@@ -514,12 +571,157 @@ class Initiative:
                 dauer_ms=dauer(),
             )
         entscheidung = antwort_pruefen(antwort)
+        alarm_id = self._umsetzen(entscheidung)
         lauf = self._speichern(
             fingerabdruck=fingerabdruck,
             lagebild=gespeichert,
             entscheidung=entscheidung,
             dauer_ms=dauer(),
             antwort=antwort,
+            alarm_id=alarm_id,
         )
+        if alarm_id is not None:
+            with verbinden(self.datei) as db:
+                db.execute(
+                    "UPDATE initiative_gemeldet SET lauf_id = ? WHERE alarm_id = ?",
+                    (lauf.id, alarm_id),
+                )
         log.info("Denkschleife: %s (%s)", lauf.aktion, lauf.grund or "ohne Grund")
         return lauf
+
+    # -------------------------------------------------------------- Umsetzen
+
+    def _im_ruhefenster(self, punkt: Punkt) -> bool:
+        """Wurde dieses Thema im Ruhefenster schon gemeldet (gleich dringend oder dringender)?"""
+        if self.alarme is None:
+            return False
+        grenze = _utc_text(self.jetzt() - self.alarme.ruhefenster())
+        with verbinden(self.datei) as db:
+            zeile = db.execute(
+                "SELECT stufe FROM initiative_gemeldet WHERE schluessel = ? AND zeit > ? "
+                "ORDER BY zeit DESC, id DESC LIMIT 1",
+                (punkt.schluessel, grenze),
+            ).fetchone()
+        return zeile is not None and STUFEN.index(punkt.stufe) <= STUFEN.index(zeile["stufe"])
+
+    def notieren(self, schluessel: str, text: str) -> None:
+        """Notiert still; eine offene Notiz zum selben Thema wird ersetzt, nicht verdoppelt."""
+        text = self._schwaerzen(text.strip())
+        with verbinden(self.datei) as db:
+            offen = db.execute(
+                "SELECT id FROM initiative_notizen WHERE schluessel = ? AND erledigt IS NULL",
+                (schluessel,),
+            ).fetchone()
+            if offen:
+                db.execute(
+                    "UPDATE initiative_notizen SET text = ?, zeit = ? WHERE id = ?",
+                    (text, _utc_text(self.jetzt()), offen["id"]),
+                )
+            else:
+                db.execute(
+                    "INSERT INTO initiative_notizen (zeit, schluessel, text) VALUES (?, ?, ?)",
+                    (_utc_text(self.jetzt()), schluessel, text),
+                )
+
+    def offene_notizen(self) -> list[dict[str, Any]]:
+        with verbinden(self.datei) as db:
+            zeilen = db.execute(
+                "SELECT * FROM initiative_notizen WHERE erledigt IS NULL ORDER BY zeit, id"
+            ).fetchall()
+        return [dict(z) for z in zeilen]
+
+    def notizen_erledigen(self, ids: Iterable[int]) -> None:
+        ids = list(ids)
+        if not ids:
+            return
+        with verbinden(self.datei) as db:
+            db.execute(
+                f"UPDATE initiative_notizen SET erledigt = ? "  # noqa: S608 – nur Platzhalter, Werte als Parameter
+                f"WHERE id IN ({','.join('?' * len(ids))})",
+                (_utc_text(self.jetzt()), *ids),
+            )
+
+    def _meldung_bauen(self, punkte: list[Punkt]) -> tuple[str, str, str, str]:
+        """Eine Nachricht für alle Punkte: (Stufe, Titel, Text, Schlüssel)."""
+        stufe = "wichtig" if any(p.stufe == "wichtig" for p in punkte) else "info"
+        if len(punkte) == 1:
+            punkt = punkte[0]
+            text = punkt.text if punkt.text != punkt.titel else ""
+            return stufe, punkt.titel, text, f"initiative:{punkt.schluessel}"
+        zeilen = []
+        for p in punkte:
+            zeile = f"- {p.titel}"
+            if p.text and p.text != p.titel:
+                zeile += f": {p.text}"
+            zeilen.append(zeile)
+        schluessel = "initiative:" + "+".join(sorted(p.schluessel for p in punkte))
+        return (
+            stufe,
+            f"{len(punkte)} Dinge, die mir aufgefallen sind",
+            "\n".join(zeilen),
+            schluessel,
+        )
+
+    def _umsetzen(self, entscheidung: Entscheidung) -> int | None:
+        """Setzt eine Entscheidung um: Notizen still, Meldungen gebündelt über die Alarme.
+
+        Gibt die ID des gemeldeten Alarms zurück (oder ``None``).
+        """
+        melden: list[Punkt] = []
+        for punkt in entscheidung.punkte:
+            if punkt.aktion == "melden" and self.alarme is None:
+                punkt.ergebnis = "notiert (keine Alarme eingerichtet)"
+                self.notieren(punkt.schluessel, punkt.notiz_text())
+            elif punkt.aktion == "melden" and self._im_ruhefenster(punkt):
+                punkt.ergebnis = "nicht gemeldet (im Ruhefenster schon gemeldet)"
+                entscheidung.vermerke.append(f"{punkt.schluessel}: im Ruhefenster schon gemeldet")
+            elif punkt.aktion == "melden":
+                melden.append(punkt)
+            elif punkt.aktion == "notieren":
+                punkt.ergebnis = "notiert"
+                self.notieren(punkt.schluessel, punkt.notiz_text())
+        if not melden or self.alarme is None:
+            return None
+        stufe, titel, text, schluessel = self._meldung_bauen(melden)
+        alarm = self.alarme.melden(
+            stufe,
+            self._schwaerzen(titel),
+            self._schwaerzen(text),
+            schluessel=schluessel,
+            quelle="initiative",
+        )
+        if alarm is None:
+            for punkt in melden:
+                punkt.ergebnis = "nicht gemeldet (im Ruhefenster schon gemeldet)"
+            return None
+        with verbinden(self.datei) as db:
+            db.executemany(
+                "INSERT INTO initiative_gemeldet (zeit, schluessel, stufe, alarm_id) "
+                "VALUES (?, ?, ?, ?)",
+                [(_utc_text(self.jetzt()), p.schluessel, p.stufe, alarm.id) for p in melden],
+            )
+        for punkt in melden:
+            punkt.ergebnis = (
+                "gemeldet (wartet bis Ende der Ruhezeit)"
+                if alarm.status == "aufgeschoben"
+                else "gemeldet"
+            )
+        return alarm.id
+
+    # -------------------------------------------------------------- Gespräch
+
+    def kontext(self, _frage: str) -> str | None:
+        """Kontextquelle: offene Notizen der Denkschleife einmal im nächsten Gespräch."""
+        if im_hintergrund.get():
+            return None
+        notizen = self.offene_notizen()
+        if not notizen:
+            return None
+        self.notizen_erledigen(n["id"] for n in notizen)
+        zeilen = "\n".join(f"- {n['text']}" for n in notizen)
+        return (
+            "## Dir ist aufgefallen (Denkschleife)\n"
+            "Das hast du dir in letzter Zeit von selbst notiert. Erwähne es kurz und in deinem Ton "
+            "zu Beginn deiner Antwort (einmal, danach nicht mehr):\n"
+            + fremd_markieren("Denkschleife/Notizen", zeilen)
+        )

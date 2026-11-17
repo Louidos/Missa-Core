@@ -13,6 +13,8 @@ die Versionsnummern folgen [Semantic Versioning](https://semver.org/lang/de/).
   Server und Mails geben (#102)
 - Missa denkt auf Wunsch (`INITIATIVE_AKTIV=true`) alle 15 Minuten von selbst nach, ob gerade
   etwas wichtig ist (#103)
+- Missa meldet sich von selbst, wenn ihr etwas auffällt: gebündelt in einer Nachricht, nachts
+  still, Unwichtiges erst im nächsten Gespräch (#104)
 
 ## 0.10.1 – 2026-11-16
 

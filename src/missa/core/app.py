@@ -491,6 +491,7 @@ def create_app(
         lagebild,
         llama,
         charakter_datei=einstellungen.charakter_datei,
+        alarme=alarme,
         aktiv=einstellungen.initiative_aktiv,
         intervall_minuten=einstellungen.initiative_intervall_minuten,
         beschaeftigt=beschaeftigt,
@@ -499,6 +500,8 @@ def create_app(
         uhr=uhr,
     )
     initiative.einplanen(zeitplaner)
+    # Stille Notizen der Denkschleife erwähnt Missa einmal im nächsten Gespräch.
+    dienst.kontext_quellen.append(initiative.kontext)
     dokumente.formulierer = dienst.formulieren
     gestartet = int(time.time())
 
