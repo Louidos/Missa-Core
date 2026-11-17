@@ -474,6 +474,31 @@ def create_app(
         return await dienst.hintergrund_ausfuehren(auftrag.auftrag_fuer_missa())
 
     hintergrund.ausfuehrer = hintergrund_ausfuehren
+
+    # Denkschleife: schaut regelmässig aufs Lagebild (nur mit INITIATIVE_AKTIV=true).
+    from missa.core.initiative import Initiative
+
+    def beschaeftigt() -> str | None:
+        if dienst.laufend:
+            return "Chat-Anfrage läuft"
+        if hintergrund.laeuft():
+            return "Hintergrund-Auftrag läuft"
+        return None
+
+    initiative = Initiative(
+        einstellungen.datenbank,
+        einstellungen.zone,
+        lagebild,
+        llama,
+        charakter_datei=einstellungen.charakter_datei,
+        aktiv=einstellungen.initiative_aktiv,
+        intervall_minuten=einstellungen.initiative_intervall_minuten,
+        beschaeftigt=beschaeftigt,
+        notfall_aktiv=rechte.notfall_aktiv,
+        geheimnisse=einstellungen.geheimnisse,
+        uhr=uhr,
+    )
+    initiative.einplanen(zeitplaner)
     dokumente.formulierer = dienst.formulieren
     gestartet = int(time.time())
 
@@ -554,6 +579,7 @@ def create_app(
     app.state.panel = panel
     app.state.panel_ereignisse = panel_ereignisse
     app.state.lagebild = lagebild
+    app.state.initiative = initiative
 
     # -------------------------------------------------------------- Fehlerformat
 
