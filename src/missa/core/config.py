@@ -198,6 +198,7 @@ class Einstellungen:
     missa_control_auslassen: tuple[str, ...] = ()
     missa_control_im_hintergrund: str = "nur_lesen"
     missa_control_ereignisse: bool = True
+    initiative_lagebild_zeichen: int = 3000
 
     @property
     def notfall_datei(self) -> Path:
@@ -639,6 +640,7 @@ class Einstellungen:
             ).casefold(),
             missa_control_ereignisse=wert("MISSA_CONTROL_EREIGNISSE", "an").casefold()
             not in ("aus", "nein", "false", "0", "off", "no"),
+            initiative_lagebild_zeichen=max(1000, zahl("INITIATIVE_LAGEBILD_ZEICHEN", 3000)),
         )
 
     def pruefen(self) -> None:

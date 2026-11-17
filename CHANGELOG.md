@@ -7,6 +7,11 @@ die Versionsnummern folgen [Semantic Versioning](https://semver.org/lang/de/).
 
 ## Unveröffentlicht
 
+### Hinzugefügt
+
+- Missa kann dir auf «Was ist gerade los?» eine kurze Übersicht über Termine, Erinnerungen,
+  Server und Mails geben (#102)
+
 ## 0.10.1 – 2026-11-16
 
 ### Hinzugefügt

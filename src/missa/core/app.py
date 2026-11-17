@@ -370,11 +370,31 @@ def create_app(
         )
     else:
         werkzeuge.rechte = rechte
+    # Lagebild: kompaktes Bild aus allen eingerichteten Quellen (nur lesend).
+    from missa.core.lagebild import lagebild_bauen, lagebild_werkzeuge
+
+    lagebild = lagebild_bauen(
+        einstellungen.zone,
+        uhr=uhr,
+        max_zeichen=einstellungen.initiative_lagebild_zeichen,
+        datenbank=einstellungen.datenbank,
+        zeitplaner=zeitplaner,
+        alarme=alarme,
+        kalender=nextcloud.kalender if nextcloud is not None else None,
+        server=server_waechter,
+        erreichbarkeit=erreichbarkeit,
+        hintergrund=hintergrund,
+        mail_dienst=mail_dienst,
+        kontaktpflege=kontaktpflege,
+    )
     # Ein absichtlich leerer Werkzeugkasten (Tests) bleibt leer.
     if len(werkzeuge) and "aktionen_anzeigen" not in werkzeuge:
         from missa.core.rechte import protokoll_werkzeuge
 
         for werkzeug in protokoll_werkzeuge(protokoll, rechte, einstellungen.zone):
+            werkzeuge.hinzufuegen(werkzeug)
+    if len(werkzeuge) and "lagebild_anzeigen" not in werkzeuge:
+        for werkzeug in lagebild_werkzeuge(lagebild):
             werkzeuge.hinzufuegen(werkzeug)
     # Funktionen aus Missa Control (nur mit MISSA_CONTROL_URL und Token).
     from missa.tools.panel import panel_bauen
@@ -533,6 +553,7 @@ def create_app(
     app.state.prompts = prompts
     app.state.panel = panel
     app.state.panel_ereignisse = panel_ereignisse
+    app.state.lagebild = lagebild
 
     # -------------------------------------------------------------- Fehlerformat
 
@@ -846,6 +867,11 @@ def create_app(
         if vms is None:
             return {"vms": False, "auftraege": []}
         return {"vms": True, "pool": vms.proxmox.pool, "auftraege": vms._auftraege()[:50]}
+
+    @app.get("/api/lagebild", dependencies=geschuetzt, tags=["Missa"])
+    async def lagebild_anzeigen() -> dict[str, Any]:
+        """Das aktuelle Lagebild (nur lesend): Text, Fingerabdruck und Zustand jeder Quelle."""
+        return (await lagebild.erstellen()).als_dict()
 
     @app.post("/v1/chat/completions", dependencies=geschuetzt, tags=["OpenAI"])
     async def chat_completions(
