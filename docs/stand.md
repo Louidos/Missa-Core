@@ -34,7 +34,7 @@ Legende: ✅ erledigt (Code auf main, Test grün, Einstellung in
 | S5 Proxmox-VMs | 🟡 | Test für den Eintrag ins Homelab-Wissen nach dem Erstellen |
 | S6 Caddy, Minecraft | ✅ | – |
 | S7 Git-Server, GitHub, Prompts | ✅ | – |
-| I1–I7 Missa Initiative | 🟡 | in Arbeit: Lagebild, Denkschleife und Meldungen fertig; Budget, Journal, Rückmeldungen, Briefing fehlen |
+| I1–I7 Missa Initiative | 🟡 | in Arbeit: Lagebild, Denkschleife, Meldungen und Budget fertig; Journal, Rückmeldungen, Briefing fehlen |
 
 ## Einzelpunkte
 
@@ -157,6 +157,10 @@ Legende: ✅ erledigt (Code auf main, Test grün, Einstellung in
 | I3 | In der Ruhezeit wartet die Meldung | ✅ | `::test_in_der_ruhezeit_wartet_die_meldung` |
 | I3 | Gleiches Thema nicht im Ruhefenster | ✅ | `::test_gleiches_thema_nicht_noch_einmal_im_ruhefenster` |
 | I3 | Notiz im nächsten Gespräch genau einmal | ✅ | `Initiative.kontext`; `::test_notiz_im_gespraech_genau_einmal` |
+| I4 | Nach fünf Meldungen wird die sechste notiert | ✅ | `INITIATIVE_BUDGET_PRO_TAG`; `::test_nach_fuenf_meldungen_wird_die_sechste_nur_notiert` |
+| I4 | Server-Alarm trotz aufgebrauchtem Budget sofort | ✅ | `::test_server_alarm_kommt_auch_bei_aufgebrauchtem_budget` |
+| I4 | „Stör mich höchstens dreimal“ gilt nach Neustart | ✅ | Werkzeug `initiative_einstellen`; `::test_stoer_mich_hoechstens_dreimal_gilt_nach_neustart` |
+| I4 | Sammelmeldung am Abend | ✅ | `INITIATIVE_SAMMELZEIT`; `::test_am_abend_kommt_eine_sammelmeldung_mit_allen_notizen` |
 
 ## Weitere Beobachtungen
 

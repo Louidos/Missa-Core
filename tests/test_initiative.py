@@ -425,3 +425,118 @@ def test_notiz_im_gespraech_genau_einmal(client, llama: FakeLlama):
         )
     assert "Morgen hast du keine Pause." in llama.system(0)
     assert "Morgen hast du keine Pause." not in llama.system(1)
+
+
+# ----------------------------------------------------------------------------- Budget
+
+
+def melden_lassen(umgebung: Umgebung, nummer: int):
+    umgebung.inhalt["Termine"] = f"- Lage {nummer}"
+    umgebung.modell.antworten = [json.dumps(punkt("melden", f"thema-{nummer}", f"Punkt {nummer}"))]
+    umgebung.uhr.vor(minutes=15)
+    return umgebung.lauf()
+
+
+def test_nach_fuenf_meldungen_wird_die_sechste_nur_notiert(umgebung):
+    for nummer in range(5):
+        assert melden_lassen(umgebung, nummer).gemeldet
+    sechste = melden_lassen(umgebung, 5)
+    assert not sechste.gemeldet
+    assert sechste.punkte[0]["ergebnis"] == "notiert (Tagesbudget aufgebraucht)"
+    assert "Tagesbudget von 5" in sechste.grund
+    assert len(umgebung.zustellen()) == 5
+    assert umgebung.initiative.verbraucht() == 5
+    assert [n["schluessel"] for n in umgebung.initiative.offene_notizen()] == ["thema-5"]
+
+
+def test_server_alarm_kommt_auch_bei_aufgebrauchtem_budget(umgebung):
+    umgebung.initiative.vorgaben.setzen("initiative.budget_pro_tag", "0")
+    assert not melden_lassen(umgebung, 1).gemeldet
+    umgebung.alarme.melden("wichtig", "ai01: CPU über 90 %", schluessel="regel:1", quelle="proxmox")
+    nachrichten = umgebung.zustellen()
+    assert nachrichten == ["⚠️ Wichtig: ai01: CPU über 90 %"]
+    assert umgebung.initiative.verbraucht() == 0  # feste Regeln zählen nicht
+
+
+def test_budget_zaehlt_pro_kalendertag(umgebung):
+    umgebung.initiative.vorgaben.setzen("initiative.budget_pro_tag", "1")
+    assert melden_lassen(umgebung, 1).gemeldet
+    assert not melden_lassen(umgebung, 2).gemeldet
+    umgebung.uhr.jetzt = datetime(2026, 11, 12, 9, 0, tzinfo=ZONE)
+    assert melden_lassen(umgebung, 3).gemeldet
+
+
+def test_stoer_mich_hoechstens_dreimal_gilt_nach_neustart(umgebung, tmp_path):
+    from missa.core.werkzeuge import Werkzeugkasten
+    from missa.tools.initiative import initiative_werkzeuge
+
+    kasten = Werkzeugkasten(initiative_werkzeuge(umgebung.initiative))
+    antwort = asyncio.run(kasten.ausfuehren("initiative_einstellen", {"budget_pro_tag": 3}))
+    assert "Heute gemeldet: 0 von 3" in antwort
+    neu = Initiative(
+        umgebung.datei,
+        ZONE,
+        umgebung.lagebild,
+        umgebung.modell,  # type: ignore[arg-type]
+        charakter_datei=tmp_path / "charakter.md",
+        budget_pro_tag=5,
+    )
+    assert neu.budget() == 3
+
+
+def test_denk_mal_eine_stunde_nicht_nach(umgebung):
+    from missa.core.werkzeuge import Werkzeugkasten
+    from missa.tools.initiative import initiative_werkzeuge
+
+    umgebung.initiative.einplanen(umgebung.planer)
+    kasten = Werkzeugkasten(initiative_werkzeuge(umgebung.initiative))
+    asyncio.run(kasten.ausfuehren("initiative_einstellen", {"pause_minuten": 60}))
+    lauf = umgebung.lauf()
+    assert lauf.uebersprungen and lauf.ursache.startswith("pausiert bis")
+    umgebung.uhr.vor(minutes=61)
+    assert not umgebung.lauf().uebersprungen
+    asyncio.run(
+        kasten.ausfuehren("initiative_einstellen", {"aktiv": False, "intervall_minuten": 30})
+    )
+    assert "initiative" not in umgebung.planer._intervalle
+    asyncio.run(kasten.ausfuehren("initiative_einstellen", {"aktiv": True}))
+    assert umgebung.planer._intervalle["initiative"].intervall.total_seconds() == 30 * 60
+
+
+def test_einstellen_prueft_werte(umgebung):
+    from missa.core.werkzeuge import Werkzeugkasten
+    from missa.tools.initiative import initiative_werkzeuge
+
+    kasten = Werkzeugkasten(initiative_werkzeuge(umgebung.initiative))
+    assert "Fehler" in asyncio.run(kasten.ausfuehren("initiative_einstellen", {}))
+    antwort = asyncio.run(kasten.ausfuehren("initiative_einstellen", {"intervall_minuten": 2}))
+    assert "Öfter als alle 5 Minuten" in antwort
+
+
+def test_initiative_status(umgebung):
+    from missa.core.werkzeuge import Werkzeugkasten
+    from missa.tools.initiative import initiative_werkzeuge
+
+    melden_lassen(umgebung, 1)
+    kasten = Werkzeugkasten(initiative_werkzeuge(umgebung.initiative))
+    antwort = asyncio.run(kasten.ausfuehren("initiative_status", {}))
+    assert "Denkschleife: an" in antwort
+    assert "alle 15 Minuten" in antwort
+    assert "Heute gemeldet: 1 von 5" in antwort
+    assert "Letzter Lauf: 11.11. 14:15 Uhr – melden" in antwort
+
+
+def test_am_abend_kommt_eine_sammelmeldung_mit_allen_notizen(umgebung):
+    umgebung.initiative.einplanen(umgebung.planer)
+    umgebung.initiative.notieren("oma", "Oma hat am Samstag Geburtstag")
+    umgebung.initiative.notieren("rail-kit", "Rail-Kit ist noch nicht bestellt")
+    umgebung.uhr.jetzt = datetime(2026, 11, 11, 19, 30, 5, tzinfo=ZONE)
+    asyncio.run(umgebung.planer.auftraege_ausfuehren(warten=True))
+    nachrichten = umgebung.zustellen()
+    assert len(nachrichten) == 1
+    assert nachrichten[0].startswith("ℹ️ Hinweis: 2 Notizen von heute")
+    assert "Oma hat am Samstag" in nachrichten[0] and "Rail-Kit" in nachrichten[0]
+    assert umgebung.initiative.offene_notizen() == []
+    assert umgebung.initiative.verbraucht() == 0  # zählt nicht gegen das Budget
+    # ohne offene Notizen keine Sammelmeldung
+    assert umgebung.initiative.sammelmeldung() is None

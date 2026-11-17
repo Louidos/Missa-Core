@@ -201,6 +201,8 @@ class Einstellungen:
     initiative_lagebild_zeichen: int = 3000
     initiative_aktiv: bool = False
     initiative_intervall_minuten: int = 15
+    initiative_budget_pro_tag: int = 5
+    initiative_sammelzeit: time = time(19, 30)
 
     @property
     def notfall_datei(self) -> Path:
@@ -645,6 +647,8 @@ class Einstellungen:
             initiative_lagebild_zeichen=max(1000, zahl("INITIATIVE_LAGEBILD_ZEICHEN", 3000)),
             initiative_aktiv=wert("INITIATIVE_AKTIV", "false").casefold() in WAHR,
             initiative_intervall_minuten=max(5, zahl("INITIATIVE_INTERVALL_MINUTEN", 15)),
+            initiative_budget_pro_tag=max(0, zahl("INITIATIVE_BUDGET_PRO_TAG", 5)),
+            initiative_sammelzeit=uhrzeit("INITIATIVE_SAMMELZEIT", "19:30"),
         )
 
     def pruefen(self) -> None:

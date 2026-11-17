@@ -15,6 +15,8 @@ die Versionsnummern folgen [Semantic Versioning](https://semver.org/lang/de/).
   etwas wichtig ist (#103)
 - Missa meldet sich von selbst, wenn ihr etwas auffällt: gebündelt in einer Nachricht, nachts
   still, Unwichtiges erst im nächsten Gespräch (#104)
+- Missa meldet sich von selbst höchstens fünfmal am Tag, der Rest kommt abends gesammelt; die
+  Zahl kannst du ihr einfach sagen (#105)
 
 ## 0.10.1 – 2026-11-16
 
