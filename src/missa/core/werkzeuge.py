@@ -102,6 +102,7 @@ FREMDE_QUELLEN = frozenset(
         "git_alte_branches",
         "github_ueberblick",
         "lagebild_anzeigen",
+        "gedanken_anzeigen",
     }
 )
 #: Höchstens so viele Anfragen merkt sich der Werkzeugkasten (fremde Daten gelesen).

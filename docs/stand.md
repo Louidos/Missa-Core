@@ -34,7 +34,7 @@ Legende: ✅ erledigt (Code auf main, Test grün, Einstellung in
 | S5 Proxmox-VMs | 🟡 | Test für den Eintrag ins Homelab-Wissen nach dem Erstellen |
 | S6 Caddy, Minecraft | ✅ | – |
 | S7 Git-Server, GitHub, Prompts | ✅ | – |
-| I1–I7 Missa Initiative | 🟡 | in Arbeit: Lagebild, Denkschleife, Meldungen und Budget fertig; Journal, Rückmeldungen, Briefing fehlen |
+| I1–I7 Missa Initiative | 🟡 | in Arbeit: Lagebild, Denkschleife, Meldungen, Budget und Journal fertig; Rückmeldungen, Briefing fehlen |
 
 ## Einzelpunkte
 
@@ -161,6 +161,10 @@ Legende: ✅ erledigt (Code auf main, Test grün, Einstellung in
 | I4 | Server-Alarm trotz aufgebrauchtem Budget sofort | ✅ | `::test_server_alarm_kommt_auch_bei_aufgebrauchtem_budget` |
 | I4 | „Stör mich höchstens dreimal“ gilt nach Neustart | ✅ | Werkzeug `initiative_einstellen`; `::test_stoer_mich_hoechstens_dreimal_gilt_nach_neustart` |
 | I4 | Sammelmeldung am Abend | ✅ | `INITIATIVE_SAMMELZEIT`; `::test_am_abend_kommt_eine_sammelmeldung_mit_allen_notizen` |
+| I5 | „Warum hast du mir das geschrieben?“ nennt den Grund | ✅ | Werkzeug `gedanken_anzeigen`; `::test_warum_hast_du_mir_das_geschrieben_nennt_den_grund` |
+| I5 | Journal-API ohne Key gesperrt, nur lesend | ✅ | `GET /api/initiative/journal`, `GET /api/initiative`; `test_api.py::test_initiative_journal_ohne_api_key_gesperrt_und_nur_lesend` |
+| I5 | Keine Passwörter im Journal | ✅ | `schwaerzen()`; `test_api.py::test_im_journal_stehen_keine_passwoerter` |
+| I5 | Alte Einträge aufgeräumt | ✅ | `INITIATIVE_JOURNAL_TAGE`; `::test_alte_eintraege_werden_aufgeraeumt` |
 
 ## Weitere Beobachtungen
 

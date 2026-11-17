@@ -142,6 +142,21 @@ Sind sie im Panel schon aktiv, kannst du sie für Missa-Core auslassen:
 MISSA_CONTROL_AUSLASSEN=kalender_,gedaechtnis_
 ```
 
+## Was das Panel über Missas Initiative lesen kann
+
+Für eine Ansicht von Missas Denkschleife kann Missa Control diese Endpunkte von Missa-Core
+abfragen (alle nur lesend, mit `Authorization: Bearer <MISSA_API_KEY>`, Details in
+[api.md](api.md)):
+
+| Endpunkt | Inhalt |
+|---|---|
+| `GET /api/lagebild` | das aktuelle Lagebild: Text, Fingerabdruck, Zustand jeder Quelle |
+| `GET /api/initiative` | an/aus, Intervall, Tagesbudget und Verbrauch, Sammelzeit, letzter Lauf |
+| `GET /api/initiative/journal?tage=1` | die Läufe mit Entscheidung, Grund, Dauer, gemeldet ja/nein |
+
+Am Panel selbst ändert diese Version nichts – es kann die Endpunkte nutzen, wenn es so weit
+ist. Einstellen lässt sich die Denkschleife nur im Gespräch (`initiative_einstellen`).
+
 ## Für Entwickler
 
 - Verbindung: `src/missa/integrationen/missa_control.py` – kleiner eigener Client mit httpx

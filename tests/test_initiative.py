@@ -540,3 +540,91 @@ def test_am_abend_kommt_eine_sammelmeldung_mit_allen_notizen(umgebung):
     assert umgebung.initiative.verbraucht() == 0  # zählt nicht gegen das Budget
     # ohne offene Notizen keine Sammelmeldung
     assert umgebung.initiative.sammelmeldung() is None
+
+
+# ----------------------------------------------------------------------------- Journal
+
+
+def test_warum_hast_du_mir_das_geschrieben_nennt_den_grund(umgebung):
+    from missa.core.werkzeuge import Werkzeugkasten
+    from missa.tools.initiative import initiative_werkzeuge
+
+    kasten = Werkzeugkasten(initiative_werkzeuge(umgebung.initiative))
+    leer = asyncio.run(kasten.ausfuehren("gedanken_anzeigen", {"frage": "warum"}))
+    assert "nichts von selbst" in leer
+    umgebung.modell.antworten = [
+        json.dumps(
+            {
+                "aktion": "melden",
+                "stufe": "wichtig",
+                "schluessel": "zahnarzt",
+                "titel": "Zahnarzt um 15 Uhr",
+                "grund": "Der Weg dauert 40 Minuten",
+            }
+        )
+    ]
+    umgebung.lauf()
+    umgebung.uhr.vor(minutes=15)
+    umgebung.inhalt["Termine"] = "- anders"
+    umgebung.lauf()  # danach ein Lauf ohne Meldung
+    antwort = asyncio.run(kasten.ausfuehren("gedanken_anzeigen", {"frage": "warum"}))
+    assert "11.11. um 14:00 Uhr" in antwort
+    assert "Zahnarzt um 15 Uhr" in antwort and "Der Weg dauert 40 Minuten" in antwort
+
+
+def test_was_hast_du_heute_gedacht(umgebung):
+    from missa.core.werkzeuge import Werkzeugkasten
+    from missa.tools.initiative import initiative_werkzeuge
+
+    umgebung.modell.antworten = [
+        json.dumps({"aktion": "nichts", "grund": "Alles ruhig"}),
+    ]
+    umgebung.lauf()
+    umgebung.uhr.vor(minutes=15)
+    umgebung.lauf()  # unverändert → übersprungen
+    kasten = Werkzeugkasten(initiative_werkzeuge(umgebung.initiative))
+    antwort = asyncio.run(kasten.ausfuehren("gedanken_anzeigen", {"frage": "heute"}))
+    assert "So habe ich heute nachgedacht (2 Läufe)" in antwort
+    assert "14:00: nichts – Alles ruhig" in antwort
+    assert "1× Lagebild unverändert" in antwort
+
+
+def test_alte_eintraege_werden_aufgeraeumt(umgebung):
+    umgebung.initiative.journal_tage = 30
+    umgebung.lauf()  # 11.11. entschieden
+    umgebung.uhr.vor(minutes=15)
+    umgebung.lauf()  # 11.11. übersprungen
+    umgebung.uhr.vor(days=3)
+    umgebung.inhalt["Termine"] = "- neu"
+    umgebung.lauf()  # 14.11. entschieden
+    assert umgebung.initiative.aufraeumen() == 1  # übersprungener nach 2 Tagen weg
+    assert [lauf.uebersprungen for lauf in umgebung.initiative.laeufe()] == [False, False]
+    umgebung.uhr.vor(days=28)  # 12.12.: der Lauf vom 11.11. ist älter als 30 Tage
+    assert umgebung.initiative.aufraeumen() == 1
+    assert [f"{lauf.zeit:%d.%m.}" for lauf in umgebung.initiative.laeufe()] == ["14.11."]
+
+
+def test_aufraeumen_laeuft_taeglich_im_zeitplaner(umgebung):
+    umgebung.initiative.einplanen(umgebung.planer)
+    assert "initiative-aufraeumen" in umgebung.planer._auftraege
+
+
+def test_journal_api_liefert_laeufe(client, llama: FakeLlama):
+    initiative = client.app.state.initiative
+    initiative.vorgaben.setzen("initiative.aktiv", "ja")
+    llama.antworten = [
+        text(json.dumps({"aktion": "notieren", "schluessel": "x", "titel": "Etwas", "grund": "g"}))
+    ]
+
+    async def laufen():
+        return await initiative.lauf()
+
+    asyncio.run(laufen())
+    daten = client.get("/api/initiative/journal", params={"tage": 2, "anzahl": 10}).json()
+    assert daten["anzahl"] == 1
+    lauf = daten["laeufe"][0]
+    assert lauf["aktion"] == "notieren" and lauf["grund"] == "g"
+    assert {"dauer_ms", "gemeldet", "uebersprungen", "punkte"} <= set(lauf)
+    status = client.get("/api/initiative").json()
+    assert status["aktiv"] is True and status["letzter_lauf"]["id"] == lauf["id"]
+    assert status["budget_pro_tag"] == 5

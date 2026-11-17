@@ -113,6 +113,10 @@ MAX_TITEL = 120
 MAX_TEXT = 800
 MAX_GRUND = 300
 MAX_PUNKTE = 5
+#: Übersprungene Läufe werden nach so vielen Tagen gelöscht (das Journal läuft nicht voll).
+UEBERSPRUNGEN_TAGE = 2
+#: Uhrzeit des täglichen Aufräumens im Journal.
+AUFRAEUMEN_ZEIT = time(4, 20)
 #: Kürzester erlaubter Abstand zwischen zwei Läufen (Minuten).
 MIN_INTERVALL = 5
 
@@ -335,6 +339,7 @@ class Initiative:
         intervall_minuten: int = 15,
         budget_pro_tag: int = 5,
         sammelzeit: time = time(19, 30),
+        journal_tage: int = 30,
         beschaeftigt: Callable[[], str | None] | None = None,
         notfall_aktiv: Callable[[], bool] | None = None,
         geheimnisse: Iterable[str] = (),
@@ -352,6 +357,7 @@ class Initiative:
         self.standard_intervall = max(MIN_INTERVALL, int(intervall_minuten))
         self.standard_budget = max(0, int(budget_pro_tag))
         self.standard_sammelzeit = sammelzeit
+        self.journal_tage = max(1, int(journal_tage))
         self.zeitplaner: Any = None
         #: Liefert einen Grund, wenn Missa gerade beschäftigt ist (Chat, Hintergrund).
         self.beschaeftigt = beschaeftigt or (lambda: None)
@@ -439,6 +445,7 @@ class Initiative:
         self.zeitplaner = zeitplaner
         # Die Sammelmeldung prüft selbst, ob die Denkschleife an ist.
         zeitplaner.taeglich("initiative-sammlung", self.sammelzeit(), self.sammelmeldung)
+        zeitplaner.taeglich("initiative-aufraeumen", AUFRAEUMEN_ZEIT, self.aufraeumen)
         if self.aktiv():
             zeitplaner.regelmaessig("initiative", self.intervall(), self.lauf)
         else:
@@ -512,15 +519,47 @@ class Initiative:
             alarm_id=zeile["alarm_id"],
         )
 
-    def laeufe(self, anzahl: int = 50, seit: datetime | None = None) -> list[Lauf]:
+    def laeufe(
+        self,
+        anzahl: int = 50,
+        seit: datetime | None = None,
+        *,
+        ohne_uebersprungene: bool = False,
+        nur_gemeldete: bool = False,
+    ) -> list[Lauf]:
         """Gespeicherte Läufe, neueste zuerst."""
+        bedingungen = "zeit >= ?"
+        if ohne_uebersprungene:
+            bedingungen += " AND uebersprungen = 0"
+        if nur_gemeldete:
+            bedingungen += " AND gemeldet = 1"
         with verbinden(self.datei) as db:
             zeilen = db.execute(
-                "SELECT * FROM initiative_laeufe WHERE zeit >= ? ORDER BY zeit DESC, id DESC "
-                "LIMIT ?",
+                f"SELECT * FROM initiative_laeufe WHERE {bedingungen} "  # noqa: S608 – Bedingungen fest im Code, Werte als Parameter
+                "ORDER BY zeit DESC, id DESC LIMIT ?",
                 (_utc_text(seit) if seit else "", max(1, anzahl)),
             ).fetchall()
         return [self._lauf(z) for z in zeilen]
+
+    def aufraeumen(self) -> int:
+        """Täglicher Auftrag: Läufe älter als ``INITIATIVE_JOURNAL_TAGE`` und übersprungene
+        Läufe älter als zwei Tage löschen. Gibt die Zahl der gelöschten Läufe zurück."""
+        jetzt = self.jetzt()
+        frist = _utc_text(jetzt - timedelta(days=self.journal_tage))
+        kurz = _utc_text(jetzt - timedelta(days=UEBERSPRUNGEN_TAGE))
+        with verbinden(self.datei) as db:
+            geloescht = db.execute(
+                "DELETE FROM initiative_laeufe WHERE zeit < ? OR (uebersprungen = 1 AND zeit < ?)",
+                (frist, kurz),
+            ).rowcount
+            db.execute("DELETE FROM initiative_gemeldet WHERE zeit < ?", (frist,))
+            db.execute(
+                "DELETE FROM initiative_notizen WHERE erledigt IS NOT NULL AND erledigt < ?",
+                (frist,),
+            )
+        if geloescht:
+            log.info("Gedanken-Journal: %d alte Läufe aufgeräumt", geloescht)
+        return geloescht
 
     def letzter_fingerabdruck(self) -> str | None:
         """Fingerabdruck des letzten Laufs, in dem das Modell erfolgreich entschieden hat."""
@@ -825,5 +864,6 @@ class Initiative:
             "sammelzeit": f"{self.sammelzeit():%H:%M}",
             "pausiert_bis": pause.isoformat(timespec="minutes") if pause else None,
             "offene_notizen": len(self.offene_notizen()),
+            "journal_tage": self.journal_tage,
             "letzter_lauf": letzter.als_dict() if letzter else None,
         }

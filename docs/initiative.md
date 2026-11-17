@@ -132,6 +132,24 @@ Im Gespräch:
 `initiative_einstellen` hat die Stufe `schreiben`, `initiative_status` die Stufe `lesen`. Die
 Werte stehen in `vorgaben` und haben Vorrang vor `missa.env`.
 
+## Gedanken-Journal
+
+Was Missa wann gedacht und warum sie so entschieden hat, steht im Journal (Tabelle
+`initiative_laeufe`) – nachlesbar im Gespräch und über die API:
+
+- „Warum hast du mir das geschrieben?“ → Werkzeug `gedanken_anzeigen` (`frage=warum`, Stufe
+  `lesen`): Zeitpunkt, Titel und Grund der letzten eigenen Meldung.
+- „Was hast du heute gedacht?“ → `gedanken_anzeigen` (`frage=heute`, optional `tage`): alle
+  Läufe mit Entscheidung und Grund, übersprungene zusammengefasst („12× Lagebild unverändert“).
+- [`GET /api/initiative/journal`](api.md#get-apiinitiativejournal--gedanken-journal) und
+  [`GET /api/initiative`](api.md#get-apiinitiative--zustand-der-denkschleife) für Missa
+  Control (nur lesend, nur mit API-Key).
+
+Aufräumen: Ein täglicher Auftrag im Zeitplaner (04:20) löscht Läufe, die älter als
+`INITIATIVE_JOURNAL_TAGE` (Standard 30) sind. Übersprungene Läufe ohne Änderung werden schon
+nach 2 Tagen gelöscht, damit das Journal nicht volläuft. Alle Texte im Journal sind vor dem
+Speichern geschwärzt (Passwörter, Tokens, Schlüssel).
+
 ## Einstellungen
 
 | Variable | Standard | Bedeutung |
@@ -141,3 +159,4 @@ Werte stehen in `vorgaben` und haben Vorrang vor `missa.env`.
 | `INITIATIVE_INTERVALL_MINUTEN` | 15 | Abstand zwischen zwei Läufen (mindestens 5) |
 | `INITIATIVE_BUDGET_PRO_TAG` | 5 | Höchstens so viele Meldungen pro Tag (0 = nie) |
 | `INITIATIVE_SAMMELZEIT` | 19:30 | Uhrzeit der abendlichen Sammelmeldung |
+| `INITIATIVE_JOURNAL_TAGE` | 30 | So lange bleiben Läufe im Gedanken-Journal |
