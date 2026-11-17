@@ -203,6 +203,7 @@ class Einstellungen:
     initiative_intervall_minuten: int = 15
     initiative_budget_pro_tag: int = 5
     initiative_sammelzeit: time = time(19, 30)
+    initiative_journal_tage: int = 30
 
     @property
     def notfall_datei(self) -> Path:
@@ -649,6 +650,7 @@ class Einstellungen:
             initiative_intervall_minuten=max(5, zahl("INITIATIVE_INTERVALL_MINUTEN", 15)),
             initiative_budget_pro_tag=max(0, zahl("INITIATIVE_BUDGET_PRO_TAG", 5)),
             initiative_sammelzeit=uhrzeit("INITIATIVE_SAMMELZEIT", "19:30"),
+            initiative_journal_tage=max(1, zahl("INITIATIVE_JOURNAL_TAGE", 30)),
         )
 
     def pruefen(self) -> None:

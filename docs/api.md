@@ -556,6 +556,52 @@ curl "$MISSA/api/lagebild" -H "Authorization: Bearer $KEY"
 `status` ist `ok`, `leer` oder `nicht erreichbar`. `fingerabdruck` ändert sich nur, wenn sich
 etwas ausser der Uhrzeit ändert. Mehr dazu: [initiative.md](initiative.md).
 
+### `GET /api/initiative` – Zustand der Denkschleife
+
+Nur lesend: an/aus, Intervall, Tagesbudget und heute verbrauchte Meldungen, Sammelzeit, Pause,
+offene Notizen und der letzte Lauf (Format wie im Journal).
+
+```bash
+curl "$MISSA/api/initiative" -H "Authorization: Bearer $KEY"
+```
+
+```json
+{
+  "aktiv": true, "intervall_minuten": 15, "budget_pro_tag": 5, "heute_verbraucht": 2,
+  "sammelzeit": "19:30", "pausiert_bis": null, "offene_notizen": 1, "journal_tage": 30,
+  "letzter_lauf": {"id": 41, "zeit": "2026-11-17T14:15:00+01:00", "aktion": "nichts", "…": "…"}
+}
+```
+
+### `GET /api/initiative/journal` – Gedanken-Journal
+
+Die Läufe der Denkschleife (neueste zuerst) mit Entscheidung, Grund, Dauer und ob gemeldet
+wurde. `?tage=7` (Standard 7, höchstens 90) und `?anzahl=100` (höchstens 1000). Nur lesend;
+alle Texte sind geschwärzt.
+
+```bash
+curl "$MISSA/api/initiative/journal?tage=1" -H "Authorization: Bearer $KEY"
+```
+
+```json
+{
+  "tage": 1,
+  "anzahl": 1,
+  "laeufe": [
+    {"id": 40, "zeit": "2026-11-17T14:00:00+01:00", "aktion": "melden",
+     "punkte": [{"aktion": "melden", "stufe": "wichtig", "schluessel": "zahnarzt",
+                 "titel": "Zahnarzt um 15 Uhr", "text": "…", "grund": "Weg dauert 40 Minuten",
+                 "ergebnis": "gemeldet"}],
+     "grund": "Weg dauert 40 Minuten", "dauer_ms": 18250, "uebersprungen": false,
+     "ursache": "", "fehler": null, "gemeldet": true, "fingerabdruck": "3f1c…",
+     "lagebild": "### Termine\n…"}
+  ]
+}
+```
+
+`ursache` sagt bei übersprungenen Läufen, warum (z. B. `Lagebild unverändert`,
+`Chat-Anfrage läuft`, `Notfall-Stopp aktiv`). Mehr dazu: [initiative.md](initiative.md).
+
 ### `POST /channels/nextcloud-talk/webhook` – nur für Nextcloud Talk
 
 Kein Endpunkt für Apps: Hier liefert Nextcloud Talk Nachrichten an Missa (Bot-Webhook).
@@ -713,7 +759,7 @@ kennen – man fragt einfach in normaler Sprache.
 | E-Mail (nur wenn eingerichtet) | „Schreib dem Chef, dass ich morgen später komme“, „Was ist neu im Posteingang?“, „Schreib förmlicher an Lehrer“ – gesendet wird nur nach „Ja, abschicken“ | `emails_anzeigen`, `email_lesen`, `email_entwurf_erstellen`, `email_entwurf_aendern`, `email_entwuerfe_anzeigen`, `email_entwurf_verwerfen`, `email_adresse_suchen`, `schreibstil_anzeigen`, `schreibstil_lernen`, `schreibstil_anpassen` (kein Senden-Werkzeug – siehe [email.md](email.md)) |
 | Nextcloud Talk (nur wenn eingerichtet) | „Schick mir die Übersicht per Talk“, „Erinnere mich per Talk an …“ | `talk_nachricht_senden` |
 | Server-Alarme (nur wenn eine Monitoring-Quelle eingerichtet ist) | „Ruf mich an, wenn ai01 über 90 % ist“, „Wie ist die Auslastung von ai01?“, „Welche Alarm-Regeln gibt es?“, „Ruhezeit von 23 bis 6 Uhr“ | `server_werte_anzeigen`, `alarmregel_anlegen`, `alarmregeln_anzeigen`, `alarmregel_aendern`, `alarmregel_loeschen`, `alarme_anzeigen`, `alarm_einstellungen` |
-| Lagebild und Denkschleife | „Was ist gerade los?“, „Stör mich höchstens dreimal am Tag“, „Denk mal eine Stunde nicht nach“ | `lagebild_anzeigen`, `initiative_einstellen`, `initiative_status` (siehe [initiative.md](initiative.md)) |
+| Lagebild und Denkschleife | „Was ist gerade los?“, „Stör mich höchstens dreimal am Tag“, „Denk mal eine Stunde nicht nach“ | `lagebild_anzeigen`, `initiative_einstellen`, `initiative_status`, `gedanken_anzeigen` („Warum hast du mir das geschrieben?“, siehe [initiative.md](initiative.md)) |
 | Erreichbarkeit (nur wenn `ERREICHBARKEIT_DOMAINS` gesetzt ist) | „Ist git von außen erreichbar?“ | `erreichbarkeit_pruefen` |
 | Container und Logs (nur wenn `SSH_HOSTS` gesetzt ist) | „Welche Container laufen auf wb01?“, „Warum geht Nextcloud nicht?“, „Starte nextcloud neu“ (nur nach Ja) | `container_anzeigen`, `container_logs`, `container_neustarten`, `fehlersuche`, `journal_lesen` |
 | Updates (nur wenn `SSH_HOSTS` gesetzt ist) | „Welche Updates stehen an?“, „Plan ein Wartungsfenster“, „Spiel die Updates auf wb01 ein“ (nur nach Ja), „Starte wb01 neu“ (nur nach Ja) | `updates_anzeigen`, `wartungsfenster_vorschlagen`, `wartungsfenster_eintragen`, `updates_plan`, `updates_einspielen`, `host_neustarten` |

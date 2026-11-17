@@ -496,6 +496,7 @@ def create_app(
         intervall_minuten=einstellungen.initiative_intervall_minuten,
         budget_pro_tag=einstellungen.initiative_budget_pro_tag,
         sammelzeit=einstellungen.initiative_sammelzeit,
+        journal_tage=einstellungen.initiative_journal_tage,
         beschaeftigt=beschaeftigt,
         notfall_aktiv=rechte.notfall_aktiv,
         geheimnisse=einstellungen.geheimnisse,
@@ -908,6 +909,23 @@ def create_app(
     async def lagebild_anzeigen() -> dict[str, Any]:
         """Das aktuelle Lagebild (nur lesend): Text, Fingerabdruck und Zustand jeder Quelle."""
         return (await lagebild.erstellen()).als_dict()
+
+    @app.get("/api/initiative", dependencies=geschuetzt, tags=["Missa"])
+    async def initiative_anzeigen() -> dict[str, Any]:
+        """Zustand der Denkschleife: an/aus, Intervall, Budget, letzter Lauf (nur lesend)."""
+        return initiative.status()
+
+    @app.get("/api/initiative/journal", dependencies=geschuetzt, tags=["Missa"])
+    async def initiative_journal(tage: int = 7, anzahl: int = 100) -> dict[str, Any]:
+        """Gedanken-Journal: Läufe der Denkschleife mit Entscheidung und Grund (nur lesend)."""
+        tage = max(1, min(tage, 90))
+        seit = initiative.jetzt() - timedelta(days=tage)
+        laeufe = initiative.laeufe(max(1, min(anzahl, 1000)), seit)
+        return {
+            "tage": tage,
+            "anzahl": len(laeufe),
+            "laeufe": [lauf.als_dict() for lauf in laeufe],
+        }
 
     @app.post("/v1/chat/completions", dependencies=geschuetzt, tags=["OpenAI"])
     async def chat_completions(

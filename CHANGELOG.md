@@ -17,6 +17,8 @@ die Versionsnummern folgen [Semantic Versioning](https://semver.org/lang/de/).
   still, Unwichtiges erst im nächsten Gespräch (#104)
 - Missa meldet sich von selbst höchstens fünfmal am Tag, der Rest kommt abends gesammelt; die
   Zahl kannst du ihr einfach sagen (#105)
+- Du kannst Missa fragen, warum sie dir etwas geschrieben hat; ihre Überlegungen sind 30 Tage
+  lang nachlesbar (#106)
 
 ## 0.10.1 – 2026-11-16
 

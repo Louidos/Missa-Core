@@ -2,7 +2,8 @@
 
 from __future__ import annotations
 
-from datetime import timedelta
+from collections import Counter
+from datetime import time, timedelta
 from typing import Any
 
 from missa.core.initiative import (
@@ -16,6 +17,7 @@ from missa.core.initiative import (
 )
 from missa.core.vorgaben import uhrzeit_lesen
 from missa.core.werkzeuge import Stufe, Werkzeug, WerkzeugFehler
+from missa.core.zeitangaben import wandzeit
 
 
 def _zahl(wert: Any, name: str) -> int:
@@ -50,6 +52,64 @@ def status_text(initiative: Initiative) -> str:
     else:
         zeilen.append("Bisher gab es noch keinen Lauf.")
     return "\n".join(z for z in zeilen if z)
+
+
+def _punkt_zeile(punkt: dict[str, Any]) -> str:
+    zeile = f"  • [{punkt.get('aktion')}"
+    if punkt.get("aktion") == "melden":
+        zeile += f", {punkt.get('stufe')}"
+    zeile += f"] {punkt.get('titel') or punkt.get('schluessel')}"
+    if punkt.get("grund"):
+        zeile += f" – Grund: {punkt['grund']}"
+    if punkt.get("ergebnis"):
+        zeile += f" ({punkt['ergebnis']})"
+    return zeile
+
+
+def letzte_meldung_text(initiative: Initiative, tage: int = 7) -> str:
+    """„Warum hast du mir das geschrieben?“ – Grund der letzten Meldung der Denkschleife."""
+    seit = initiative.jetzt() - timedelta(days=tage)
+    gemeldet = initiative.laeufe(1, seit, nur_gemeldete=True)
+    if not gemeldet:
+        return (
+            f"In den letzten {tage} Tagen habe ich dir nichts von selbst aus der Denkschleife "
+            "geschrieben. (Alarme aus festen Regeln – Server, Erinnerungen – stehen unter "
+            "alarme_anzeigen.)"
+        )
+    lauf = gemeldet[0]
+    zeilen = [f"Meine letzte eigene Meldung kam aus dem Lauf vom {lauf.zeit:%d.%m. um %H:%M} Uhr:"]
+    zeilen += [_punkt_zeile(p) for p in lauf.punkte if p.get("aktion") == "melden"]
+    if lauf.grund:
+        zeilen.append(f"Meine Überlegung dazu: {lauf.grund}")
+    return "\n".join(zeilen)
+
+
+def gedanken_text(initiative: Initiative, tage: int = 1) -> str:
+    """„Was hast du heute gedacht?“ – die Läufe seit Mitternacht (oder der letzten Tage)."""
+    jetzt = initiative.jetzt()
+    seit = wandzeit((jetzt - timedelta(days=tage - 1)).date(), time(0, 0), initiative.zone)
+    laeufe = list(reversed(initiative.laeufe(1000, seit)))
+    zeitraum = "heute" if tage == 1 else f"in den letzten {tage} Tagen"
+    if not laeufe:
+        aus = "" if initiative.aktiv() else " (die Denkschleife ist aus)"
+        return f"Ich habe {zeitraum} noch nicht von selbst nachgedacht{aus}."
+    gedacht = [lauf for lauf in laeufe if not lauf.uebersprungen]
+    uebersprungen = Counter(lauf.ursache for lauf in laeufe if lauf.uebersprungen)
+    zeilen = [f"So habe ich {zeitraum} nachgedacht ({len(laeufe)} Läufe):"]
+    for lauf in gedacht[-20:]:
+        zeile = f"- {lauf.zeit:%d.%m. %H:%M}: {lauf.aktion}"
+        if lauf.fehler:
+            zeile += " (Modell nicht erreichbar)"
+        elif lauf.grund and not lauf.punkte:
+            zeile += f" – {lauf.grund}"
+        zeilen.append(zeile)
+        zeilen += [_punkt_zeile(p) for p in lauf.punkte]
+    if len(gedacht) > 20:
+        zeilen.append(f"(… und {len(gedacht) - 20} frühere Läufe)")
+    if uebersprungen:
+        teile = ", ".join(f"{n}× {ursache}" for ursache, n in uebersprungen.most_common())
+        zeilen.append(f"Übersprungen: {teile}.")
+    return "\n".join(zeilen)
 
 
 def initiative_werkzeuge(initiative: Initiative) -> list[Werkzeug]:
@@ -99,7 +159,33 @@ def initiative_werkzeuge(initiative: Initiative) -> list[Werkzeug]:
             initiative.einplanen(initiative.zeitplaner)
         return "Gespeichert.\n" + status_text(initiative)
 
+    def gedanken(frage: str = "heute", tage: int = 1) -> str:
+        tage = max(1, min(_zahl(tage, "tage"), initiative.journal_tage))
+        if str(frage).strip().casefold() in ("warum", "letzte_meldung", "letzte meldung"):
+            return letzte_meldung_text(initiative, max(tage, 7))
+        return gedanken_text(initiative, tage)
+
     return [
+        Werkzeug(
+            "gedanken_anzeigen",
+            "Zeigt dein Gedanken-Journal: was du in der Denkschleife von selbst überlegt und "
+            "warum du entschieden hast. frage=warum für „Warum hast du mir das geschrieben?“ "
+            "(Grund deiner letzten eigenen Meldung), frage=heute für „Was hast du heute "
+            "gedacht?“ (mit tage für mehrere Tage).",
+            {
+                "type": "object",
+                "properties": {
+                    "frage": {
+                        "type": "string",
+                        "enum": ["warum", "heute"],
+                        "description": "warum = letzte Meldung, heute = alle Läufe",
+                    },
+                    "tage": {"type": "integer", "description": "Zeitraum in Tagen (Standard 1)"},
+                },
+            },
+            gedanken,
+            stufe=Stufe.LESEN,
+        ),
         Werkzeug(
             "initiative_einstellen",
             "Stellt deine Denkschleife ein (wie oft du von selbst nachdenkst und dich meldest): "

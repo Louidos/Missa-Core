@@ -97,3 +97,56 @@ def test_llama_api_key_wird_mitgeschickt(client, llama: FakeLlama, einstellungen
 def test_ohne_llama_key_datei_kein_authorization_kopf(client, llama: FakeLlama):
     client.post("/v1/chat/completions", json={"messages": [{"role": "user", "content": "Hi"}]})
     assert "Authorization" not in llama.kopfzeilen[-1]
+
+
+@pytest.mark.parametrize("pfad", ["/api/initiative/journal", "/api/initiative"])
+def test_initiative_journal_ohne_api_key_gesperrt_und_nur_lesend(client, einstellungen, pfad):
+    import sqlite3
+
+    def inhalt() -> list[str]:
+        db = sqlite3.connect(einstellungen.datenbank)
+        try:
+            return list(db.iterdump())
+        finally:
+            db.close()
+
+    vorher = inhalt()
+    assert client.get(pfad).status_code == 200
+    client.headers.pop("Authorization")
+    assert client.get(pfad).status_code == 401
+    assert inhalt() == vorher
+
+
+def test_im_journal_stehen_keine_passwoerter(client, einstellungen, llama: FakeLlama):
+    import asyncio
+    import json
+
+    from tests.conftest import text
+
+    initiative = client.app.state.initiative
+    initiative.vorgaben.setzen("initiative.aktiv", "ja")
+    initiative.lagebild.registrieren(
+        "Notiz", lambda: f"api_key={einstellungen.api_key} passwort=hunter22"
+    )
+    llama.antworten = [
+        text(
+            json.dumps(
+                {
+                    "aktion": "notieren",
+                    "schluessel": "zugang",
+                    "titel": f"Token: {einstellungen.api_key}",
+                    "text": "Bearer abcdefghijkl123",
+                    "grund": "passwort=hunter22",
+                }
+            )
+        )
+    ]
+
+    async def laufen():
+        return await initiative.lauf()
+
+    asyncio.run(laufen())
+    roh = client.get("/api/initiative/journal").text
+    for geheim in (einstellungen.api_key, "hunter22", "abcdefghijkl123"):
+        assert geheim not in roh
+    assert "***" in roh
