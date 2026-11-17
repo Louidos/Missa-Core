@@ -7,8 +7,8 @@ später Logins, Updates, Zertifikate), läuft über :meth:`Alarme.melden`:
   (sofort, „ruf mich an“). Solange es kein Telefon gibt, kommt auch ein Notfall über
   die vorhandenen Kanäle (Nextcloud Talk) – deutlich markiert.
 - **Ruhezeiten** – in der Ruhezeit (Standard 22:00–07:00, per Gespräch änderbar)
-  warten ``info`` und ``wichtig`` bis zum Ende der Ruhezeit. Ein ``notfall`` kommt
-  immer sofort.
+  warten ``info`` und ``wichtig`` bis zum Ende der Ruhezeit und kommen dann als **eine**
+  Sammelmeldung statt einzeln. Ein ``notfall`` kommt immer sofort.
 - **Ruhefenster** – derselbe Alarm (gleicher Schlüssel) kommt nicht im Minutentakt:
   Innerhalb des Ruhefensters (Standard 60 Minuten) wird er nicht wiederholt, außer er
   ist dringender geworden (z. B. ``info`` → ``wichtig``).
@@ -60,6 +60,8 @@ RUHE_VON = "alarme.ruhezeit_von"
 RUHE_BIS = "alarme.ruhezeit_bis"
 RUHEFENSTER = "alarme.ruhefenster_minuten"
 AUS = "aus"
+#: Schlüssel der Sammelmeldung am Ende der Ruhezeit (je Zustellzeitpunkt eine).
+SAMMLUNG = "alarm-sammlung:"
 
 
 class AlarmStufe(StrEnum):
@@ -179,6 +181,9 @@ class Alarme:
         self._uhr = uhr or zeitplaner.jetzt
         #: So viele Wiederholungen wurden seit dem Start im Ruhefenster zurückgehalten.
         self.unterdrueckt = 0
+        #: Nimmt die Sammelmeldung der Ruhezeit auf (das Briefing, wenn es zur selben Zeit
+        #: kommt). Liefert ``True``, wenn es sie übernommen hat.
+        self.sammel_umleitung: Callable[[datetime], bool] | None = None
         with verbinden(datei) as db:
             db.executescript(SCHEMA)
 
@@ -321,13 +326,14 @@ class Alarme:
             )
             zeile = db.execute("SELECT * FROM alarme WHERE id = ?", (cursor.lastrowid,)).fetchone()
         alarm = self._alarm(zeile)
-        self.zeitplaner.anlegen(
-            f"{stufe.titel}: {titel}",
-            zustellen_ab,
-            nachricht=nachricht,
-            schluessel=f"alarm:{alarm.id}",
-            herkunft="alarm",
-        )
+        if status != "aufgeschoben" or not self._sammeln(zustellen_ab):
+            self.zeitplaner.anlegen(
+                f"{stufe.titel}: {titel}",
+                zustellen_ab,
+                nachricht=nachricht,
+                schluessel=f"alarm:{alarm.id}",
+                herkunft="alarm",
+            )
         log.log(
             logging.WARNING if stufe is not AlarmStufe.INFO else logging.INFO,
             "Alarm [%s] %s (%s)",
@@ -336,6 +342,71 @@ class Alarme:
             status,
         )
         return alarm
+
+    # -------------------------------------------------------------- Sammelmeldung
+
+    @staticmethod
+    def sammlung_schluessel(zustellen_ab: datetime) -> str:
+        return SAMMLUNG + _utc_text(zustellen_ab)
+
+    def aufgeschobene(self, zustellen_ab: datetime) -> list[Alarm]:
+        """Alle in der Ruhezeit aufgeschobenen Alarme für diesen Zustellzeitpunkt."""
+        with verbinden(self.datei) as db:
+            zeilen = db.execute(
+                "SELECT * FROM alarme WHERE status = 'aufgeschoben' AND zustellen_ab = ? "
+                "ORDER BY zeit, id",
+                (_utc_text(zustellen_ab),),
+            ).fetchall()
+        return [self._alarm(z) for z in zeilen]
+
+    @staticmethod
+    def sammel_zeilen(alarme: list[Alarm]) -> list[str]:
+        zeilen = []
+        for a in alarme:
+            zeile = f"- {a.zeit:%H:%M} {a.stufe.symbol} {a.stufe.titel}: {a.titel}"
+            if a.text:
+                zeile += "\n  " + "\n  ".join(a.text.splitlines())
+            zeilen.append(zeile)
+        return zeilen
+
+    def _sammeln(self, zustellen_ab: datetime) -> bool:
+        """Legt die Sammelmeldung für das Ende der Ruhezeit an oder ergänzt sie.
+
+        ``False``, wenn sie schon zugestellt oder (z. B. vom Briefing) übernommen wurde – dann
+        kommt der Alarm wie früher einzeln.
+        """
+        if self.sammel_umleitung is not None:
+            try:
+                if self.sammel_umleitung(zustellen_ab):
+                    return True
+            except Exception:
+                log.exception("Sammelmeldung: Umleitung fehlgeschlagen")
+        alarme = self.aufgeschobene(zustellen_ab)
+        if len(alarme) == 1:
+            a = alarme[0]
+            titel = f"{a.stufe.titel}: {a.titel}"
+            nachricht = f"{a.stufe.symbol} {a.stufe.titel}: {a.titel}"
+            if a.text:
+                nachricht += f"\n{a.text}"
+            nachricht += f"\n_(Während der Ruhezeit um {a.zeit:%H:%M} Uhr bemerkt.)_"
+        else:
+            titel = f"Während der Ruhezeit aufgelaufen ({len(alarme)})"
+            nachricht = (
+                f"🌅 Während der Ruhezeit ist einiges aufgelaufen ({len(alarme)} Meldungen):\n"
+                + "\n".join(self.sammel_zeilen(alarme))
+            )
+        erinnerung = self.zeitplaner.anlegen(
+            titel,
+            zustellen_ab,
+            nachricht=nachricht,
+            schluessel=self.sammlung_schluessel(zustellen_ab),
+            herkunft="alarm",
+        )
+        if erinnerung.status != "offen":
+            return False
+        if erinnerung.nachricht != nachricht:
+            self.zeitplaner.aendern(erinnerung.id, text=titel, nachricht=nachricht)
+        return True
 
     def liste(self, seit: datetime | None = None, anzahl: int = 50) -> list[Alarm]:
         """Gemeldete Alarme (neueste zuerst), optional erst ab ``seit``."""

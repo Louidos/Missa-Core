@@ -1,7 +1,9 @@
 # Missa Initiative
 
 Missa soll nicht nur reagieren, sondern von sich aus merken, wenn gerade etwas wichtig ist.
-Dafür gibt es mehrere Bausteine, die aufeinander aufbauen. Diese Seite beschreibt alle.
+Dafür gibt es mehrere Bausteine, die aufeinander aufbauen: Lagebild, Denkschleife, Meldungen,
+Nerv-Budget, Gedanken-Journal, Lernen aus Rückmeldungen und das Briefing nach einer Auszeit.
+Diese Seite beschreibt alle.
 
 ## Lagebild
 
@@ -186,6 +188,35 @@ Im Gespräch:
 - „Vergiss, was du über meine Rückmeldungen gelernt hast“ →
   `initiative_gelerntes_zuruecksetzen` (Stufe `zerstoererisch`, nur nach deinem Ja)
 
+## Briefing nach einer Auszeit
+
+War ai01 aus (Neustart, Update, Stromausfall), bekommt Louis danach **eine**
+Zusammenfassung statt vieler Einzelmeldungen:
+
+- Missa-Core vermerkt jede Minute „zuletzt gelaufen“ (Tabelle `herzschlag`). Beim Start
+  ergibt sich daraus die Dauer der Auszeit.
+- Ab `BRIEFING_AB_MINUTEN` (Standard 30) Auszeit kommt nach dem Start ein Briefing: wie lange
+  Missa weg war, welche Erinnerungen und Routinen nachgeholt werden, was während der Ruhezeit
+  aufgelaufen ist, heutige Termine, ungelesene Mails (Anzahl und Absender), Auffälligkeiten am
+  Server und fertige Nachtaufgaben. Kürzere Neustarts bleiben still.
+- Das Nachholen verpasster Erinnerungen und Routinen und der Morgenbericht der Nachtschicht
+  bleiben unverändert – das Briefing fasst nur zusammen.
+- Das Briefing wird aus Daten im Code gebaut und steht sofort als schlichte Fassung im
+  Zeitplaner (geht also auch raus, wenn danach etwas schiefgeht). Ist das Modell erreichbar,
+  formuliert Missa es in ihrem Ton; sonst kommt die schlichte Fassung (spätestens nach
+  3 Minuten).
+- In der Ruhezeit wartet das Briefing bis zu deren Ende. Fallen Briefing und Ende der Ruhezeit
+  zusammen, gibt es **nur eine** Nachricht: Das Briefing übernimmt die Sammelmeldung, auch für
+  Alarme, die bis dahin noch dazukommen. `notfall` kommt weiterhin sofort.
+- Das Briefing zählt nicht gegen das Tagesbudget der Denkschleife.
+
+### Sammelmeldung am Ende der Ruhezeit
+
+Unabhängig vom Briefing kommen in der Ruhezeit aufgeschobene Alarme der Stufen `info` und
+`wichtig` jetzt am Ende der Ruhezeit als **eine** Sammelmeldung statt einzeln (siehe
+[server-alarme.md](server-alarme.md)). Damit ist auch der offene Punkt „morgens
+zusammengefasst“ aus [stand.md](stand.md) erledigt.
+
 ## Einstellungen
 
 | Variable | Standard | Bedeutung |
@@ -197,3 +228,5 @@ Im Gespräch:
 | `INITIATIVE_SAMMELZEIT` | 19:30 | Uhrzeit der abendlichen Sammelmeldung |
 | `INITIATIVE_JOURNAL_TAGE` | 30 | So lange bleiben Läufe im Gedanken-Journal |
 | `INITIATIVE_STUMM_TAGE` | 14 | So lange ist ein Thema nach „lass das“ stumm |
+| `BRIEFING_AKTIV` | `true` | Briefing nach einer Auszeit an oder aus |
+| `BRIEFING_AB_MINUTEN` | 30 | Ab so vielen Minuten Auszeit gibt es ein Briefing |

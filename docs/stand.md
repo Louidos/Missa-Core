@@ -19,7 +19,7 @@ Legende: ✅ erledigt (Code auf main, Test grün, Einstellung in
 |---|---|---|
 | F1 Rechte, Protokoll, Notfall | ✅ | – |
 | F2 Tests & Modelle | ✅ | nachgeholt (#75) |
-| F3 Push, Stufen, Ruhezeiten | 🟡 | ntfy, Push pro Stufe, Ausweichkanal-Test, Lernzeiten aus dem Kalender, Zusammenfassung am Morgen |
+| F3 Push, Stufen, Ruhezeiten | 🟡 | ntfy, Push pro Stufe, Ausweichkanal-Test, Lernzeiten aus dem Kalender |
 | F4 Talk, Gespräch, Streaming | 🟡 | Fremde ins Aktionsprotokoll, ein Gespräch pro Person über alle Kanäle, Ereignis „erster Satz fertig“ |
 | O1 Erinnerungen, Routinen, Nachtschicht | ✅ | – |
 | O2 Kalender, Pausen, Konflikte | ✅ | – |
@@ -34,7 +34,7 @@ Legende: ✅ erledigt (Code auf main, Test grün, Einstellung in
 | S5 Proxmox-VMs | 🟡 | Test für den Eintrag ins Homelab-Wissen nach dem Erstellen |
 | S6 Caddy, Minecraft | ✅ | – |
 | S7 Git-Server, GitHub, Prompts | ✅ | – |
-| I1–I7 Missa Initiative | 🟡 | in Arbeit: alles bis auf das Briefing fertig; 👍/👎-Reaktionen in Talk nicht ausgewertet |
+| I1–I7 Missa Initiative | 🟡 | 👍/👎-Reaktionen in Talk nicht ausgewertet (nur Text) |
 
 ## Einzelpunkte
 
@@ -62,7 +62,7 @@ Legende: ✅ erledigt (Code auf main, Test grün, Einstellung in
 | F3 | `wichtig` kommt als Push | ❌ | nur Talk |
 | F3 | Ruhezeit 22–07, per Gespräch änderbar | ✅ | `Alarme.ruhezeit_einstellen`, Werkzeug `alarm_einstellungen`; `test_alarme.py::test_ruhezeit_einstellen_bleibt_gespeichert` |
 | F3 | Lernzeiten aus dem Kalender („Lernen“) | ❌ | fehlt |
-| F3 | Um 23 Uhr `wichtig` zurückgehalten und morgens zusammengefasst | 🟡 | zurückgehalten ja; morgens kommt jeder Alarm einzeln (`::test_ruhezeit_schiebt_auf_ausser_notfall`) |
+| F3 | Um 23 Uhr `wichtig` zurückgehalten und morgens zusammengefasst | ✅ | Sammelmeldung am Ende der Ruhezeit (`Alarme._sammeln`); `::test_ruhezeit_schiebt_auf_ausser_notfall`, `::test_drei_aufgeschobene_alarme_kommen_morgens_als_eine_nachricht` |
 | F3 | `notfall` kommt auch nachts sofort | ✅ | `::test_ruhezeit_schiebt_auf_ausser_notfall` (Push mit hoher Priorität fehlt, siehe oben) |
 | F3 | ntfy offline → anderer Kanal (Test) | ❌ | kein ntfy, kein Test mit Ausweichkanal |
 | F4 | Talk nur für erlaubte Accounts (IDs aus .env) | ✅ | `TalkKanal.absender_erlaubt`, `NC_TALK_ALLOWED_USERS` |
@@ -170,6 +170,12 @@ Legende: ✅ erledigt (Code auf main, Test grün, Einstellung in
 | I6 | Zurücksetzen erst nach Ja | ✅ | `initiative_gelerntes_zuruecksetzen` (zerstörerisch); `::test_zuruecksetzen_erst_nach_ja` |
 | I6 | „danke“ in anderem Gespräch zählt nicht | ✅ | `::test_normales_danke_oder_anderes_gespraech_zaehlt_nicht` |
 | I6 | Reaktionen 👍/👎 auf Bot-Nachrichten | ❌ | Talk-Webhook verarbeitet nur `Create`; IDs eigener Meldungen unbekannt – nur Text (siehe docs/initiative.md) |
+| I7 | Nach 8 Stunden Auszeit genau ein Briefing | ✅ | `core/briefing.py`; `test_briefing.py::test_nach_8_stunden_auszeit_genau_eine_briefing_nachricht` |
+| I7 | Kurzer Neustart → kein Briefing | ✅ | `BRIEFING_AB_MINUTEN`; `::test_kurzer_neustart_kein_briefing` |
+| I7 | Drei aufgeschobene Alarme morgens als eine Nachricht | ✅ | `test_alarme.py::test_drei_aufgeschobene_alarme_kommen_morgens_als_eine_nachricht` |
+| I7 | Notfall nachts sofort | ✅ | `test_alarme.py::test_notfall_kommt_nachts_sofort_auch_neben_sammlung`, `test_briefing.py::test_notfall_kommt_auch_bei_wartendem_briefing_sofort` |
+| I7 | Modell nicht erreichbar → Briefing trotzdem | ✅ | `::test_modell_nicht_erreichbar_briefing_kommt_trotzdem` |
+| I7 | Briefing und Ende der Ruhezeit = eine Nachricht | ✅ | `::test_briefing_und_ende_der_ruhezeit_eine_nachricht` |
 
 ## Weitere Beobachtungen
 

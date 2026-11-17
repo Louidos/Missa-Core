@@ -95,8 +95,39 @@ def test_ruhezeit_schiebt_auf_ausser_notfall(alarme, planer, kanal, uhr):
     assert len(kanal.nachrichten) == 1 and "ai01 brennt" in kanal.nachrichten[0]
     uhr.jetzt = datetime(2026, 11, 12, 7, 0, 30, tzinfo=ZONE)
     asyncio.run(planer.faellige_zustellen())
-    assert "git nicht erreichbar" in kanal.nachrichten[1]
+    # Ein einzelner aufgeschobener Alarm kommt über die Sammelmeldung, sieht aber aus wie immer.
+    assert len(kanal.nachrichten) == 2
+    assert kanal.nachrichten[1].startswith("⚠️ Wichtig: git nicht erreichbar")
     assert "Ruhezeit um 23:30" in kanal.nachrichten[1]
+
+
+def test_drei_aufgeschobene_alarme_kommen_morgens_als_eine_nachricht(alarme, planer, kanal, uhr):
+    uhr.jetzt = datetime(2026, 11, 11, 23, 30, tzinfo=ZONE)
+    alarme.melden("wichtig", "git nicht erreichbar", "HTTPS antwortet nicht", schluessel="git")
+    uhr.vor(hours=1)
+    alarme.melden("info", "Neues Update für wb01", schluessel="update")
+    uhr.vor(hours=2)
+    alarme.melden("wichtig", "Fremder Login auf rp01", schluessel="login")
+    alarme.melden("notfall", "ai01 brennt", schluessel="n")  # Notfall kommt sofort
+    asyncio.run(planer.faellige_zustellen())
+    assert kanal.nachrichten == ["🚨 NOTFALL: ai01 brennt"]
+    uhr.jetzt = datetime(2026, 11, 12, 7, 0, 5, tzinfo=ZONE)
+    asyncio.run(planer.faellige_zustellen())
+    assert len(kanal.nachrichten) == 2
+    sammlung = kanal.nachrichten[1]
+    assert sammlung.startswith("🌅 Während der Ruhezeit ist einiges aufgelaufen (3 Meldungen)")
+    assert "- 23:30 ⚠️ Wichtig: git nicht erreichbar\n  HTTPS antwortet nicht" in sammlung
+    assert "- 00:30 ℹ️ Hinweis: Neues Update für wb01" in sammlung
+    assert "- 02:30 ⚠️ Wichtig: Fremder Login auf rp01" in sammlung
+    assert all(a.status == "aufgeschoben" for a in alarme.liste() if a.stufe != "notfall")
+
+
+def test_notfall_kommt_nachts_sofort_auch_neben_sammlung(alarme, planer, kanal, uhr):
+    uhr.jetzt = datetime(2026, 11, 11, 3, 0, tzinfo=ZONE)
+    alarme.melden("wichtig", "Disk voll", schluessel="disk")
+    alarme.melden("notfall", "USV meldet Stromausfall", schluessel="usv")
+    asyncio.run(planer.faellige_zustellen())
+    assert kanal.nachrichten == ["🚨 NOTFALL: USV meldet Stromausfall"]
 
 
 def test_ruhezeit_einstellen_bleibt_gespeichert(alarme, planer):

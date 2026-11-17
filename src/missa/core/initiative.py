@@ -978,7 +978,9 @@ class Initiative:
         grenze = _utc_text(self.jetzt() - RUECKMELDUNG_FENSTER)
         with verbinden(self.datei) as db:
             zeile = db.execute(
-                "SELECT a.id FROM alarme a JOIN erinnerungen e ON e.schluessel = 'alarm:' || a.id "
+                "SELECT a.id FROM alarme a JOIN erinnerungen e "
+                "ON e.schluessel = 'alarm:' || a.id OR (a.status = 'aufgeschoben' "
+                "AND e.schluessel = 'alarm-sammlung:' || a.zustellen_ab) "
                 "WHERE a.quelle = 'initiative' AND e.zugestellt IS NOT NULL AND e.zugestellt >= ? "
                 "ORDER BY e.zugestellt DESC, a.id DESC LIMIT 1",
                 (grenze,),
