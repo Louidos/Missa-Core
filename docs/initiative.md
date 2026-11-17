@@ -103,6 +103,35 @@ Eine Anruf-Stufe gibt es nicht: Es ist noch kein Telefon-Kanal eingerichtet. Kom
 wird er als weiterer Kanal bei `Zustellung` (`src/missa/core/zustellung.py`) registriert – die
 Denkschleife selbst bleibt dabei unverändert und meldet höchstens `wichtig`.
 
+## Nerv-Budget
+
+Missa stört von sich aus nur begrenzt oft:
+
+- Höchstens `INITIATIVE_BUDGET_PRO_TAG` Meldungen pro Tag (Standard 5). Gezählt werden nur
+  Meldungen mit `quelle = "initiative"`, pro Kalendertag in `TIMEZONE` – und zwar an dem Tag,
+  an dem sie zugestellt werden (eine nachts aufgeschobene zählt für den Morgen).
+- Ist das Budget aufgebraucht, wird aus `melden` automatisch `notieren`; der Lauf vermerkt
+  „Tagesbudget aufgebraucht“.
+- Alarme aus festen Regeln (Server, Erreichbarkeit, Logins, Erinnerungen, Routinen) zählen
+  **nie** mit und werden nie zurückgehalten.
+- Sind abends Notizen offen, kommt um `INITIATIVE_SAMMELZEIT` (Standard 19:30) **eine**
+  Sammelmeldung mit allen (Stufe `info`, `quelle = "initiative-sammlung"`). Sie zählt nicht
+  gegen das Budget. Danach gelten die Notizen als erledigt.
+
+Im Gespräch:
+
+| Du sagst | Werkzeug | Wirkung |
+|---|---|---|
+| „Stör mich höchstens dreimal am Tag“ | `initiative_einstellen` (`budget_pro_tag=3`) | Budget 3, bleibt nach einem Neustart |
+| „Denk mal eine Stunde nicht nach“ | `initiative_einstellen` (`pause_minuten=60`) | Läufe werden eine Stunde übersprungen |
+| „Denk nur noch alle 30 Minuten nach“ | `initiative_einstellen` (`intervall_minuten=30`) | neues Intervall, sofort eingeplant |
+| „Schick mir die Sammlung um 18 Uhr“ | `initiative_einstellen` (`sammelzeit="18:00"`) | neue Sammelzeit |
+| „Schalt deine Denkschleife aus“ | `initiative_einstellen` (`aktiv=false`) | keine Läufe mehr |
+| „Wie oft hast du dich heute gemeldet?“ | `initiative_status` | an/aus, Intervall, heute verbraucht, letzter Lauf |
+
+`initiative_einstellen` hat die Stufe `schreiben`, `initiative_status` die Stufe `lesen`. Die
+Werte stehen in `vorgaben` und haben Vorrang vor `missa.env`.
+
 ## Einstellungen
 
 | Variable | Standard | Bedeutung |
@@ -110,3 +139,5 @@ Denkschleife selbst bleibt dabei unverändert und meldet höchstens `wichtig`.
 | `INITIATIVE_LAGEBILD_ZEICHEN` | 3000 | Höchstlänge des Lagebilds (mindestens 1000) |
 | `INITIATIVE_AKTIV` | `false` | Denkschleife an oder aus |
 | `INITIATIVE_INTERVALL_MINUTEN` | 15 | Abstand zwischen zwei Läufen (mindestens 5) |
+| `INITIATIVE_BUDGET_PRO_TAG` | 5 | Höchstens so viele Meldungen pro Tag (0 = nie) |
+| `INITIATIVE_SAMMELZEIT` | 19:30 | Uhrzeit der abendlichen Sammelmeldung |

@@ -494,6 +494,8 @@ def create_app(
         alarme=alarme,
         aktiv=einstellungen.initiative_aktiv,
         intervall_minuten=einstellungen.initiative_intervall_minuten,
+        budget_pro_tag=einstellungen.initiative_budget_pro_tag,
+        sammelzeit=einstellungen.initiative_sammelzeit,
         beschaeftigt=beschaeftigt,
         notfall_aktiv=rechte.notfall_aktiv,
         geheimnisse=einstellungen.geheimnisse,
@@ -502,6 +504,11 @@ def create_app(
     initiative.einplanen(zeitplaner)
     # Stille Notizen der Denkschleife erwähnt Missa einmal im nächsten Gespräch.
     dienst.kontext_quellen.append(initiative.kontext)
+    if len(werkzeuge) and "initiative_status" not in werkzeuge:
+        from missa.tools.initiative import initiative_werkzeuge
+
+        for werkzeug in initiative_werkzeuge(initiative):
+            werkzeuge.hinzufuegen(werkzeug)
     dokumente.formulierer = dienst.formulieren
     gestartet = int(time.time())
 

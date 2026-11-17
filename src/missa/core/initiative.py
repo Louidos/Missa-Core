@@ -32,7 +32,7 @@ import re
 import time as uhrzeit
 from collections.abc import Callable, Iterable
 from dataclasses import dataclass, field
-from datetime import UTC, datetime, timedelta
+from datetime import UTC, date, datetime, time, timedelta
 from pathlib import Path
 from typing import Any
 from zoneinfo import ZoneInfo
@@ -45,6 +45,7 @@ from missa.core.prompt import charakter_lesen
 from missa.core.rechte import schwaerzen
 from missa.core.vorgaben import Vorgaben
 from missa.core.werkzeuge import fremd_markieren, im_hintergrund
+from missa.core.zeitangaben import wandzeit
 
 log = logging.getLogger(__name__)
 
@@ -119,6 +120,10 @@ MIN_INTERVALL = 5
 AKTIV = "initiative.aktiv"
 INTERVALL = "initiative.intervall_minuten"
 PAUSE_BIS = "initiative.pause_bis"
+BUDGET = "initiative.budget_pro_tag"
+SAMMELZEIT = "initiative.sammelzeit"
+#: Quelle der abendlichen Sammelmeldung (zählt nicht gegen das Budget).
+QUELLE_SAMMLUNG = "initiative-sammlung"
 
 AUFGABE = """\
 ## Deine Aufgabe jetzt (interner Lauf, nicht von Louis)
@@ -328,6 +333,8 @@ class Initiative:
         alarme: Alarme | None = None,
         aktiv: bool = False,
         intervall_minuten: int = 15,
+        budget_pro_tag: int = 5,
+        sammelzeit: time = time(19, 30),
         beschaeftigt: Callable[[], str | None] | None = None,
         notfall_aktiv: Callable[[], bool] | None = None,
         geheimnisse: Iterable[str] = (),
@@ -343,6 +350,9 @@ class Initiative:
         self.alarme = alarme
         self.standard_aktiv = aktiv
         self.standard_intervall = max(MIN_INTERVALL, int(intervall_minuten))
+        self.standard_budget = max(0, int(budget_pro_tag))
+        self.standard_sammelzeit = sammelzeit
+        self.zeitplaner: Any = None
         #: Liefert einen Grund, wenn Missa gerade beschäftigt ist (Chat, Hintergrund).
         self.beschaeftigt = beschaeftigt or (lambda: None)
         self.notfall_aktiv = notfall_aktiv or (lambda: False)
@@ -382,6 +392,43 @@ class Initiative:
             return None
         return bis if bis > self.jetzt() else None
 
+    def budget(self) -> int:
+        """So viele Meldungen pro Tag darf die Denkschleife zustellen."""
+        try:
+            return max(0, int(self.vorgaben.lesen(BUDGET, str(self.standard_budget))))
+        except ValueError:
+            return self.standard_budget
+
+    def sammelzeit(self) -> time:
+        return self.vorgaben.uhrzeit(SAMMELZEIT, self.standard_sammelzeit)
+
+    def verbraucht(self, tag: date | None = None) -> int:
+        """Zugestellte (oder für diesen Tag geplante) Meldungen mit ``quelle = initiative``.
+
+        Gezählt wird nach dem Kalendertag in ``TIMEZONE``, an dem die Meldung zugestellt wird
+        (eine nachts aufgeschobene zählt also für den Morgen). Alarme aus festen Regeln und die
+        Sammelmeldung zählen nie mit.
+        """
+        tag = tag or self.jetzt().date()
+        von = wandzeit(tag, time(0, 0), self.zone)
+        bis = wandzeit(tag + timedelta(days=1), time(0, 0), self.zone)
+        with verbinden(self.datei) as db:
+            zeile = db.execute(
+                "SELECT COUNT(*) AS n FROM alarme WHERE quelle = 'initiative' "
+                "AND zustellen_ab >= ? AND zustellen_ab < ?",
+                (_utc_text(von), _utc_text(bis)),
+            ).fetchone()
+        return int(zeile["n"])
+
+    def _zustelltag(self) -> date:
+        jetzt = self.jetzt()
+        if self.alarme is not None and self.alarme.in_ruhezeit(jetzt):
+            return self.alarme.ruhezeit_ende(jetzt).date()
+        return jetzt.date()
+
+    def budget_frei(self) -> bool:
+        return self.verbraucht(self._zustelltag()) < self.budget()
+
     def einplanen(self, zeitplaner: Any) -> None:
         """Registriert den Lauf im Zeitplaner – nur, wenn die Denkschleife an ist.
 
@@ -389,6 +436,9 @@ class Initiative:
         einen regelmässigen Auftrag nie, solange er noch läuft – es läuft also nie mehr als
         ein Durchlauf gleichzeitig.
         """
+        self.zeitplaner = zeitplaner
+        # Die Sammelmeldung prüft selbst, ob die Denkschleife an ist.
+        zeitplaner.taeglich("initiative-sammlung", self.sammelzeit(), self.sammelmeldung)
         if self.aktiv():
             zeitplaner.regelmaessig("initiative", self.intervall(), self.lauf)
         else:
@@ -682,6 +732,15 @@ class Initiative:
                 self.notieren(punkt.schluessel, punkt.notiz_text())
         if not melden or self.alarme is None:
             return None
+        if not self.budget_frei():
+            # Tagesbudget aufgebraucht: still notieren, abends kommt die Sammelmeldung.
+            for punkt in melden:
+                punkt.ergebnis = "notiert (Tagesbudget aufgebraucht)"
+                self.notieren(punkt.schluessel, punkt.notiz_text())
+            entscheidung.vermerke.append(
+                f"Tagesbudget von {self.budget()} Meldungen aufgebraucht – notiert statt gemeldet"
+            )
+            return None
         stufe, titel, text, schluessel = self._meldung_bauen(melden)
         alarm = self.alarme.melden(
             stufe,
@@ -725,3 +784,46 @@ class Initiative:
             "zu Beginn deiner Antwort (einmal, danach nicht mehr):\n"
             + fremd_markieren("Denkschleife/Notizen", zeilen)
         )
+
+    # -------------------------------------------------------------- Sammelmeldung
+
+    def sammelmeldung(self) -> int | None:
+        """Täglich zur Sammelzeit: alle offenen Notizen in einer Meldung (ohne Budget).
+
+        Gibt die ID des Alarms zurück oder ``None``, wenn nichts offen ist.
+        """
+        if not self.aktiv() or self.alarme is None:
+            return None
+        notizen = self.offene_notizen()
+        if not notizen:
+            return None
+        zeilen = "\n".join(f"- {n['text']}" for n in notizen)
+        anzahl = len(notizen)
+        alarm = self.alarme.melden(
+            "info",
+            f"{anzahl} Notiz{'en' if anzahl != 1 else ''} von heute",
+            "Das ist mir heute aufgefallen, war aber nicht eilig:\n" + zeilen,
+            schluessel=f"{QUELLE_SAMMLUNG}:{self.jetzt().date().isoformat()}",
+            quelle=QUELLE_SAMMLUNG,
+        )
+        if alarm is not None:
+            self.notizen_erledigen(n["id"] for n in notizen)
+            log.info("Denkschleife: Sammelmeldung mit %d Notiz(en)", anzahl)
+            return alarm.id
+        return None
+
+    # -------------------------------------------------------------- Status
+
+    def status(self) -> dict[str, Any]:
+        letzter = next(iter(self.laeufe(1)), None)
+        pause = self.pausiert_bis()
+        return {
+            "aktiv": self.aktiv(),
+            "intervall_minuten": int(self.intervall().total_seconds() // 60),
+            "budget_pro_tag": self.budget(),
+            "heute_verbraucht": self.verbraucht(),
+            "sammelzeit": f"{self.sammelzeit():%H:%M}",
+            "pausiert_bis": pause.isoformat(timespec="minutes") if pause else None,
+            "offene_notizen": len(self.offene_notizen()),
+            "letzter_lauf": letzter.als_dict() if letzter else None,
+        }

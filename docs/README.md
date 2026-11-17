@@ -27,5 +27,5 @@
 - [sicherung.md](sicherung.md) – tägliches Backup und Wiederherstellen auf ai01
 - [doku-wissen.md](doku-wissen.md) – Fragen zur eigenen Doku mit Quelle, Zusammenfassungen von PDFs, Mails und Webseiten
 - [sicherheit.md](sicherheit.md) – Sicherheitsprüfung: was geprüft wurde, behobene Lücken, Schutzmassnahmen, was du selbst tun musst ([Lücken melden](../.github/SECURITY.md))
-- [initiative.md](initiative.md) – Missa Initiative: Lagebild („Was ist gerade los?“), Denkschleife, Meldungen
+- [initiative.md](initiative.md) – Missa Initiative: Lagebild („Was ist gerade los?“), Denkschleife, Meldungen, Tagesbudget
 - [stand.md](stand.md) – Stand aller Funktionen gegen die Soll-Liste (Bestandsaufnahme)
