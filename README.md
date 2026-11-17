@@ -36,7 +36,8 @@ Talk nutzen dieselbe Logik.
 - Fertig: Nextcloud Talk als Kanal (nur für erlaubte Accounts, siehe docs/nextcloud-talk.md);
   Missa kann dort auch von sich aus schreiben (z. B. Erinnerungen)
 - Fertig: Lagebild – auf „Was ist gerade los?“ eine kurze Übersicht über Termine,
-  Erinnerungen, Alarme, Server und Mails (siehe docs/initiative.md)
+  Erinnerungen, Alarme, Server und Mails; auf Wunsch (`INITIATIVE_AKTIV=true`) denkt Missa
+  alle 15 Minuten von selbst nach, ob gerade etwas wichtig ist (siehe docs/initiative.md)
 - Fertig: Erinnerungen auf die Minute genau, auch wiederkehrend („jeden Montag um 7“),
   mit Nachholen nach einem Neustart (siehe docs/erinnerungen.md)
 - Fertig: Routinen per Gespräch („jeden Freitag um 17 Uhr Wochenrückblick“) und Nachtschicht

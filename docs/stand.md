@@ -34,7 +34,7 @@ Legende: ✅ erledigt (Code auf main, Test grün, Einstellung in
 | S5 Proxmox-VMs | 🟡 | Test für den Eintrag ins Homelab-Wissen nach dem Erstellen |
 | S6 Caddy, Minecraft | ✅ | – |
 | S7 Git-Server, GitHub, Prompts | ✅ | – |
-| I1–I7 Missa Initiative | 🟡 | in Arbeit: Lagebild fertig, Denkschleife und Folgendes fehlen |
+| I1–I7 Missa Initiative | 🟡 | in Arbeit: Lagebild und Denkschleife fertig, Meldungen und Folgendes fehlen |
 
 ## Einzelpunkte
 
@@ -148,6 +148,11 @@ Legende: ✅ erledigt (Code auf main, Test grün, Einstellung in
 | I1 | Ausfall einer Quelle → Hinweis, Rest kommt | ✅ | `::test_quelle_mit_fehler_ist_nicht_erreichbar_rest_kommt`, `::test_langsame_quelle_ist_nicht_erreichbar` |
 | I1 | Lagebild unter dem Limit | ✅ | `INITIATIVE_LAGEBILD_ZEICHEN`; `::test_lagebild_bleibt_unter_dem_limit_und_keine_quelle_faellt_weg` |
 | I1 | `GET /api/lagebild` nur lesend | ✅ | `::test_api_lagebild_liefert_text_und_quellen_und_aendert_nichts` |
+| I2 | Aus = kein Lauf, kein Modellaufruf | ✅ | `core/initiative.py`; `test_initiative.py::test_ohne_initiative_aktiv_kein_lauf_und_kein_modellaufruf` |
+| I2 | Unverändertes Lagebild → kein Modellaufruf | ✅ | `::test_unveraendertes_lagebild_ruft_das_modell_nicht_auf` |
+| I2 | Chat-Anfrage oder Notfall-Stopp → übersprungen | ✅ | `::test_waehrend_chat_oder_hintergrund_wird_uebersprungen`, `::test_waehrend_notfall_stopp_wird_uebersprungen`, `::test_chat_anfrage_zaehlt_als_beschaeftigt` |
+| I2 | Kaputtes JSON oder `notfall` → `nichts` mit Grund | ✅ | `::test_kaputte_antwort_oder_notfall_endet_als_nichts_mit_grund` |
+| I2 | Kein Werkzeug, keine Bestätigung | ✅ | `::test_lauf_kann_kein_werkzeug_aufrufen_und_nichts_bestaetigen` |
 
 ## Weitere Beobachtungen
 

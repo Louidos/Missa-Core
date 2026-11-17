@@ -384,6 +384,14 @@ class Hintergrund:
             ).fetchone()
         return int(zeile["n"])
 
+    def laeuft(self) -> bool:
+        """``True``, solange gerade ein Auftrag ausgeführt wird."""
+        with verbinden(self.datei) as db:
+            zeile = db.execute(
+                "SELECT 1 FROM hintergrund_auftraege WHERE status = 'laeuft' LIMIT 1"
+            ).fetchone()
+        return zeile is not None
+
     def loeschen(self, auftrag_id: int) -> HintergrundAuftrag:
         auftrag = self.holen(auftrag_id)
         if auftrag is None:

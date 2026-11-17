@@ -39,8 +39,49 @@ Regeln:
   sich an der Lage nichts geändert – die Denkschleife spart sich dann den Modellaufruf.
 - **Nur lesend:** Das Lagebild legt nichts an und ändert nichts.
 
+## Denkschleife
+
+Mit `INITIATIVE_AKTIV=true` schaut Missa alle `INITIATIVE_INTERVALL_MINUTEN` Minuten
+(Standard 15, mindestens 5) von selbst aufs Lagebild und entscheidet:
+
+- **nichts** – alles normal oder schon bekannt (der Normalfall),
+- **notieren** – gut zu wissen, aber nicht eilig,
+- **melden** – Louis sollte es bald wissen (Stufe `info` oder `wichtig`).
+
+Standardmässig ist die Denkschleife **aus**: Nach einem Update ändert sich nichts von selbst.
+
+### Ablauf eines Laufs
+
+1. Übersprungen (mit Ursache vermerkt) wird, wenn der Notfall-Stopp aktiv ist, gerade eine
+   Chat-Anfrage oder ein Hintergrund-Auftrag läuft, das Lagebild seit der letzten
+   Entscheidung unverändert ist (gleicher Fingerabdruck) oder llama-server nicht gesund ist.
+2. Sonst fragt Missa das Modell mit einem eigenen, kurzen Systemprompt: Charakter, Aufgabe
+   und Lagebild – **ohne Werkzeuge**.
+3. Die Antwort muss ein JSON-Objekt sein:
+   `{"aktion": "nichts|notieren|melden", "stufe": "info|wichtig", "schluessel": "kalender-pausen", "titel": "…", "text": "…", "grund": "…"}`
+   – mehrere Punkte als `{"punkte": [ … ]}`.
+4. Der Code prüft streng: unlesbares JSON, eine unbekannte Aktion oder Stufe und
+   `stufe = notfall` zählen als `nichts` und werden mit Grund vermerkt.
+5. Jeder Lauf steht in der Tabelle `initiative_laeufe` (Zeit, Fingerabdruck, gekürztes
+   Lagebild, Entscheidung, Grund, Dauer, übersprungen ja/nein mit Ursache, Fehler). Alle
+   Texte werden vorher mit `schwaerzen()` behandelt.
+
+### Sicherheit
+
+- Die Denkschleife kann **nie einen Notfall** auslösen – das bleibt den festen Regeln
+  (Server, Erreichbarkeit, Logins …) vorbehalten.
+- Sie ruft keine Werkzeuge auf. Antwortet das Modell trotzdem mit einem Werkzeug-Aufruf, wird
+  er ignoriert.
+- Der Lauf zählt als Hintergrund (`im_hintergrund`): keine Bestätigungen, kein Mailversand,
+  keine neuen Routinen oder Nachtaufgaben. Sonderrechte gibt es keine.
+- Es läuft nie mehr als ein Durchlauf gleichzeitig.
+- Fehler beim Modellaufruf brechen den Dienst nie ab; beim nächsten Intervall geht es neu
+  los (auch wenn das Lagebild gleich geblieben ist).
+
 ## Einstellungen
 
 | Variable | Standard | Bedeutung |
 |---|---|---|
 | `INITIATIVE_LAGEBILD_ZEICHEN` | 3000 | Höchstlänge des Lagebilds (mindestens 1000) |
+| `INITIATIVE_AKTIV` | `false` | Denkschleife an oder aus |
+| `INITIATIVE_INTERVALL_MINUTEN` | 15 | Abstand zwischen zwei Läufen (mindestens 5) |

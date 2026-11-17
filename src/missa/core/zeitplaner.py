@@ -625,6 +625,10 @@ class Zeitplaner:
         self._intervalle[name] = RegelmaessigerAuftrag(name, intervall, funktion)
         self.wecken()
 
+    def regelmaessig_entfernen(self, name: str) -> None:
+        """Meldet einen regelmäßigen Auftrag ab; ein laufender Durchlauf darf zu Ende laufen."""
+        self._intervalle.pop(name, None)
+
     def _intervall_beginn(self, auftrag: RegelmaessigerAuftrag, jetzt: datetime) -> datetime:
         letzter = self._letzter_lauf(auftrag.db_name)
         if not letzter:

@@ -11,6 +11,8 @@ die Versionsnummern folgen [Semantic Versioning](https://semver.org/lang/de/).
 
 - Missa kann dir auf «Was ist gerade los?» eine kurze Übersicht über Termine, Erinnerungen,
   Server und Mails geben (#102)
+- Missa denkt auf Wunsch (`INITIATIVE_AKTIV=true`) alle 15 Minuten von selbst nach, ob gerade
+  etwas wichtig ist (#103)
 
 ## 0.10.1 – 2026-11-16
 

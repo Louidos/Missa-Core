@@ -177,6 +177,8 @@ class ChatDienst:
         self.kontext_quellen = list(kontext_quellen)
         self.eingangs_pruefer = list(eingangs_pruefer)
         self.nachbearbeiter = list(nachbearbeiter)
+        #: So viele Anfragen beantwortet Missa gerade (die Denkschleife wartet dann).
+        self.laufend = 0
 
     # ------------------------------------------------------------------ Vorbereitung
 
@@ -435,6 +437,13 @@ class ChatDienst:
 
     async def antworten(self, vorbereitet: Vorbereitet) -> dict[str, Any]:
         """Beantwortet die Anfrage vollständig und liefert eine OpenAI-Antwort."""
+        self.laufend += 1
+        try:
+            return await self._antworten(vorbereitet)
+        finally:
+            self.laufend -= 1
+
+    async def _antworten(self, vorbereitet: Vorbereitet) -> dict[str, Any]:
         await self._eingang(vorbereitet)
         nutzung: dict[str, int] = {}
         text = ""
@@ -483,6 +492,14 @@ class ChatDienst:
         gesammelt, ausgeführt, und danach läuft die nächste Runde im selben
         Stream weiter.
         """
+        self.laufend += 1
+        try:
+            async for ereignis in self._antworten_stream(vorbereitet):
+                yield ereignis
+        finally:
+            self.laufend -= 1
+
+    async def _antworten_stream(self, vorbereitet: Vorbereitet) -> AsyncIterator[str]:
         kennung = f"chatcmpl-{vorbereitet.anfrage_id}"
         erstellt = int(time.time())
 
