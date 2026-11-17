@@ -34,7 +34,7 @@ Legende: ✅ erledigt (Code auf main, Test grün, Einstellung in
 | S5 Proxmox-VMs | 🟡 | Test für den Eintrag ins Homelab-Wissen nach dem Erstellen |
 | S6 Caddy, Minecraft | ✅ | – |
 | S7 Git-Server, GitHub, Prompts | ✅ | – |
-| I1–I7 Missa Initiative | 🟡 | in Arbeit: Lagebild, Denkschleife, Meldungen, Budget und Journal fertig; Rückmeldungen, Briefing fehlen |
+| I1–I7 Missa Initiative | 🟡 | in Arbeit: alles bis auf das Briefing fertig; 👍/👎-Reaktionen in Talk nicht ausgewertet |
 
 ## Einzelpunkte
 
@@ -165,6 +165,11 @@ Legende: ✅ erledigt (Code auf main, Test grün, Einstellung in
 | I5 | Journal-API ohne Key gesperrt, nur lesend | ✅ | `GET /api/initiative/journal`, `GET /api/initiative`; `test_api.py::test_initiative_journal_ohne_api_key_gesperrt_und_nur_lesend` |
 | I5 | Keine Passwörter im Journal | ✅ | `schwaerzen()`; `test_api.py::test_im_journal_stehen_keine_passwoerter` |
 | I5 | Alte Einträge aufgeräumt | ✅ | `INITIATIVE_JOURNAL_TAGE`; `::test_alte_eintraege_werden_aufgeraeumt` |
+| I6 | Nach „lass das“ 14 Tage keine Meldung zum Thema | ✅ | `Initiative.stumm_bis`; `::test_nach_lass_das_14_tage_keine_meldung_zum_thema` |
+| I6 | „Was hast du gelernt?“ zeigt die Liste | ✅ | Werkzeug `initiative_gelerntes_anzeigen`; `::test_was_hast_du_ueber_meine_rueckmeldungen_gelernt` |
+| I6 | Zurücksetzen erst nach Ja | ✅ | `initiative_gelerntes_zuruecksetzen` (zerstörerisch); `::test_zuruecksetzen_erst_nach_ja` |
+| I6 | „danke“ in anderem Gespräch zählt nicht | ✅ | `::test_normales_danke_oder_anderes_gespraech_zaehlt_nicht` |
+| I6 | Reaktionen 👍/👎 auf Bot-Nachrichten | ❌ | Talk-Webhook verarbeitet nur `Create`; IDs eigener Meldungen unbekannt – nur Text (siehe docs/initiative.md) |
 
 ## Weitere Beobachtungen
 

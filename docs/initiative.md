@@ -150,6 +150,42 @@ Aufräumen: Ein täglicher Auftrag im Zeitplaner (04:20) löscht Läufe, die äl
 nach 2 Tagen gelöscht, damit das Journal nicht volläuft. Alle Texte im Journal sind vor dem
 Speichern geschwärzt (Passwörter, Tokens, Schlüssel).
 
+## Lernen aus Rückmeldungen
+
+Antwortest du **innerhalb von 30 Minuten** nach einer eigenen Meldung von Missa kurz mit
+einer klaren Bewertung, merkt sie sich das (Tabelle `initiative_rueckmeldungen`: Zeit,
+Schlüssel, gut/schlecht, Wortlaut):
+
+| Bewertung | Wörter (Auszug) |
+|---|---|
+| gut | „war gut“, „danke, hilfreich“, „gut so“, „guter Hinweis“, „gut zu wissen“, „mehr davon“, 👍 |
+| schlecht | „lass das“, „nerv nicht damit“, „nervt“, „nicht hilfreich“, „brauch ich nicht“, „bitte nicht mehr“, 👎 |
+
+- Erkannt wird im **Code** über feste Wortlisten (`RUECKMELDUNG_WOERTER` in
+  `core/initiative.py`, wie `STUFEN_WOERTER`), nicht über das Modell. „Schlecht“ wird zuerst
+  geprüft („nicht hilfreich“ ist keine gute Bewertung).
+- Ein blosses „danke“ zählt nicht, ebenso längere Nachrichten (mehr als 12 Wörter) und
+  Antworten in einer anderen Unterhaltung als der, in der die Meldungen ankommen
+  (`NC_TALK_NOTIFY_CONVERSATION`). Gibt es keine eigene Meldung der letzten 30 Minuten, ist
+  „lass das“ einfach Teil des Gesprächs.
+- Nach einer schlechten Rückmeldung ist das Thema `INITIATIVE_STUMM_TAGE` (Standard 14) Tage
+  **stumm**: Will die Denkschleife dazu melden, wird nur notiert. Das erzwingt der Code, nicht
+  der Prompt. Eine neue gute Rückmeldung zum Thema hebt das auf.
+- Die letzten Rückmeldungen stehen als kurze Liste im Prompt der Denkschleife
+  („gern gesehen: …“, „nicht erwünscht: …“).
+- Rückmeldungen ändern **nie** etwas an Alarmen aus festen Regeln (Server, Erreichbarkeit,
+  Logins, Erinnerungen, Routinen).
+- Reaktionen (👍/👎) direkt auf Bot-Nachrichten in Talk werden noch nicht ausgewertet: Der
+  Talk-Webhook verarbeitet nur Text-Nachrichten (`Create`), und Missa kennt die IDs ihrer
+  eigenen Meldungen nicht. Ein 👍 oder 👎 als eigene **Nachricht** zählt aber.
+
+Im Gespräch:
+
+- „Was hast du über meine Rückmeldungen gelernt?“ → `initiative_gelerntes_anzeigen` (Stufe
+  `lesen`)
+- „Vergiss, was du über meine Rückmeldungen gelernt hast“ →
+  `initiative_gelerntes_zuruecksetzen` (Stufe `zerstoererisch`, nur nach deinem Ja)
+
 ## Einstellungen
 
 | Variable | Standard | Bedeutung |
@@ -160,3 +196,4 @@ Speichern geschwärzt (Passwörter, Tokens, Schlüssel).
 | `INITIATIVE_BUDGET_PRO_TAG` | 5 | Höchstens so viele Meldungen pro Tag (0 = nie) |
 | `INITIATIVE_SAMMELZEIT` | 19:30 | Uhrzeit der abendlichen Sammelmeldung |
 | `INITIATIVE_JOURNAL_TAGE` | 30 | So lange bleiben Läufe im Gedanken-Journal |
+| `INITIATIVE_STUMM_TAGE` | 14 | So lange ist ein Thema nach „lass das“ stumm |

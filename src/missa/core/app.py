@@ -476,6 +476,7 @@ def create_app(
     hintergrund.ausfuehrer = hintergrund_ausfuehren
 
     # Denkschleife: schaut regelmässig aufs Lagebild (nur mit INITIATIVE_AKTIV=true).
+    from missa.channels.nextcloud_talk import KANAL
     from missa.core.initiative import Initiative
 
     def beschaeftigt() -> str | None:
@@ -497,6 +498,11 @@ def create_app(
         budget_pro_tag=einstellungen.initiative_budget_pro_tag,
         sammelzeit=einstellungen.initiative_sammelzeit,
         journal_tage=einstellungen.initiative_journal_tage,
+        stumm_tage=einstellungen.initiative_stumm_tage,
+        # Meldungen kommen in der Talk-Unterhaltung an – nur dort zählen Rückmeldungen.
+        rueckmelde_sitzung=f"{KANAL}:{einstellungen.nc_talk_notify_conversation}"
+        if einstellungen.talk_aktiv and einstellungen.nc_talk_notify_conversation
+        else None,
         beschaeftigt=beschaeftigt,
         notfall_aktiv=rechte.notfall_aktiv,
         geheimnisse=einstellungen.geheimnisse,
@@ -505,6 +511,8 @@ def create_app(
     initiative.einplanen(zeitplaner)
     # Stille Notizen der Denkschleife erwähnt Missa einmal im nächsten Gespräch.
     dienst.kontext_quellen.append(initiative.kontext)
+    # „war gut“ / „lass das“ kurz nach einer eigenen Meldung erkennt der Code (feste Wörter).
+    dienst.eingangs_pruefer.append(initiative.eingang)
     if len(werkzeuge) and "initiative_status" not in werkzeuge:
         from missa.tools.initiative import initiative_werkzeuge
 

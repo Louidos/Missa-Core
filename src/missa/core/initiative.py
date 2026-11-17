@@ -82,7 +82,78 @@ CREATE TABLE IF NOT EXISTS initiative_gemeldet (
     lauf_id INTEGER
 );
 CREATE INDEX IF NOT EXISTS initiative_gemeldet_schluessel ON initiative_gemeldet (schluessel, zeit);
+CREATE TABLE IF NOT EXISTS initiative_rueckmeldungen (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    zeit TEXT NOT NULL,
+    schluessel TEXT NOT NULL,
+    bewertung TEXT NOT NULL CHECK (bewertung IN ('gut', 'schlecht')),
+    wortlaut TEXT NOT NULL,
+    alarm_id INTEGER
+);
+CREATE INDEX IF NOT EXISTS initiative_rueckmeldungen_schluessel
+    ON initiative_rueckmeldungen (schluessel, zeit);
 """
+
+#: So lange nach der Zustellung zählt eine kurze Antwort als Rückmeldung zur Meldung.
+RUECKMELDUNG_FENSTER = timedelta(minutes=30)
+#: Längere Nachrichten sind ein Gespräch, keine Bewertung.
+MAX_RUECKMELDUNG_WOERTER = 12
+#: Feste Wortlisten (wie ``STUFEN_WOERTER``) – erkannt im Code, nie durch das Modell.
+#: „schlecht“ wird zuerst geprüft („nicht hilfreich“ ist keine gute Bewertung).
+RUECKMELDUNG_WOERTER = {
+    "schlecht": (
+        "lass das",
+        "lass es",
+        "nerv nicht",
+        "nerv mich nicht",
+        "nervt",
+        "nervig",
+        "nicht hilfreich",
+        "nicht gut",
+        "brauch ich nicht",
+        "brauche ich nicht",
+        "will ich nicht",
+        "unnötig",
+        "hör auf damit",
+        "nicht mehr melden",
+        "bitte nicht mehr",
+        "nicht damit",
+        "👎",
+    ),
+    "gut": (
+        "war gut",
+        "gut so",
+        "hilfreich",
+        "guter hinweis",
+        "super hinweis",
+        "danke für den hinweis",
+        "gut zu wissen",
+        "gerne wieder",
+        "mehr davon",
+        "genau richtig",
+        "👍",
+    ),
+}
+#: So viele Rückmeldungen gehen als kurze Liste in den Prompt der Denkschleife.
+GELERNTES_IM_PROMPT = 10
+
+
+def rueckmeldung_erkennen(text: str | None) -> str | None:
+    """``"lass das"`` → ``"schlecht"``, ``"danke, hilfreich"`` → ``"gut"``, sonst ``None``.
+
+    Ein blosses „danke“ ist keine Bewertung.
+    """
+    roh = " ".join(str(text or "").casefold().replace("’", "'").split())
+    if not roh or len(roh.split()) > MAX_RUECKMELDUNG_WOERTER:
+        return None
+    sauber = " " + re.sub(r"[^\wäöüß👍👎 ]+", " ", roh) + " "
+    sauber = " ".join(sauber.split())
+    for bewertung in ("schlecht", "gut"):
+        for wort in RUECKMELDUNG_WOERTER[bewertung]:
+            if re.search(rf"(?<!\w){re.escape(wort)}(?!\w)", sauber):
+                return bewertung
+    return None
+
 
 #: Spalten, die nach der ersten Fassung dazugekommen sind (Migration nur ergänzend).
 NEUE_SPALTEN = {
@@ -340,6 +411,8 @@ class Initiative:
         budget_pro_tag: int = 5,
         sammelzeit: time = time(19, 30),
         journal_tage: int = 30,
+        stumm_tage: int = 14,
+        rueckmelde_sitzung: str | None = None,
         beschaeftigt: Callable[[], str | None] | None = None,
         notfall_aktiv: Callable[[], bool] | None = None,
         geheimnisse: Iterable[str] = (),
@@ -358,6 +431,9 @@ class Initiative:
         self.standard_budget = max(0, int(budget_pro_tag))
         self.standard_sammelzeit = sammelzeit
         self.journal_tage = max(1, int(journal_tage))
+        self.stumm_tage = max(1, int(stumm_tage))
+        #: Nur Antworten in dieser Sitzung (die Talk-Unterhaltung der Meldungen) zählen.
+        self.rueckmelde_sitzung = rueckmelde_sitzung
         self.zeitplaner: Any = None
         #: Liefert einen Grund, wenn Missa gerade beschäftigt ist (Chat, Hintergrund).
         self.beschaeftigt = beschaeftigt or (lambda: None)
@@ -573,9 +649,11 @@ class Initiative:
     # -------------------------------------------------------------- Lauf
 
     def systemprompt(self, lagebild_text: str) -> str:
+        gelernt = self.gelerntes_fuer_prompt()
         return (
             f"{charakter_lesen(self.charakter_datei)}\n\n{AUFGABE}\n"
-            f"## Lagebild ({self.jetzt():%d.%m.%Y %H:%M} Uhr)\n{lagebild_text}"
+            + (f"{gelernt}\n\n" if gelernt else "")
+            + f"## Lagebild ({self.jetzt():%d.%m.%Y %H:%M} Uhr)\n{lagebild_text}"
         )
 
     async def _modell_fragen(self, lagebild_text: str) -> str:
@@ -771,6 +849,16 @@ class Initiative:
                 self.notieren(punkt.schluessel, punkt.notiz_text())
         if not melden or self.alarme is None:
             return None
+        stumm = [p for p in melden if self.stumm_bis(p.schluessel) is not None]
+        for punkt in stumm:
+            # Nach „lass das“ erzwingt der Code: zu diesem Thema nur noch notieren.
+            bis = self.stumm_bis(punkt.schluessel)
+            punkt.ergebnis = f"notiert (stumm nach deiner Rückmeldung bis {bis:%d.%m.})"
+            self.notieren(punkt.schluessel, punkt.notiz_text())
+            entscheidung.vermerke.append(f"{punkt.schluessel}: stumm nach Rückmeldung")
+        melden = [p for p in melden if p not in stumm]
+        if not melden:
+            return None
         if not self.budget_frei():
             # Tagesbudget aufgebraucht: still notieren, abends kommt die Sammelmeldung.
             for punkt in melden:
@@ -867,3 +955,130 @@ class Initiative:
             "journal_tage": self.journal_tage,
             "letzter_lauf": letzter.als_dict() if letzter else None,
         }
+
+    # -------------------------------------------------------------- Rückmeldungen
+
+    def stumm_bis(self, schluessel: str) -> datetime | None:
+        """Bis wann ein Thema nach einer schlechten Rückmeldung stumm ist (oder ``None``)."""
+        with verbinden(self.datei) as db:
+            zeile = db.execute(
+                "SELECT zeit, bewertung FROM initiative_rueckmeldungen WHERE schluessel = ? "
+                "ORDER BY zeit DESC, id DESC LIMIT 1",
+                (schluessel,),
+            ).fetchone()
+        if zeile is None or zeile["bewertung"] != "schlecht":
+            return None
+        bis = datetime.fromisoformat(zeile["zeit"]).astimezone(self.zone) + timedelta(
+            days=self.stumm_tage
+        )
+        return bis if bis > self.jetzt() else None
+
+    def _letzte_meldung(self) -> tuple[int, list[str]] | None:
+        """Die zuletzt zugestellte Meldung der Denkschleife der letzten 30 Minuten."""
+        grenze = _utc_text(self.jetzt() - RUECKMELDUNG_FENSTER)
+        with verbinden(self.datei) as db:
+            zeile = db.execute(
+                "SELECT a.id FROM alarme a JOIN erinnerungen e ON e.schluessel = 'alarm:' || a.id "
+                "WHERE a.quelle = 'initiative' AND e.zugestellt IS NOT NULL AND e.zugestellt >= ? "
+                "ORDER BY e.zugestellt DESC, a.id DESC LIMIT 1",
+                (grenze,),
+            ).fetchone()
+            if zeile is None:
+                return None
+            schluessel = [
+                z["schluessel"]
+                for z in db.execute(
+                    "SELECT DISTINCT schluessel FROM initiative_gemeldet WHERE alarm_id = ?",
+                    (zeile["id"],),
+                )
+            ]
+        return (zeile["id"], schluessel) if schluessel else None
+
+    def rueckmeldung_speichern(
+        self, schluessel: Iterable[str], bewertung: str, wortlaut: str, alarm_id: int | None
+    ) -> None:
+        with verbinden(self.datei) as db:
+            if alarm_id is not None:
+                # Eine neue Antwort auf dieselbe Meldung ersetzt die alte Bewertung.
+                db.execute("DELETE FROM initiative_rueckmeldungen WHERE alarm_id = ?", (alarm_id,))
+            db.executemany(
+                "INSERT INTO initiative_rueckmeldungen "
+                "(zeit, schluessel, bewertung, wortlaut, alarm_id) VALUES (?, ?, ?, ?, ?)",
+                [
+                    (
+                        _utc_text(self.jetzt()),
+                        s,
+                        bewertung,
+                        self._schwaerzen(wortlaut.strip())[:200],
+                        alarm_id,
+                    )
+                    for s in schluessel
+                ],
+            )
+
+    async def eingang(self, vorbereitet: Any) -> str | None:
+        """Eingangsprüfer: erkennt eine kurze Bewertung auf die letzte eigene Meldung.
+
+        Zählt nur innerhalb von 30 Minuten nach der Zustellung, in der Unterhaltung, in der
+        die Meldungen ankommen, und nur mit den festen Wörtern („war gut“, „lass das“ …).
+        """
+        nachricht = vorbereitet.neue_nachricht
+        if not nachricht or im_hintergrund.get():
+            return None
+        if self.rueckmelde_sitzung is not None and vorbereitet.sitzung != self.rueckmelde_sitzung:
+            return None
+        bewertung = rueckmeldung_erkennen(nachricht)
+        if bewertung is None:
+            return None
+        meldung = self._letzte_meldung()
+        if meldung is None:
+            return None
+        alarm_id, schluessel = meldung
+        self.rueckmeldung_speichern(schluessel, bewertung, nachricht, alarm_id)
+        themen = ", ".join(schluessel)
+        log.info("Denkschleife: Rückmeldung %s zu %s", bewertung, themen)
+        if bewertung == "gut":
+            return (
+                f"Louis fand deine letzte eigene Meldung ({themen}) hilfreich – das hat der Code "
+                "gespeichert. Freu dich kurz in deinem Ton darüber."
+            )
+        return (
+            f"Louis möchte zu deiner letzten eigenen Meldung ({themen}) nichts mehr hören. Der "
+            f"Code hat das Thema für {self.stumm_tage} Tage stumm geschaltet: du notierst dazu "
+            "nur noch still. Bestätige das kurz, ohne dich lange zu entschuldigen."
+        )
+
+    def gelerntes(self, anzahl: int = 50) -> list[dict[str, Any]]:
+        """Die letzte Rückmeldung je Thema (neueste zuerst)."""
+        with verbinden(self.datei) as db:
+            zeilen = db.execute(
+                "SELECT r.* FROM initiative_rueckmeldungen r WHERE r.id = ("
+                "SELECT r2.id FROM initiative_rueckmeldungen r2 "
+                "WHERE r2.schluessel = r.schluessel ORDER BY r2.zeit DESC, r2.id DESC LIMIT 1) "
+                "ORDER BY r.zeit DESC, r.id DESC LIMIT ?",
+                (max(1, anzahl),),
+            ).fetchall()
+        ergebnis = []
+        for z in zeilen:
+            eintrag = dict(z)
+            eintrag["zeit"] = datetime.fromisoformat(z["zeit"]).astimezone(self.zone)
+            eintrag["stumm_bis"] = self.stumm_bis(z["schluessel"])
+            ergebnis.append(eintrag)
+        return ergebnis
+
+    def gelerntes_fuer_prompt(self) -> str:
+        eintraege = self.gelerntes(GELERNTES_IM_PROMPT)
+        gut = [e["schluessel"] for e in eintraege if e["bewertung"] == "gut"]
+        schlecht = [e["schluessel"] for e in eintraege if e["bewertung"] == "schlecht"]
+        if not gut and not schlecht:
+            return ""
+        zeilen = ["## Was Louis zu deinen Meldungen gesagt hat"]
+        if gut:
+            zeilen.append(f"- gern gesehen: {', '.join(gut)}")
+        if schlecht:
+            zeilen.append(f"- nicht erwünscht: {', '.join(schlecht)}")
+        return "\n".join(zeilen)
+
+    def gelerntes_zuruecksetzen(self) -> int:
+        with verbinden(self.datei) as db:
+            return db.execute("DELETE FROM initiative_rueckmeldungen").rowcount

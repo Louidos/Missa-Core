@@ -628,3 +628,155 @@ def test_journal_api_liefert_laeufe(client, llama: FakeLlama):
     status = client.get("/api/initiative").json()
     assert status["aktiv"] is True and status["letzter_lauf"]["id"] == lauf["id"]
     assert status["budget_pro_tag"] == 5
+
+
+# ----------------------------------------------------------------------------- Rückmeldungen
+
+RAUM = "nextcloud-talk:raum-1"
+
+
+def eingang(umgebung: Umgebung, text_: str, sitzung: str = RAUM) -> str | None:
+    from types import SimpleNamespace
+
+    vorbereitet = SimpleNamespace(neue_nachricht=text_, sitzung=sitzung, kanal="talk")
+    return asyncio.run(umgebung.initiative.eingang(vorbereitet))
+
+
+@pytest.fixture
+def mit_talk(tmp_path: Path) -> Umgebung:
+    return Umgebung(tmp_path, rueckmelde_sitzung=RAUM)
+
+
+def gemeldet(umgebung: Umgebung, schluessel: str, titel: str, nummer: int = 0):
+    umgebung.inhalt["Termine"] = f"- {schluessel} {nummer}"
+    umgebung.modell.antworten = [json.dumps(punkt("melden", schluessel, titel))]
+    lauf = umgebung.lauf()
+    umgebung.zustellen()
+    return lauf
+
+
+@pytest.mark.parametrize(
+    ("text_", "bewertung"),
+    [
+        ("war gut", "gut"),
+        ("Danke, hilfreich!", "gut"),
+        ("👍", "gut"),
+        ("lass das", "schlecht"),
+        ("Nerv nicht damit", "schlecht"),
+        ("das war nicht hilfreich", "schlecht"),
+        ("danke", None),
+        ("ok", None),
+        ("war gut, aber erzähl mir jetzt bitte noch ausführlich was morgen alles ansteht", None),
+    ],
+)
+def test_rueckmeldung_erkennen(text_, bewertung):
+    from missa.core.initiative import rueckmeldung_erkennen
+
+    assert rueckmeldung_erkennen(text_) == bewertung
+
+
+def test_nach_lass_das_14_tage_keine_meldung_zum_thema(mit_talk):
+    gemeldet(mit_talk, "kalender-pausen", "Morgen keine Pause")
+    hinweis = eingang(mit_talk, "lass das")
+    assert hinweis and "14 Tage stumm" in hinweis
+    assert mit_talk.initiative.stumm_bis("kalender-pausen") is not None
+    for tag in range(1, 14):
+        mit_talk.uhr.vor(days=1)
+        lauf = gemeldet(mit_talk, "kalender-pausen", "Wieder keine Pause", tag)
+        assert not lauf.gemeldet and "stumm" in lauf.punkte[0]["ergebnis"]
+    assert len(mit_talk.kanal.nachrichten) == 1
+    assert "stumm nach Rückmeldung" in mit_talk.initiative.laeufe(1)[0].grund
+    mit_talk.uhr.vor(days=1, minutes=1)  # 14 Tage vorbei
+    assert gemeldet(mit_talk, "kalender-pausen", "Pause fehlt", 99).gemeldet
+
+
+def test_rueckmeldung_aendert_nie_feste_alarme(mit_talk):
+    gemeldet(mit_talk, "server-ai01", "ai01 ist langsam")
+    eingang(mit_talk, "nerv nicht damit")
+    mit_talk.alarme.melden("wichtig", "ai01: CPU über 90 %", schluessel="server-ai01")
+    assert mit_talk.zustellen()[-1] == "⚠️ Wichtig: ai01: CPU über 90 %"
+
+
+def test_war_gut_wird_gelernt_und_steht_im_prompt(mit_talk):
+    gemeldet(mit_talk, "zahnarzt", "Zahnarzt bald")
+    assert "hilfreich" in eingang(mit_talk, "war gut")
+    mit_talk.uhr.vor(hours=2)
+    gemeldet(mit_talk, "disk-ai01", "Disk voll", 2)
+    eingang(mit_talk, "lass das")
+    mit_talk.uhr.vor(minutes=15)
+    mit_talk.inhalt["Termine"] = "- neu"
+    mit_talk.lauf()
+    system = mit_talk.modell.anfragen[-1]["messages"][0]["content"]
+    assert "gern gesehen: zahnarzt" in system
+    assert "nicht erwünscht: disk-ai01" in system
+
+
+def test_normales_danke_oder_anderes_gespraech_zaehlt_nicht(mit_talk):
+    gemeldet(mit_talk, "zahnarzt", "Zahnarzt bald")
+    assert eingang(mit_talk, "danke") is None
+    assert eingang(mit_talk, "danke, hilfreich", sitzung="nextcloud-talk:anderer-raum") is None
+    assert eingang(mit_talk, "lass das", sitzung="api-sitzung") is None
+    assert mit_talk.initiative.gelerntes() == []
+    mit_talk.uhr.vor(minutes=31)  # zu spät
+    assert eingang(mit_talk, "war gut") is None
+    assert mit_talk.initiative.gelerntes() == []
+
+
+def test_ohne_eigene_meldung_keine_rueckmeldung(mit_talk):
+    mit_talk.alarme.melden("info", "Fester Alarm", schluessel="regel:1", quelle="proxmox")
+    mit_talk.zustellen()
+    assert eingang(mit_talk, "lass das") is None
+
+
+def test_was_hast_du_ueber_meine_rueckmeldungen_gelernt(mit_talk):
+    from missa.core.werkzeuge import Werkzeugkasten
+    from missa.tools.initiative import initiative_werkzeuge
+
+    kasten = Werkzeugkasten(initiative_werkzeuge(mit_talk.initiative))
+    assert "noch nichts zurückgemeldet" in asyncio.run(
+        kasten.ausfuehren("initiative_gelerntes_anzeigen", {})
+    )
+    gemeldet(mit_talk, "zahnarzt", "Zahnarzt bald")
+    eingang(mit_talk, "Danke, hilfreich")
+    mit_talk.uhr.vor(hours=1)
+    gemeldet(mit_talk, "kalender-pausen", "Keine Pause", 2)
+    eingang(mit_talk, "lass das")
+    antwort = asyncio.run(kasten.ausfuehren("initiative_gelerntes_anzeigen", {}))
+    assert "Gern gesehen:\n- zahnarzt („Danke, hilfreich“" in antwort
+    assert "Nicht erwünscht:\n- kalender-pausen („lass das“" in antwort
+    assert "bis 25.11. nicht mehr" in antwort
+
+
+def test_zuruecksetzen_erst_nach_ja(mit_talk):
+    from missa.core.werkzeuge import Werkzeugkasten
+    from missa.tools.initiative import initiative_werkzeuge
+
+    gemeldet(mit_talk, "kalender-pausen", "Keine Pause")
+    eingang(mit_talk, "lass das")
+    kasten = Werkzeugkasten(initiative_werkzeuge(mit_talk.initiative))
+
+    def ausfuehren(anfrage: str, nachricht: str) -> str:
+        return asyncio.run(
+            kasten.ausfuehren(
+                "initiative_gelerntes_zuruecksetzen",
+                {},
+                anfrage,
+                nachricht=nachricht,
+                kanal="talk",
+                sitzung=RAUM,
+            )
+        )
+
+    antwort = ausfuehren("a1", "Vergiss, was du gelernt hast")
+    assert antwort.startswith("NICHT AUSGEFÜHRT") and "1 Themen" in antwort
+    assert len(mit_talk.initiative.gelerntes()) == 1
+    assert ausfuehren("a2", "Ja").startswith("Erledigt: 1 Rückmeldung")
+    assert mit_talk.initiative.gelerntes() == []
+    assert mit_talk.initiative.stumm_bis("kalender-pausen") is None
+
+
+def test_app_wertet_rueckmeldungen_im_gespraech_aus(einstellungen):
+    app = create_app(einstellungen, llama_transport=FakeLlama().transport)
+    initiative = app.state.initiative
+    assert initiative.eingang in app.state.dienst.eingangs_pruefer
+    assert initiative.rueckmelde_sitzung is None  # ohne Talk zählt jede Sitzung

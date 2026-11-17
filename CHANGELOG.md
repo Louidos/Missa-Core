@@ -19,6 +19,8 @@ die Versionsnummern folgen [Semantic Versioning](https://semver.org/lang/de/).
   Zahl kannst du ihr einfach sagen (#105)
 - Du kannst Missa fragen, warum sie dir etwas geschrieben hat; ihre Überlegungen sind 30 Tage
   lang nachlesbar (#106)
+- Sagst du Missa «war gut» oder «lass das», merkt sie sich das und meldet sich künftig
+  passender (#107)
 
 ## 0.10.1 – 2026-11-16
 
