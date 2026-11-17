@@ -5,4 +5,4 @@ from importlib.metadata import PackageNotFoundError, version
 try:
     __version__ = version("missa")
 except PackageNotFoundError:  # pragma: no cover - nur ohne Installation
-    __version__ = "0.10.1"
+    __version__ = "0.11.0"
