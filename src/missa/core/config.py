@@ -205,6 +205,8 @@ class Einstellungen:
     initiative_sammelzeit: time = time(19, 30)
     initiative_journal_tage: int = 30
     initiative_stumm_tage: int = 14
+    briefing_aktiv: bool = True
+    briefing_ab_minuten: int = 30
 
     @property
     def notfall_datei(self) -> Path:
@@ -653,6 +655,8 @@ class Einstellungen:
             initiative_sammelzeit=uhrzeit("INITIATIVE_SAMMELZEIT", "19:30"),
             initiative_journal_tage=max(1, zahl("INITIATIVE_JOURNAL_TAGE", 30)),
             initiative_stumm_tage=max(1, zahl("INITIATIVE_STUMM_TAGE", 14)),
+            briefing_aktiv=wert("BRIEFING_AKTIV", "true").casefold() in WAHR,
+            briefing_ab_minuten=max(1, zahl("BRIEFING_AB_MINUTEN", 30)),
         )
 
     def pruefen(self) -> None:

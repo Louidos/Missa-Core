@@ -21,6 +21,8 @@ die Versionsnummern folgen [Semantic Versioning](https://semver.org/lang/de/).
   lang nachlesbar (#106)
 - Sagst du Missa «war gut» oder «lass das», merkt sie sich das und meldet sich künftig
   passender (#107)
+- Nach einer Auszeit oder am Morgen bekommst du eine einzige Zusammenfassung statt vieler
+  einzelner Meldungen (#108)
 
 ## 0.10.1 – 2026-11-16
 

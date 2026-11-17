@@ -21,7 +21,11 @@ vorhandenen Kanäle (Nextcloud Talk, `NC_TALK_NOTIFY_CONVERSATION`), deutlich ma
 „🚨 NOTFALL“. Kommt später ein Telefon-Kanal dazu, braucht es keine neuen Regeln.
 
 **Ruhezeit** (Standard 22:00–07:00): `info` und `wichtig` werden gesammelt und am Ende der
-Ruhezeit zugestellt, mit dem Hinweis, wann Missa es bemerkt hat. Ändern per Gespräch:
+Ruhezeit als **eine** Sammelmeldung zugestellt („🌅 Während der Ruhezeit ist einiges
+aufgelaufen (3 Meldungen)“, je Alarm mit der Uhrzeit, zu der Missa ihn bemerkt hat); ein
+einzelner Alarm kommt wie gewohnt allein. Kommt zur selben Zeit ein Briefing nach einer
+Auszeit, steckt alles darin (siehe [initiative.md](initiative.md#briefing-nach-einer-auszeit)).
+`notfall` kommt immer sofort. Ändern per Gespräch:
 „Ruhezeit von 23 bis 6 Uhr“, „Keine Ruhezeit mehr“ (Werkzeug `alarm_einstellungen`).
 
 **Ruhefenster** (Standard 60 Minuten): Derselbe Alarm kommt nicht im Minutentakt. Hält ein

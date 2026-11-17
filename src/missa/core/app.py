@@ -513,6 +513,30 @@ def create_app(
     dienst.kontext_quellen.append(initiative.kontext)
     # „war gut“ / „lass das“ kurz nach einer eigenen Meldung erkennt der Code (feste Wörter).
     dienst.eingangs_pruefer.append(initiative.eingang)
+
+    # Briefing nach einer Auszeit: Herzschlag jede Minute, Zusammenfassung nach dem Start.
+    from missa.core.briefing import Briefing, briefing_lagebild
+
+    briefing = Briefing(
+        einstellungen.datenbank,
+        einstellungen.zone,
+        zeitplaner,
+        alarme=alarme,
+        hintergrund=hintergrund,
+        lagebild=briefing_lagebild(
+            einstellungen.zone,
+            uhr=uhr,
+            kalender=nextcloud.kalender if nextcloud is not None else None,
+            mail_dienst=mail_dienst,
+            server=server_waechter,
+            erreichbarkeit=erreichbarkeit,
+        ),
+        formulierer=dienst.formulieren,
+        aktiv=einstellungen.briefing_aktiv,
+        ab_minuten=einstellungen.briefing_ab_minuten,
+        uhr=uhr,
+    )
+    zeitplaner.regelmaessig("herzschlag", timedelta(minutes=1), briefing.herzschlag)
     if len(werkzeuge) and "initiative_status" not in werkzeuge:
         from missa.tools.initiative import initiative_werkzeuge
 
@@ -536,6 +560,8 @@ def create_app(
             )
         if panel is not None:
             await panel.aktualisieren()
+        # Vor dem Zeitplaner: so sieht das Briefing, was gleich nachgeholt wird.
+        briefing.starten()
         zeitplaner.starten()
         hintergrund.starten()
         if panel_ereignisse is not None:
@@ -543,6 +569,7 @@ def create_app(
         yield
         if panel_ereignisse is not None:
             await panel_ereignisse.stoppen()
+        await briefing.stoppen()
         await hintergrund.stoppen()
         if vms is not None:
             await vms.warten()
@@ -599,6 +626,7 @@ def create_app(
     app.state.panel_ereignisse = panel_ereignisse
     app.state.lagebild = lagebild
     app.state.initiative = initiative
+    app.state.briefing = briefing
 
     # -------------------------------------------------------------- Fehlerformat
 

@@ -37,7 +37,9 @@ Talk nutzen dieselbe Logik.
   Missa kann dort auch von sich aus schreiben (z. B. Erinnerungen)
 - Fertig: Lagebild – auf „Was ist gerade los?“ eine kurze Übersicht über Termine,
   Erinnerungen, Alarme, Server und Mails; auf Wunsch (`INITIATIVE_AKTIV=true`) denkt Missa
-  alle 15 Minuten von selbst nach, ob gerade etwas wichtig ist (siehe docs/initiative.md)
+  alle 15 Minuten von selbst nach, ob gerade etwas wichtig ist, und meldet sich gebündelt,
+  höchstens fünfmal am Tag; „Warum hast du mir das geschrieben?“, „lass das“ / „war gut“;
+  nach einer Auszeit kommt ein einziges Briefing (siehe docs/initiative.md)
 - Fertig: Erinnerungen auf die Minute genau, auch wiederkehrend („jeden Montag um 7“),
   mit Nachholen nach einem Neustart (siehe docs/erinnerungen.md)
 - Fertig: Routinen per Gespräch („jeden Freitag um 17 Uhr Wochenrückblick“) und Nachtschicht
@@ -121,8 +123,8 @@ Talk nutzen dieselbe Logik.
   Notfall-Stopp und welche Rechte jeder Dienst braucht
 - **[docs/routinen-nachtschicht.md](docs/routinen-nachtschicht.md)** – Routinen per Gespräch,
   Nachtschicht, Morgenbericht, Sicherheitsregeln im Hintergrund
-- **[docs/initiative.md](docs/initiative.md)** – Missa Initiative: Lagebild („Was ist gerade
-  los?“) aus allen eingerichteten Quellen
+- **[docs/initiative.md](docs/initiative.md)** – Missa Initiative: Lagebild, Denkschleife,
+  gebündelte Meldungen mit Tagesbudget, Gedanken-Journal, Rückmeldungen, Briefing
 - **[docs/server-alarme.md](docs/server-alarme.md)** – Server-Alarme: Stufen, Ruhezeit, Regeln
   per Gespräch, Hinweise auf Auffälliges, Erreichbarkeit, nur lesendes Proxmox-Token
 - **[docs/monitoring.md](docs/monitoring.md)** – Schnittstelle und JSON-Formate der
