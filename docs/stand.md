@@ -34,7 +34,7 @@ Legende: ✅ erledigt (Code auf main, Test grün, Einstellung in
 | S5 Proxmox-VMs | 🟡 | Test für den Eintrag ins Homelab-Wissen nach dem Erstellen |
 | S6 Caddy, Minecraft | ✅ | – |
 | S7 Git-Server, GitHub, Prompts | ✅ | – |
-| I1–I7 Missa Initiative | 🟡 | in Arbeit: Lagebild und Denkschleife fertig, Meldungen und Folgendes fehlen |
+| I1–I7 Missa Initiative | 🟡 | in Arbeit: Lagebild, Denkschleife und Meldungen fertig; Budget, Journal, Rückmeldungen, Briefing fehlen |
 
 ## Einzelpunkte
 
@@ -153,6 +153,10 @@ Legende: ✅ erledigt (Code auf main, Test grün, Einstellung in
 | I2 | Chat-Anfrage oder Notfall-Stopp → übersprungen | ✅ | `::test_waehrend_chat_oder_hintergrund_wird_uebersprungen`, `::test_waehrend_notfall_stopp_wird_uebersprungen`, `::test_chat_anfrage_zaehlt_als_beschaeftigt` |
 | I2 | Kaputtes JSON oder `notfall` → `nichts` mit Grund | ✅ | `::test_kaputte_antwort_oder_notfall_endet_als_nichts_mit_grund` |
 | I2 | Kein Werkzeug, keine Bestätigung | ✅ | `::test_lauf_kann_kein_werkzeug_aufrufen_und_nichts_bestaetigen` |
+| I3 | `melden` = eine Nachricht, auch bei drei Punkten | ✅ | `Initiative._umsetzen` über `Alarme.melden`; `::test_melden_kommt_als_eine_nachricht_auch_bei_drei_punkten` |
+| I3 | In der Ruhezeit wartet die Meldung | ✅ | `::test_in_der_ruhezeit_wartet_die_meldung` |
+| I3 | Gleiches Thema nicht im Ruhefenster | ✅ | `::test_gleiches_thema_nicht_noch_einmal_im_ruhefenster` |
+| I3 | Notiz im nächsten Gespräch genau einmal | ✅ | `Initiative.kontext`; `::test_notiz_im_gespraech_genau_einmal` |
 
 ## Weitere Beobachtungen
 

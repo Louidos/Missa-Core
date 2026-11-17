@@ -78,6 +78,31 @@ Standardmässig ist die Denkschleife **aus**: Nach einem Update ändert sich nic
 - Fehler beim Modellaufruf brechen den Dienst nie ab; beim nächsten Intervall geht es neu
   los (auch wenn das Lagebild gleich geblieben ist).
 
+## Meldungen
+
+Was die Denkschleife entscheidet, setzt der Code so um:
+
+- **melden** läuft über die vorhandenen Alarm-Stufen (`Alarme.melden` mit
+  `quelle = "initiative"`, der Stufe und dem Schlüssel `initiative:<thema>`). Damit gelten
+  Ruhezeit und Ruhefenster automatisch: Nachts wartet eine Meldung bis zum Ende der
+  Ruhezeit, und dasselbe Thema kommt innerhalb des Ruhefensters (Standard 60 Minuten,
+  `alarm_einstellungen`) nicht noch einmal – ausser es ist dringender geworden. Einen eigenen
+  Zustellweg gibt es nicht.
+- **Gebündelt:** Mehrere Punkte in einem Lauf ergeben **eine** Nachricht mit einer kurzen
+  Liste („3 Dinge, die mir aufgefallen sind“). Die Stufe ist die höchste der Punkte.
+- **notieren** schreibt still in die Tabelle `initiative_notizen` (Zeit, Schlüssel, Text,
+  erledigt). Offene Notizen erwähnt Missa im nächsten Gespräch **einmal** von sich aus
+  (Kontextquelle wie bei den Ergebnissen der Nachtschicht); danach gelten sie als erledigt.
+  Eine noch offene Notiz zum selben Thema wird ersetzt statt verdoppelt.
+- Titel und Text schreibt Missa in ihrem Ton (der Charakter steht im Prompt der
+  Denkschleife), nennt aber immer klar, worum es geht.
+- Was aus jedem Punkt geworden ist (`gemeldet`, `notiert`, `im Ruhefenster schon gemeldet`),
+  steht im Lauf in `initiative_laeufe`.
+
+Eine Anruf-Stufe gibt es nicht: Es ist noch kein Telefon-Kanal eingerichtet. Kommt einer dazu,
+wird er als weiterer Kanal bei `Zustellung` (`src/missa/core/zustellung.py`) registriert – die
+Denkschleife selbst bleibt dabei unverändert und meldet höchstens `wichtig`.
+
 ## Einstellungen
 
 | Variable | Standard | Bedeutung |
