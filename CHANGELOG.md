@@ -7,6 +7,8 @@ die Versionsnummern folgen [Semantic Versioning](https://semver.org/lang/de/).
 
 ## Unveröffentlicht
 
+## 1.1.0 – 2026-11-23
+
 ### Hinzugefügt
 
 - Geräte können sich mit eigenem Token an Missa anschliessen (#117)
@@ -19,6 +21,11 @@ die Versionsnummern folgen [Semantic Versioning](https://semver.org/lang/de/).
 ### Geändert
 
 - Missa sucht erst und öffnet dann, und sagt klar, wenn der Rechner nicht erreichbar ist (#119)
+
+## 1.0.0 – 2026-11-23
+
+- Gleicher Stand wie 0.11.0, auf GitHub als Release `v1.0.0` veröffentlicht. Weil das
+  Update-Script immer den höchsten Release-Tag nimmt, geht es danach mit 1.1.0 weiter.
 
 ## 0.11.0 – 2026-11-17
 
