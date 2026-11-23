@@ -7,6 +7,10 @@ die Versionsnummern folgen [Semantic Versioning](https://semver.org/lang/de/).
 
 ## Unveröffentlicht
 
+### Hinzugefügt
+
+- Geräte können sich mit eigenem Token an Missa anschliessen (#117)
+
 ## 0.11.0 – 2026-11-17
 
 ### Hinzugefügt

@@ -207,6 +207,8 @@ class Einstellungen:
     initiative_stumm_tage: int = 14
     briefing_aktiv: bool = True
     briefing_ab_minuten: int = 30
+    geraete_aktiv: bool = False
+    geraete_frist: int = 60
 
     @property
     def notfall_datei(self) -> Path:
@@ -657,6 +659,8 @@ class Einstellungen:
             initiative_stumm_tage=max(1, zahl("INITIATIVE_STUMM_TAGE", 14)),
             briefing_aktiv=wert("BRIEFING_AKTIV", "true").casefold() in WAHR,
             briefing_ab_minuten=max(1, zahl("BRIEFING_AB_MINUTEN", 30)),
+            geraete_aktiv=wert("MISSA_GERAETE_AKTIV", "false").casefold() in WAHR,
+            geraete_frist=min(600, max(5, zahl("MISSA_GERAETE_FRIST", 60))),
         )
 
     def pruefen(self) -> None:
