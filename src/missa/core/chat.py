@@ -14,7 +14,7 @@ from typing import Any
 
 from missa.core.config import Einstellungen
 from missa.core.llama import ANFRAGE_ZU_GROSS, LlamaClient, LlamaFehler, unerwartet
-from missa.core.prompt import charakter_lesen, systemprompt_bauen
+from missa.core.prompt import MODUS_SPRACHE, SPRACH_HINWEIS, charakter_lesen, systemprompt_bauen
 from missa.core.rechte import schwaerzen, sitzungs_schluessel
 from missa.core.verlauf import Verlauf
 from missa.core.werkzeuge import Werkzeugkasten, fremd_markieren
@@ -187,7 +187,11 @@ class ChatDienst:
     # ------------------------------------------------------------------ Vorbereitung
 
     def systemprompt(
-        self, frage: str, client_system: str | None = None, sitzung: str | None = None
+        self,
+        frage: str,
+        client_system: str | None = None,
+        sitzung: str | None = None,
+        modus: str | None = None,
     ) -> str:
         zusatz = []
         for quelle in self.kontext_quellen:
@@ -206,6 +210,9 @@ class ChatDienst:
                 continue
             if block:
                 zusatz.append(block)
+        if modus == MODUS_SPRACHE:
+            # Die App liest die Antwort vor (X-Missa-Modus: sprache).
+            zusatz.append(SPRACH_HINWEIS)
         return systemprompt_bauen(
             charakter=charakter_lesen(self.einstellungen.charakter_datei),
             jetzt=self._uhr(),
@@ -214,7 +221,9 @@ class ChatDienst:
             client_system=client_system,
         )
 
-    def vorbereiten(self, anfrage: dict[str, Any], sitzung: str | None) -> Vorbereitet:
+    def vorbereiten(
+        self, anfrage: dict[str, Any], sitzung: str | None, modus: str | None = None
+    ) -> Vorbereitet:
         """Baut aus der Client-Anfrage die Nachrichten für llama-server.
 
         - Ganz vorne steht immer Missas Systemprompt; system-Nachrichten des
@@ -222,6 +231,7 @@ class ChatDienst:
         - Mit Sitzung und genau einer neuen Nachricht wird der gespeicherte
           Verlauf (letzte 20 Nachrichten) davor eingefügt. Schickt die App
           ihren Verlauf selbst mit, wird nichts doppelt eingefügt.
+        - ``modus="sprache"`` (Header ``X-Missa-Modus``): Antworten zum Vorlesen.
         """
         nachrichten = anfrage.get("messages") or []
         if not isinstance(nachrichten, list) or not nachrichten:
@@ -249,7 +259,7 @@ class ChatDienst:
             frueher = self.verlauf.laden(sitzung, VERLAUF_LAENGE)
 
         system = self.systemprompt(
-            frage, "\n\n".join(t for t in client_system if t) or None, sitzung
+            frage, "\n\n".join(t for t in client_system if t) or None, sitzung, modus
         )
         parameter = {k: anfrage[k] for k in DURCHGEREICHT if anfrage.get(k) is not None}
         letzte = gespraech[-1]
