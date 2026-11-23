@@ -40,6 +40,8 @@ from missa.core.zustellung import Zustellung
 log = logging.getLogger(__name__)
 
 MAX_SITZUNG_LAENGE = 200
+#: Endpunkte, die ein Gerät mit seinem eigenen Token aufruft (Geräte-Anschluss v1).
+GERAETE_PFADE = ("/api/geraete/anmelden", "/api/geraete/auftraege", "/api/geraete/ergebnis")
 
 
 class Nachricht(BaseModel):
@@ -543,6 +545,12 @@ def create_app(
         for werkzeug in initiative_werkzeuge(initiative):
             werkzeuge.hinzufuegen(werkzeug)
     dokumente.formulierer = dienst.formulieren
+    # Angeschlossene Geräte (nur mit MISSA_GERAETE_AKTIV=true, sonst alles wie bisher).
+    geraete = None
+    if einstellungen.geraete_aktiv:
+        from missa.core.geraete import geraete_bauen
+
+        geraete = geraete_bauen(einstellungen, uhr)
     gestartet = int(time.time())
 
     @asynccontextmanager
@@ -567,6 +575,8 @@ def create_app(
         if panel_ereignisse is not None:
             panel_ereignisse.starten()
         yield
+        if geraete is not None:
+            await geraete.schliessen()
         if panel_ereignisse is not None:
             await panel_ereignisse.stoppen()
         await briefing.stoppen()
@@ -593,7 +603,15 @@ def create_app(
     from missa.channels.nextcloud_talk import WEBHOOK_PFAD
 
     # Anmeldung, Grössengrenze und Sperre nach Fehlversuchen, bevor ein Body gelesen wird.
-    app.add_middleware(Schutz, api_key=einstellungen.api_key, offen=("/health", WEBHOOK_PFAD))
+    app.add_middleware(
+        Schutz,
+        api_key=einstellungen.api_key,
+        offen=("/health", WEBHOOK_PFAD),
+        geraete_pfade=GERAETE_PFADE,
+        geraet_pruefen=(lambda token: geraete.tokens.pruefen(token) is not None)
+        if geraete is not None
+        else None,
+    )
     app.state.einstellungen = einstellungen
     app.state.dienst = dienst
     app.state.gedaechtnis = gedaechtnis
@@ -627,6 +645,7 @@ def create_app(
     app.state.lagebild = lagebild
     app.state.initiative = initiative
     app.state.briefing = briefing
+    app.state.geraete = geraete
 
     # -------------------------------------------------------------- Fehlerformat
 
@@ -705,6 +724,10 @@ def create_app(
                 request.headers.get("authorization", ""), einstellungen.api_key
             ):
                 inhalt["missa_control"]["fehler"] = "Fehler (Details nur mit Anmeldung)"
+        if geraete is not None and _angemeldet(
+            request.headers.get("authorization", ""), einstellungen.api_key
+        ):
+            inhalt["geraete"] = geraete.status()
         return JSONResponse(status_code=200 if llama_ok else 503, content=inhalt)
 
     def modell_info() -> dict[str, Any]:
@@ -990,8 +1013,86 @@ def create_app(
                 500, INTERNER_FEHLER_TEXT, "server_error", INTERNER_FEHLER, vorbereitet.anfrage_id
             )
 
+    # -------------------------------------------------------------- Geräte
+
+    if geraete is not None:
+        _geraete_endpunkte(app, geraete, geschuetzt)
+
     # -------------------------------------------------------------- Kanäle
 
     app.state.talk = talk_einrichten(app, einstellungen, dienst, talk_client)
 
     return app
+
+
+class GeraetAnmeldung(BaseModel):
+    """``POST /api/geraete/anmelden`` (Geräte-Anschluss v1)."""
+
+    protokoll: int
+    geraet: str
+    sitzungen: list[str] = Field(default_factory=list)
+    werkzeuge: list[Any] = Field(default_factory=list)
+
+
+class GeraetErgebnis(BaseModel):
+    """``POST /api/geraete/ergebnis`` (Geräte-Anschluss v1)."""
+
+    model_config = ConfigDict(extra="allow")
+
+    id: str = Field(min_length=1, max_length=100)
+    ok: bool
+    ergebnis: str | None = None
+    art: str | None = None
+    fehler: str | None = None
+
+
+def _geraete_endpunkte(app: FastAPI, geraete: Any, geschuetzt: list[Any]) -> None:
+    """Die drei Endpunkte des Vertrags und ``GET /api/geraete`` (nur mit Geräte-Anschluss)."""
+    from missa.core.geraete import GeraeteFehler, bearer_token
+
+    def geraet_name(request: Request) -> str:
+        """Gerät zum Token – die Schutz-Middleware hat schon geprüft, hier noch einmal."""
+        name = geraete.tokens.pruefen(bearer_token(request.headers.get("authorization")))
+        if name is None:
+            raise HTTPException(
+                status_code=401,
+                detail="Fehlender, ungültiger oder gesperrter Geräte-Token",
+                headers={"WWW-Authenticate": "Bearer"},
+            )
+        return name
+
+    @app.post("/api/geraete/anmelden", tags=["Geräte"])
+    async def geraet_anmelden(
+        anmeldung: GeraetAnmeldung, name: Annotated[str, Depends(geraet_name)]
+    ) -> dict[str, Any]:
+        try:
+            return geraete.anmelden(
+                name,
+                protokoll=anmeldung.protokoll,
+                geraet_name=anmeldung.geraet,
+                sitzungen=anmeldung.sitzungen,
+                werkzeuge=anmeldung.werkzeuge,
+            )
+        except GeraeteFehler as fehler:
+            raise HTTPException(status_code=400, detail=str(fehler)) from fehler
+
+    @app.get("/api/geraete/auftraege", tags=["Geräte"])
+    async def geraet_auftraege(name: Annotated[str, Depends(geraet_name)]):
+        return StreamingResponse(
+            geraete.stream(name, lambda: geraete.tokens.aktiv(name)),
+            media_type="text/event-stream",
+            headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
+        )
+
+    @app.post("/api/geraete/ergebnis", tags=["Geräte"])
+    async def geraet_ergebnis(
+        ergebnis: GeraetErgebnis, name: Annotated[str, Depends(geraet_name)]
+    ) -> JSONResponse:
+        status, inhalt = geraete.ergebnis(name, ergebnis.model_dump())
+        return JSONResponse(status_code=status, content=inhalt)
+
+    @app.get("/api/geraete", dependencies=geschuetzt, tags=["Geräte"])
+    async def geraete_anzeigen() -> dict[str, Any]:
+        """Alle angelegten Geräte mit Zustand, Sitzungen und Werkzeugen (nur lesend)."""
+        liste = geraete.uebersicht()
+        return {"anzahl": len(liste), "geraete": liste}

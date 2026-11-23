@@ -7,6 +7,8 @@ Läuft als reine ASGI-Middleware *vor* FastAPI. Damit gilt:
 - Kein Body ist grösser als ``max_bytes`` – auch nicht ohne ``Content-Length``
   (chunked), der Rest wird dann nicht mehr gelesen.
 - Zu viele Fehlversuche von derselben Adresse sperren sie für eine Weile (429).
+- Die Endpunkte der Geräte (``geraete_pfade``) verlangen statt des API-Schlüssels einen
+  gültigen Geräte-Token (``geraet_pruefen``); Fehlversuche zählen genauso.
 
 Die Prüfung in den Endpunkten (``Depends(anmeldung)``) bleibt zusätzlich bestehen.
 """
@@ -70,10 +72,14 @@ class Schutz:
         offen: Iterable[str] = ("/health",),
         max_bytes: int = MAX_ANFRAGE_BYTES,
         uhr: Callable[[], float] = time.monotonic,
+        geraete_pfade: Iterable[str] = (),
+        geraet_pruefen: Callable[[bytes | None], bool] | None = None,
     ) -> None:
         self.app = app
         self.api_key = api_key
         self.offen = frozenset(offen)
+        self.geraete_pfade = frozenset(geraete_pfade) if geraet_pruefen is not None else frozenset()
+        self.geraet_pruefen = geraet_pruefen
         self.max_bytes = max_bytes
         self.uhr = uhr
         self._fehlversuche: dict[str, deque[float]] = {}
@@ -90,6 +96,20 @@ class Schutz:
                 if art.lower() != b"bearer":
                     return False
                 return secrets.compare_digest(token.strip(), self.api_key.encode())
+        return False
+
+    def _geraet_gueltig(self, scope: Scope) -> bool:
+        from missa.core.geraete import bearer_token
+
+        if self.geraet_pruefen is None:
+            return False
+        for name, wert in scope.get("headers") or ():
+            if name == b"authorization":
+                try:
+                    return self.geraet_pruefen(bearer_token(wert))
+                except Exception:
+                    log.exception("Geräte-Token konnte nicht geprüft werden")
+                    return False
         return False
 
     def _gesperrt(self, adresse: str) -> bool:
@@ -135,12 +155,15 @@ class Schutz:
                     **{"Retry-After": str(int(SPERRE_SEKUNDEN))},
                 )
                 return
-            if not self._token_gueltig(scope):
+            geraet = pfad in self.geraete_pfade
+            if not (self._geraet_gueltig(scope) if geraet else self._token_gueltig(scope)):
                 self._fehlversuch(adresse, pfad)
                 await _antwort(
                     send,
                     401,
-                    "Fehlender oder ungültiger API-Schlüssel (Authorization: Bearer …)",
+                    "Fehlender, ungültiger oder gesperrter Geräte-Token (Authorization: Bearer …)"
+                    if geraet
+                    else "Fehlender oder ungültiger API-Schlüssel (Authorization: Bearer …)",
                     "authentication_error",
                     "nicht_angemeldet",
                     **{"WWW-Authenticate": "Bearer"},
