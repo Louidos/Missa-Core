@@ -24,8 +24,8 @@ die Versionsnummern folgen [Semantic Versioning](https://semver.org/lang/de/).
 
 ## 1.0.0 – 2026-11-23
 
-- Gleicher Stand wie 0.11.0, auf GitHub als Release `v1.0.0` veröffentlicht. Weil das
-  Update-Script immer den höchsten Release-Tag nimmt, geht es danach mit 1.1.0 weiter.
+- Erste Version 1: gleicher Stand wie 0.11.0. Ab hier zählen die Versionen ab 1
+  (1.x.y); 0.x gibt es nicht mehr.
 
 ## 0.11.0 – 2026-11-17
 
