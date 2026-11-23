@@ -121,6 +121,11 @@ dazu. Ein ausgefallenes Panel macht `/health` nicht zu 503 – Missa arbeitet oh
 Den genauen Fehlertext unter `fehler` gibt es nur mit Anmeldung (Bearer-Header); ohne steht
 dort nur `"Fehler (Details nur mit Anmeldung)"`.
 
+Ist der Geräte-Anschluss an (`MISSA_GERAETE_AKTIV=true`, siehe [geraete.md](geraete.md)),
+kommt **nur mit Anmeldung** zusätzlich
+`"geraete": [{"name": "laptop", "online": true, "werkzeuge": ["rechner_status", …], "seit": "…"}]`
+dazu (`seit`: seit wann der Zustand online/offline gilt).
+
 ### `GET /v1/models` – verfügbare Modelle
 
 ```bash
@@ -627,6 +632,39 @@ curl "$MISSA/api/initiative/journal?tage=1" -H "Authorization: Bearer $KEY"
 
 `ursache` sagt bei übersprungenen Läufen, warum (z. B. `Lagebild unverändert`,
 `Chat-Anfrage läuft`, `Notfall-Stopp aktiv`). Mehr dazu: [initiative.md](initiative.md).
+
+### `GET /api/geraete` – angeschlossene Geräte
+
+Nur mit `MISSA_GERAETE_AKTIV=true` (sonst 404), Anmeldung mit dem API-Schlüssel. Alle
+angelegten Geräte mit Zustand, Sitzungen, angenommenen Werkzeugen (mit der Stufe, die gilt)
+und abgelehnten Werkzeugen mit Grund:
+
+```bash
+curl -s "$MISSA/api/geraete" -H "Authorization: Bearer $KEY"
+```
+
+```json
+{
+  "anzahl": 1,
+  "geraete": [
+    {
+      "name": "laptop", "online": true, "verbunden": true, "seit": "2026-11-23T09:12:03+01:00",
+      "angelegt": "2026-11-23T09:00:00+01:00", "gesperrt": null,
+      "sitzungen": ["laptop-louis"],
+      "werkzeuge": [{"name": "rechner_befehl", "stufe": "zerstoererisch", "beschreibung": "…"}],
+      "abgelehnt": [{"name": "dateien_loeschen", "grund": "Name muss mit rechner_ beginnen"}]
+    }
+  ]
+}
+```
+
+### `POST /api/geraete/anmelden`, `GET /api/geraete/auftraege`, `POST /api/geraete/ergebnis` – nur für Geräte
+
+Diese drei Endpunkte ruft nur ein angeschlossenes Gerät auf, mit seinem **eigenen Token**
+(`Authorization: Bearer <Geräte-Token>`, nicht der API-Schlüssel – der wird dort mit 401
+abgelehnt, genauso wie ein Geräte-Token überall sonst). Den Vertrag im Wortlaut, Beispiele
+und die Einrichtung beschreibt [geraete.md](geraete.md). Ohne `MISSA_GERAETE_AKTIV=true`
+gibt es sie nicht (404).
 
 ### `POST /channels/nextcloud-talk/webhook` – nur für Nextcloud Talk
 

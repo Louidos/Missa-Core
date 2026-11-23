@@ -107,6 +107,19 @@ Zu jeder Korrektur gibt es einen Test, der vorher rot war.
   - Es gibt Grössengrenzen.
   - Die TLS-Prüfung bleibt an.
 - **Dateien:** Schreiben geht nur in `Missa/`, Lesen nur in der eigenen Nextcloud.
+- **Angeschlossene Geräte** (nur mit `MISSA_GERAETE_AKTIV=true`, siehe
+  [geraete.md](geraete.md)):
+  - Jedes Gerät hat einen eigenen Token, gespeichert nur als SHA-256-Hash, Vergleich in
+    konstanter Zeit; sperren wirkt sofort. Der Token gilt nur für die drei Geräte-Endpunkte,
+    der API-Schlüssel dort nicht. Fehlversuche zählen wie bei der API (429).
+  - Die Verbindung baut immer das Gerät auf; Missa-Core erreicht das Gerät nie von sich aus.
+  - Geräte-Werkzeuge haben Mindeststufen (`rechner_befehl` & Co. immer `zerstoererisch`),
+    gelten nur in den Sitzungen des Geräts, laufen im Hintergrund nie (ausser `nur_lesen`),
+    und jedes Ergebnis ist fremder Inhalt. Notfall-Stopp und Aktionsprotokoll (mit
+    Gerätename) gelten wie überall.
+  - Was ein Werkzeug auf dem Gerät wirklich tut, entscheidet das Gerät (anderes Repo). Ein
+    kompromittiertes Gerät kann falsche Ergebnisse liefern – Missa behandelt sie darum nur
+    als Daten.
 - **Geheimnisse:** Sie werden in Aktionsprotokoll und Dienst-Log geschwärzt, und Backups
   enthalten sie nicht. Neue Dateien des Dienstes sind nur für ihn lesbar (`UMask=0077`).
 - **Dienst:** Er läuft als Benutzer `missa` mit enger systemd-Absicherung, siehe
@@ -116,7 +129,7 @@ Zu jeder Korrektur gibt es einen Test, der vorher rot war.
   - `shellcheck`,
   - `pip-audit`,
   - `gitleaks`,
-  - über 1200 Tests.
+  - über 1400 Tests.
 
 ## Was du selbst tun musst
 

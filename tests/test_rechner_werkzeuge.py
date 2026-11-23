@@ -582,3 +582,23 @@ def test_geraet_offline_klarer_satz(server, llama: FakeLlama):
     chat(api, "Öffne Rechnung.pdf")
     assert "rechner_" not in json.dumps(llama.anfragen[-1].get("tools", []))
     assert api.get("/health").json()["geraete"][0]["online"] is False
+
+
+# ----------------------------------------------------------------------------- Doku
+
+
+def test_doku_und_beispielkonfiguration_kennen_alles():
+    import re
+
+    projekt = Path(__file__).resolve().parents[1]
+    doku = (projekt / "docs" / "geraete.md").read_text(encoding="utf-8")
+    beispiel = (projekt / "config" / "missa.env.example").read_text(encoding="utf-8")
+    config = (projekt / "src" / "missa" / "core" / "config.py").read_text(encoding="utf-8")
+    variablen = set(re.findall(r"\"(MISSA_GERAETE_[A-Z_]+)\"", config))
+    assert len(variablen) >= 6
+    for name in variablen:
+        assert f"\n{name}=" in beispiel, f"{name} fehlt in missa.env.example"
+        assert f"| `{name}` |" in doku, f"{name} fehlt in docs/geraete.md"
+    # Die Tabelle der Mindeststufen in der Doku ist die im Code.
+    tabelle = dict(re.findall(r"^\| (rechner_[a-z_]+) \| ([a-z]+) \|", doku, re.MULTILINE))
+    assert tabelle == MINDESTSTUFEN

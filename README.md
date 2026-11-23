@@ -91,6 +91,13 @@ Talk nutzen dieselbe Logik.
   nutzt Missa alle Funktionen, die im Panel eingerichtet sind; neue erscheinen ohne Neustart,
   Freigaben entscheidet das Panel; Ereignisse des Panels (Freigabe wartet, Integration
   ausgefallen, Regel ausgelöst) meldet Missa von sich aus über Talk (siehe docs/missa-control.md)
+- Fertig: Geräte-Anschluss – ein Rechner (zuerst der Laptop mit hypr-shell) schliesst sich mit
+  eigenem Token an (`MISSA_GERAETE_AKTIV=true`); Missa sucht, liest und öffnet dort Dateien,
+  startet Programme und führt nach Rückfrage Befehle aus – mit denselben Rechten, Rückfragen
+  und Protokollen wie ihre eigenen Werkzeuge, nur in den Sitzungen des Geräts. Erinnerungen
+  und Alarme erscheinen auch als Benachrichtigung am Desktop (siehe docs/geraete.md)
+- Fertig: Sprechmodus – mit `X-Missa-Modus: sprache` antwortet Missa so, dass es sich
+  vorgelesen gut anhört (siehe docs/api.md)
 - Später als eigene Aufträge: Telefon, Push, Smart Home
 - Änderungen im Detail: [CHANGELOG.md](CHANGELOG.md)
 
