@@ -624,6 +624,240 @@ def geraete_bauen(einstellungen: Any, uhr: Callable[[], datetime] | None = None)
     return Geraete(tokens, einstellungen.zone, frist_s=einstellungen.geraete_frist, uhr=uhr)
 
 
+# ----------------------------------------------------------------------------- Werkzeuge
+
+#: Vorsilbe, die jedes Werkzeug eines Geräts tragen muss.
+VORSILBE = "rechner_"
+#: Mindeststufe der bekannten Rechner-Werkzeuge. Das Gerät darf höher melden, nie tiefer.
+MINDESTSTUFEN: dict[str, str] = {
+    "rechner_status": "lesen",
+    "rechner_dateien_suchen": "lesen",
+    "rechner_datei_lesen": "lesen",
+    "rechner_fenster_anzeigen": "lesen",
+    "rechner_zwischenablage_lesen": "lesen",
+    "rechner_oeffnen": "schreiben",
+    "rechner_fenster_steuern": "schreiben",
+    "rechner_medien": "schreiben",
+    "rechner_benachrichtigen": "schreiben",
+    "rechner_oberflaeche": "schreiben",
+    "rechner_datei_anlegen": "schreiben",
+    "rechner_zwischenablage_setzen": "schreiben",
+    "rechner_befehl": "zerstoererisch",
+    "rechner_datei_aendern": "zerstoererisch",
+    "rechner_prozess_beenden": "zerstoererisch",
+    "rechner_energie": "zerstoererisch",
+}
+#: Unbekannte ``rechner_*``-Werkzeuge sind mindestens ``schreiben``.
+STUFE_UNBEKANNT = "schreiben"
+_RANG = {"lesen": 0, "schreiben": 1, "zerstoererisch": 2}
+#: In der Vorschau wird der Inhalt dieser Angaben wörtlich gezeigt.
+BEFEHL_ANGABEN = ("befehl", "kommando", "command", "cmd")
+
+OFFLINE_TEXT = (
+    "NICHT AUSGEFÜHRT: Der Rechner „{geraet}“ ist gerade nicht erreichbar (offline) – "
+    "„{name}“ lief nicht. Sag Louis das ehrlich und behaupte nicht, es sei passiert."
+)
+ZEITLIMIT_TEXT = (
+    "NICHT BESTÄTIGT: Der Rechner „{geraet}“ hat auf „{name}“ nicht innerhalb von {frist} "
+    "Sekunden geantwortet; der Auftrag wurde abgebrochen. Sag Louis, dass du nicht weisst, ob "
+    "es geklappt hat – behaupte keinen Erfolg."
+)
+ABGELEHNT_TEXT = (
+    "NICHT AUSGEFÜHRT: Der Rechner „{geraet}“ hat „{name}“ abgelehnt: {fehler}. Sag Louis das "
+    "ehrlich."
+)
+FEHLER_TEXT = (
+    "FEHLGESCHLAGEN: Auf dem Rechner „{geraet}“ ist „{name}“ nicht gelungen ({art}): {fehler}. "
+    "Sag Louis das ehrlich und behaupte keinen Erfolg."
+)
+HINTERGRUND_TEXT = (
+    "NICHT AUSGEFÜHRT: „{name}“ läuft auf dem Rechner „{geraet}“. Im Hintergrund (Routine, "
+    "Nachtschicht) benutzt Missa keine Geräte-Werkzeuge{zusatz}. Schlag es Louis im nächsten "
+    "Gespräch vor."
+)
+
+
+def stufe_bestimmen(name: str, gemeldet: str) -> str:
+    """Die Stufe, die gilt: die höhere aus Meldung des Geräts und Mindeststufe."""
+    mindestens = MINDESTSTUFEN.get(name, STUFE_UNBEKANNT)
+    return gemeldet if _RANG.get(gemeldet, 2) >= _RANG[mindestens] else mindestens
+
+
+class GeraeteWerkzeuge:
+    """Macht die angemeldeten Werkzeuge der Geräte zu Werkzeugen von Missa.
+
+    Je Gerät eine Gruppe ``geraet:<name>`` im Werkzeugkasten: Sie ist nur zu sehen, solange
+    das Gerät online ist, und nur in den Sitzungen, die es bei der Anmeldung genannt hat
+    (``MISSA_GERAETE_ALLE_SITZUNGEN=true``: überall). Stufen, Rückfrage, fremde Inhalte,
+    Notfall-Stopp und Aktionsprotokoll übernimmt der Werkzeugkasten wie bei jedem Werkzeug.
+    """
+
+    def __init__(
+        self,
+        geraete: Geraete,
+        kasten: Any,
+        *,
+        alle_sitzungen: bool = False,
+        max_werkzeuge: int = 20,
+        im_hintergrund: str = "aus",
+    ) -> None:
+        self.geraete = geraete
+        self.kasten = kasten
+        self.alle_sitzungen = alle_sitzungen
+        self.max_werkzeuge = max(0, max_werkzeuge)
+        self.im_hintergrund = im_hintergrund
+        geraete.pruefer = self.pruefen
+        geraete.bei_aenderung.append(self.aktualisieren)
+
+    @staticmethod
+    def gruppe(geraet: str) -> str:
+        return f"geraet:{geraet}"
+
+    # -------------------------------------------------------------- Anmeldung
+
+    def pruefen(
+        self, geraet: str, werkzeuge: list[dict[str, Any]]
+    ) -> tuple[list[dict[str, Any]], list[dict[str, str]]]:
+        """Regeln für angemeldete Werkzeuge: Vorsilbe, kein eingebauter Name, Stufe, Anzahl."""
+        grob, abgelehnt = werkzeuge_grob_pruefen(geraet, werkzeuge)
+        eigene = set(self.kasten.gruppe(self.gruppe(geraet)))
+        angenommen: list[dict[str, Any]] = []
+        for eintrag in grob:
+            name = eintrag["name"]
+            if not name.startswith(VORSILBE) or name == VORSILBE:
+                abgelehnt.append({"name": name, "grund": f"Name muss mit {VORSILBE} beginnen"})
+                continue
+            if self.kasten.ist_eingebaut(name):
+                abgelehnt.append({"name": name, "grund": "so heisst ein eingebautes Werkzeug"})
+                continue
+            if name in self.kasten and name not in eigene:
+                abgelehnt.append({"name": name, "grund": "Name ist schon vergeben"})
+                continue
+            if len(angenommen) >= self.max_werkzeuge:
+                abgelehnt.append(
+                    {
+                        "name": name,
+                        "grund": f"mehr als {self.max_werkzeuge} Werkzeuge "
+                        "(MISSA_GERAETE_MAX_WERKZEUGE)",
+                    }
+                )
+                continue
+            stufe = stufe_bestimmen(name, eintrag["stufe"])
+            if stufe != eintrag["stufe"]:
+                log.warning(
+                    "Gerät %s: %s als %s gemeldet – gilt als %s (Mindeststufe)",
+                    geraet,
+                    name,
+                    eintrag["stufe"],
+                    stufe,
+                )
+            angenommen.append({**eintrag, "stufe": stufe})
+        return angenommen, abgelehnt
+
+    def aktualisieren(self, geraet: Geraet) -> None:
+        """Lädt die Gruppe des Geräts neu: online mit seinen Werkzeugen, offline leer."""
+        werkzeuge = [self._werkzeug(geraet.name, w) for w in geraet.werkzeuge]
+        self.kasten.gruppe_ersetzen(
+            self.gruppe(geraet.name),
+            werkzeuge if geraet.online else [],
+            sichtbar=self._sichtbarkeit(geraet.name),
+        )
+
+    # -------------------------------------------------------------- Sichtbarkeit
+
+    def _sichtbarkeit(self, name: str):
+        from missa.core.werkzeuge import Stufe, im_hintergrund
+
+        def sichtbar(werkzeug: Any, sitzung: str | None) -> bool:
+            geraet = self.geraete.geraet(name)
+            if geraet is None or not geraet.online:
+                return False
+            if im_hintergrund.get():
+                return self.im_hintergrund == "nur_lesen" and werkzeug.stufe is Stufe.LESEN
+            return self.alle_sitzungen or (sitzung is not None and sitzung in geraet.sitzungen)
+
+        return sichtbar
+
+    # -------------------------------------------------------------- Werkzeug
+
+    def _werkzeug(self, geraet: str, eintrag: dict[str, Any]) -> Any:
+        from missa.core.werkzeuge import Stufe, Werkzeug
+
+        name = eintrag["name"]
+        stufe = Stufe(eintrag["stufe"])
+
+        async def aufrufen(**argumente: Any) -> str:
+            return await self.aufrufen(geraet, name, stufe, argumente)
+
+        aufrufen.__name__ = name
+
+        def vorschau(**argumente: Any) -> str:
+            return self.vorschau(geraet, name, argumente)
+
+        return Werkzeug(
+            name,
+            f"{eintrag['beschreibung']} (läuft auf dem Rechner „{geraet}“)",
+            eintrag["parameter"],
+            aufrufen,
+            stufe=stufe,
+            vorschau=vorschau,
+            geraet=geraet,
+        )
+
+    @staticmethod
+    def vorschau(geraet: str, name: str, argumente: dict[str, Any]) -> str:
+        """Für die Rückfrage: Gerät und genaue Aktion, ohne etwas zu tun."""
+        befehl = next(
+            (argumente[k] for k in BEFEHL_ANGABEN if isinstance(argumente.get(k), str)), None
+        )
+        if befehl is not None:
+            rest = {k: v for k, v in argumente.items() if k not in BEFEHL_ANGABEN}
+            zusatz = f" ({json.dumps(rest, ensure_ascii=False)})" if rest else ""
+            return f"Auf {geraet} wird ausgeführt: `{befehl}`{zusatz}"
+        angaben = json.dumps(argumente, ensure_ascii=False) if argumente else "ohne Angaben"
+        return f"Auf {geraet} wird ausgeführt: {name} {angaben}"
+
+    async def aufrufen(self, geraet: str, name: str, stufe: Any, argumente: dict[str, Any]) -> str:
+        from missa.core.werkzeuge import Stufe, WerkzeugFehler, im_hintergrund
+
+        if im_hintergrund.get() and not (
+            self.im_hintergrund == "nur_lesen" and stufe is Stufe.LESEN
+        ):
+            zusatz = (
+                " ausser lesenden (MISSA_GERAETE_IM_HINTERGRUND=nur_lesen)"
+                if self.im_hintergrund == "nur_lesen"
+                else " (MISSA_GERAETE_IM_HINTERGRUND=aus)"
+            )
+            raise WerkzeugFehler(HINTERGRUND_TEXT.format(name=name, geraet=geraet, zusatz=zusatz))
+        try:
+            ergebnis = await self.geraete.auftrag(geraet, name, argumente)
+        except GeraetNichtErreichbar as fehler:
+            raise WerkzeugFehler(OFFLINE_TEXT.format(geraet=geraet, name=name)) from fehler
+        except GeraetZeitlimit as fehler:
+            raise WerkzeugFehler(
+                ZEITLIMIT_TEXT.format(geraet=geraet, name=name, frist=self.geraete.frist_s)
+            ) from fehler
+        if ergebnis.ok:
+            return ergebnis.text or "(Der Rechner meldet Erfolg ohne weiteren Text.)"
+        if ergebnis.art == "abgelehnt":
+            raise WerkzeugFehler(
+                ABGELEHNT_TEXT.format(geraet=geraet, name=name, fehler=ergebnis.fehler)
+            )
+        raise WerkzeugFehler(
+            FEHLER_TEXT.format(geraet=geraet, name=name, art=ergebnis.art, fehler=ergebnis.fehler)
+        )
+
+
+def geraete_werkzeuge_bauen(einstellungen: Any, geraete: Geraete, kasten: Any) -> GeraeteWerkzeuge:
+    return GeraeteWerkzeuge(
+        geraete,
+        kasten,
+        alle_sitzungen=einstellungen.geraete_alle_sitzungen,
+        max_werkzeuge=einstellungen.geraete_max_werkzeuge,
+        im_hintergrund=einstellungen.geraete_im_hintergrund,
+    )
+
+
 # ----------------------------------------------------------------------------- Kommandozeile
 
 

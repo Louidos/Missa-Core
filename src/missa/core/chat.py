@@ -182,7 +182,9 @@ class ChatDienst:
 
     # ------------------------------------------------------------------ Vorbereitung
 
-    def systemprompt(self, frage: str, client_system: str | None = None) -> str:
+    def systemprompt(
+        self, frage: str, client_system: str | None = None, sitzung: str | None = None
+    ) -> str:
         zusatz = []
         for quelle in self.kontext_quellen:
             try:
@@ -195,7 +197,7 @@ class ChatDienst:
         return systemprompt_bauen(
             charakter=charakter_lesen(self.einstellungen.charakter_datei),
             jetzt=self._uhr(),
-            werkzeuge=self.werkzeuge.beschreibung_fuer_prompt(),
+            werkzeuge=self.werkzeuge.beschreibung_fuer_prompt(sitzung),
             zusatz=zusatz,
             client_system=client_system,
         )
@@ -234,7 +236,9 @@ class ChatDienst:
         if sitzung and len(gespraech) == 1:
             frueher = self.verlauf.laden(sitzung, VERLAUF_LAENGE)
 
-        system = self.systemprompt(frage, "\n\n".join(t for t in client_system if t) or None)
+        system = self.systemprompt(
+            frage, "\n\n".join(t for t in client_system if t) or None, sitzung
+        )
         parameter = {k: anfrage[k] for k in DURCHGEREICHT if anfrage.get(k) is not None}
         letzte = gespraech[-1]
         return Vorbereitet(
@@ -283,8 +287,8 @@ class ChatDienst:
             "model": MODELL,
             "messages": vorbereitet.nachrichten,
         }
-        if mit_werkzeugen and len(self.werkzeuge):
-            nutzlast["tools"] = self.werkzeuge.schemas()
+        if mit_werkzeugen and (schemas := self.werkzeuge.schemas(vorbereitet.sitzung)):
+            nutzlast["tools"] = schemas
         return nutzlast
 
     def _melden(self, vorbereitet: Vorbereitet, fehler: LlamaFehler) -> LlamaFehler:

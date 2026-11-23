@@ -209,6 +209,9 @@ class Einstellungen:
     briefing_ab_minuten: int = 30
     geraete_aktiv: bool = False
     geraete_frist: int = 60
+    geraete_alle_sitzungen: bool = False
+    geraete_max_werkzeuge: int = 20
+    geraete_im_hintergrund: str = "aus"
 
     @property
     def notfall_datei(self) -> Path:
@@ -661,6 +664,11 @@ class Einstellungen:
             briefing_ab_minuten=max(1, zahl("BRIEFING_AB_MINUTEN", 30)),
             geraete_aktiv=wert("MISSA_GERAETE_AKTIV", "false").casefold() in WAHR,
             geraete_frist=min(600, max(5, zahl("MISSA_GERAETE_FRIST", 60))),
+            geraete_alle_sitzungen=wert("MISSA_GERAETE_ALLE_SITZUNGEN", "false").casefold() in WAHR,
+            geraete_max_werkzeuge=max(0, zahl("MISSA_GERAETE_MAX_WERKZEUGE", 20)),
+            geraete_im_hintergrund=wert(
+                "MISSA_GERAETE_IM_HINTERGRUND", cls.geraete_im_hintergrund
+            ).casefold(),
         )
 
     def pruefen(self) -> None:
@@ -694,6 +702,8 @@ class Einstellungen:
             raise KonfigurationsFehler(
                 "MISSA_CONTROL_IM_HINTERGRUND muss nur_lesen oder alles sein"
             )
+        if self.geraete_im_hintergrund not in ("aus", "nur_lesen"):
+            raise KonfigurationsFehler("MISSA_GERAETE_IM_HINTERGRUND muss aus oder nur_lesen sein")
         if self.missa_control_zeitlimit <= 0:
             raise KonfigurationsFehler("MISSA_CONTROL_ZEITLIMIT muss größer als 0 sein")
         if self.missa_control_url and not self.missa_control_url.startswith(

@@ -499,6 +499,7 @@ def test_fake_geraet_bekommt_auftrag_und_liefert_ergebnis(server, token):
                 "art": "",
                 "fehler": "",
             }
+            warten(lambda: geraet.ergebnis_antworten)
             assert geraet.ergebnis_antworten[-1].status_code == 200
             # Ein zweites Ergebnis für dieselbe ID wird abgelehnt.
             nochmal = geraet.ergebnis({"id": geraet.auftraege[-1]["id"], "ok": True})

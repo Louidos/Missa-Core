@@ -90,3 +90,39 @@ def test_gedaechtnis_werkzeuge_wenn_uebergeben(tmp_path):
     assert "merken" not in namen(e)
     geladen = [w.name for w in werkzeuge_laden(e, Gedaechtnis(e.datenbank, e.zone))]
     assert {"merken", "erinnern", "vergessen"} <= set(geladen)
+
+
+def test_werkzeuge_eines_geraets_kommen_nie_aus_werkzeuge_laden():
+    """Rechner-Werkzeuge meldet nur ein angeschlossenes Gerät an, nie die eigene Ladeliste."""
+    geladen = namen(Einstellungen(**NEXTCLOUD, nextcloud_kalender="K", geraete_aktiv=True))
+    assert not [n for n in geladen if n.startswith("rechner_")]
+
+
+def test_geraete_gruppe_erst_nach_anmeldung(tmp_path):
+    import asyncio
+
+    from missa.core.geraete import MINDESTSTUFEN, Geraete, GeraeteTokens, GeraeteWerkzeuge
+    from missa.core.werkzeuge import Werkzeugkasten
+
+    async def ablauf():
+        kasten = Werkzeugkasten(werkzeuge_laden(Einstellungen()))
+        vorher = len(kasten)
+        tokens = GeraeteTokens(tmp_path / "missa.db")
+        tokens.anlegen("laptop")
+        geraete = Geraete(tokens, Einstellungen().zone)
+        GeraeteWerkzeuge(geraete, kasten)
+        assert len(kasten) == vorher
+        geraete.anmelden(
+            "laptop",
+            protokoll=1,
+            geraet_name="laptop",
+            werkzeuge=[
+                {"name": n, "beschreibung": n, "parameter": {"type": "object"}, "stufe": s}
+                for n, s in MINDESTSTUFEN.items()
+            ],
+        )
+        assert len(kasten) == vorher + len(MINDESTSTUFEN)
+        assert set(kasten.gruppe("geraet:laptop")) == set(MINDESTSTUFEN)
+        await geraete.schliessen()
+
+    asyncio.run(ablauf())

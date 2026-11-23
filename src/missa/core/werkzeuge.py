@@ -56,7 +56,8 @@ class Werkzeug:
     """Ein Werkzeug mit Name, Beschreibung, JSON-Schema der Parameter, Funktion und Stufe.
 
     ``vorschau`` (optional) beschreibt für die Rückfrage, was ein zerstörerisches
-    Werkzeug mit diesen Parametern tun würde – ohne etwas zu tun.
+    Werkzeug mit diesen Parametern tun würde – ohne etwas zu tun. ``geraet`` ist bei
+    Werkzeugen eines angeschlossenen Geräts dessen Name (steht im Aktionsprotokoll).
     """
 
     name: str
@@ -65,6 +66,7 @@ class Werkzeug:
     funktion: Callable[..., Any]
     stufe: Stufe | None = None
     vorschau: Callable[..., Any] | None = None
+    geraet: str = ""
 
     def schema(self) -> dict[str, Any]:
         return {
@@ -105,6 +107,8 @@ FREMDE_QUELLEN = frozenset(
         "gedanken_anzeigen",
     }
 )
+#: Entscheidet je Werkzeug einer Gruppe, ob es in dieser Sitzung zu sehen ist.
+Sichtbarkeit = Callable[[Werkzeug, str | None], bool]
 #: Höchstens so viele Anfragen merkt sich der Werkzeugkasten (fremde Daten gelesen).
 MAX_GEMERKTE_ANFRAGEN = 1000
 
@@ -143,6 +147,8 @@ class Werkzeugkasten:
         self._werkzeuge: dict[str, Werkzeug] = {}
         #: Austauschbare Gruppen (z. B. die Funktionen aus Missa Control): Name → Werkzeugnamen.
         self._gruppen: dict[str, tuple[str, ...]] = {}
+        #: Gruppen, deren Werkzeuge nur in manchen Sitzungen zu sehen sind (Geräte).
+        self._sichtbar: dict[str, Sichtbarkeit] = {}
         #: Anfragen, in denen schon fremde Daten gelesen wurden.
         self._fremd_gelesen: dict[str, None] = {}
         for werkzeug in werkzeuge:
@@ -168,12 +174,18 @@ class Werkzeugkasten:
             name in namen for namen in self._gruppen.values()
         )
 
-    def gruppe_ersetzen(self, gruppe: str, werkzeuge: Iterable[Werkzeug]) -> list[str]:
+    def gruppe_ersetzen(
+        self,
+        gruppe: str,
+        werkzeuge: Iterable[Werkzeug],
+        sichtbar: Sichtbarkeit | None = None,
+    ) -> list[str]:
         """Tauscht alle Werkzeuge der Gruppe ``gruppe`` auf einmal aus.
 
         Eingebaute Werkzeuge und andere Gruppen bleiben unberührt. Ein Werkzeug, dessen
         Name schon außerhalb dieser Gruppe vergeben ist, wird ausgelassen – das vorhandene
-        gewinnt. Gibt die Namen der ausgelassenen Werkzeuge zurück.
+        gewinnt. Gibt die Namen der ausgelassenen Werkzeuge zurück. Mit ``sichtbar`` sind
+        die Werkzeuge der Gruppe nur in den Sitzungen zu sehen, für die es ``True`` liefert.
         """
         alt = set(self._gruppen.get(gruppe, ()))
         behalten = {n: w for n, w in self._werkzeuge.items() if n not in alt}
@@ -189,7 +201,31 @@ class Werkzeugkasten:
         # In einem Schritt austauschen, damit niemand einen halben Stand sieht.
         self._werkzeuge = {**behalten, **neu}
         self._gruppen[gruppe] = tuple(neu)
+        if sichtbar is None:
+            self._sichtbar.pop(gruppe, None)
+        else:
+            self._sichtbar[gruppe] = sichtbar
         return ausgelassen
+
+    def sichtbar(self, name: str, sitzung: str | None = None) -> bool:
+        """``True``, wenn ``name`` in dieser Sitzung benutzt werden darf."""
+        werkzeug = self._werkzeuge.get(name)
+        if werkzeug is None:
+            return False
+        for gruppe, pruefen in self._sichtbar.items():
+            if name in self._gruppen.get(gruppe, ()):
+                try:
+                    return bool(pruefen(werkzeug, sitzung))
+                except Exception:
+                    log.exception("Sichtbarkeit von %s nicht prüfbar", name)
+                    return False
+        return True
+
+    def verfuegbar(self, sitzung: str | None = None) -> list[Werkzeug]:
+        """Alle Werkzeuge, die in dieser Sitzung zu sehen sind."""
+        if not self._sichtbar:
+            return list(self._werkzeuge.values())
+        return [w for w in self._werkzeuge.values() if self.sichtbar(w.name, sitzung)]
 
     def ist_fremd(self, name: str) -> bool:
         """``True``, wenn das Ergebnis von ``name`` fremden Text enthält."""
@@ -218,11 +254,11 @@ class Werkzeugkasten:
     def __contains__(self, name: object) -> bool:
         return name in self._werkzeuge
 
-    def schemas(self) -> list[dict[str, Any]]:
-        return [werkzeug.schema() for werkzeug in self]
+    def schemas(self, sitzung: str | None = None) -> list[dict[str, Any]]:
+        return [werkzeug.schema() for werkzeug in self.verfuegbar(sitzung)]
 
-    def beschreibung_fuer_prompt(self) -> str:
-        return "\n".join(f"- {w.name}: {w.beschreibung}" for w in self)
+    def beschreibung_fuer_prompt(self, sitzung: str | None = None) -> str:
+        return "\n".join(f"- {w.name}: {w.beschreibung}" for w in self.verfuegbar(sitzung))
 
     async def ausfuehren(
         self,
@@ -255,10 +291,14 @@ class Werkzeugkasten:
                 ergebnis=ergebnis,
                 kanal=kanal,
                 account=account,
+                geraet=werkzeug.geraet if werkzeug is not None else "",
             )
 
+        if werkzeug is not None and not self.sichtbar(name, sitzung):
+            # Werkzeuge eines Geräts gibt es nur in seinen Sitzungen und nur, solange es online ist.
+            werkzeug = None
         if werkzeug is None:
-            verfuegbar = ", ".join(self._werkzeuge) or "keine"
+            verfuegbar = ", ".join(w.name for w in self.verfuegbar(sitzung)) or "keine"
             protokoll("ungueltig", "Werkzeug gibt es nicht", argumente)
             return f"Fehler: Das Werkzeug „{name}“ gibt es nicht. Verfügbar: {verfuegbar}."
 

@@ -10,6 +10,8 @@ die Versionsnummern folgen [Semantic Versioning](https://semver.org/lang/de/).
 ### Hinzugefügt
 
 - Geräte können sich mit eigenem Token an Missa anschliessen (#117)
+- Missa kann auf einem angeschlossenen Rechner Dateien suchen, lesen und öffnen, Programme
+  starten und nach Rückfrage Befehle ausführen (#118)
 
 ## 0.11.0 – 2026-11-17
 
