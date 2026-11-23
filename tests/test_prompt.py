@@ -38,3 +38,68 @@ def test_reihenfolge_der_bloecke():
     positionen = [prompt.index(teil) for teil in reihenfolge]
     assert positionen == sorted(positionen)
     assert prompt.startswith("CHARAKTER")
+
+
+# ----------------------------------------------------------------------------- Rechner
+
+
+def _app(einstellungen, llama, aktiv: bool):
+    import dataclasses
+
+    from missa.core.app import create_app
+    from missa.core.werkzeuge import Stufe, Werkzeug, Werkzeugkasten
+    from tests.conftest import JETZT
+
+    kasten = Werkzeugkasten(
+        [Werkzeug("notiz", "Notiert.", {"type": "object"}, lambda: "ok", stufe=Stufe.SCHREIBEN)]
+    )
+    return create_app(
+        dataclasses.replace(einstellungen, geraete_aktiv=aktiv),
+        werkzeuge=kasten,
+        llama_transport=llama.transport,
+        uhr=lambda: JETZT,
+    )
+
+
+def test_ohne_geraet_ist_der_systemprompt_unveraendert(einstellungen, llama):
+    ohne = _app(einstellungen, llama, aktiv=False).state.dienst
+    mit = _app(einstellungen, llama, aktiv=True).state.dienst
+    for sitzung in (None, "laptop-chat", "talk:abc"):
+        assert mit.systemprompt("Hallo", None, sitzung) == ohne.systemprompt("Hallo", None, sitzung)
+        assert "## Rechner" not in mit.systemprompt("Hallo", None, sitzung)
+
+
+def test_rechner_abschnitt_nur_in_der_sitzung_des_geraets(einstellungen, llama):
+    import asyncio
+
+    from missa.core.geraete import GeraeteTokens
+    from tests.geraet_fake import werkzeug
+
+    app = _app(einstellungen, llama, aktiv=True)
+    dienst, geraete = app.state.dienst, app.state.geraete
+
+    async def ablauf():
+        GeraeteTokens(geraete.tokens.datei).anlegen("laptop")
+        geraete.anmelden(
+            "laptop",
+            protokoll=1,
+            geraet_name="laptop",
+            sitzungen=["laptop-chat"],
+            werkzeuge=[
+                werkzeug("rechner_dateien_suchen"),
+                werkzeug("rechner_oeffnen", "schreiben"),
+            ],
+        )
+        im_chat = dienst.systemprompt("Öffne X", None, "laptop-chat")
+        in_talk = dienst.systemprompt("Öffne X", None, "talk:abc")
+        await geraete.schliessen()
+        return im_chat, in_talk
+
+    im_chat, in_talk = asyncio.run(ablauf())
+    assert "## Rechner" in im_chat and "„laptop“" in im_chat
+    assert "Erst suchen" in im_chat and "Rate nie einen Pfad" in im_chat
+    assert "rechner_oeffnen" in im_chat
+    assert "## Rechner" not in in_talk and "rechner_" not in in_talk
+    # Der Abschnitt bleibt kurz (das Modell läuft auf der CPU).
+    abschnitt = im_chat.split("## Rechner", 1)[1]
+    assert len(abschnitt) < 500

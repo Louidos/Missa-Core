@@ -553,6 +553,8 @@ def create_app(
         geraete = geraete_bauen(einstellungen, uhr)
         # Werkzeuge des Geräts: eigene Gruppe im Werkzeugkasten, nur in seinen Sitzungen.
         geraete_werkzeuge = geraete_werkzeuge_bauen(einstellungen, geraete, werkzeuge)
+        # Anleitung für die Rechner-Werkzeuge, nur wenn ein Gerät in der Sitzung online ist.
+        dienst.sitzungs_quellen.append(geraete_werkzeuge.hinweis)
     gestartet = int(time.time())
 
     @asynccontextmanager

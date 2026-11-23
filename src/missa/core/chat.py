@@ -55,6 +55,8 @@ KEIN_ERGEBNIS = (
 
 #: Liefert zu einer Nutzernachricht einen zusätzlichen Block für den Systemprompt.
 KontextQuelle = Callable[[str], str | None]
+#: Liefert zu einer Sitzung einen zusätzlichen Block (z. B. die Anleitung für den Rechner).
+SitzungsQuelle = Callable[[str | None], str | None]
 
 
 class AnfrageFehler(ValueError):
@@ -168,6 +170,7 @@ class ChatDienst:
         kontext_quellen: Iterable[KontextQuelle] = (),
         eingangs_pruefer: Iterable[EingangsPruefer] = (),
         nachbearbeiter: Iterable[Nachbearbeiter] = (),
+        sitzungs_quellen: Iterable[SitzungsQuelle] = (),
     ) -> None:
         self.einstellungen = einstellungen
         self.llama = llama
@@ -177,6 +180,7 @@ class ChatDienst:
         self.kontext_quellen = list(kontext_quellen)
         self.eingangs_pruefer = list(eingangs_pruefer)
         self.nachbearbeiter = list(nachbearbeiter)
+        self.sitzungs_quellen = list(sitzungs_quellen)
         #: So viele Anfragen beantwortet Missa gerade (die Denkschleife wartet dann).
         self.laufend = 0
 
@@ -191,6 +195,14 @@ class ChatDienst:
                 block = quelle(frage)
             except Exception:
                 log.exception("Kontextquelle fehlgeschlagen")
+                continue
+            if block:
+                zusatz.append(block)
+        for sitzungs_quelle in self.sitzungs_quellen:
+            try:
+                block = sitzungs_quelle(sitzung)
+            except Exception:
+                log.exception("Kontextquelle (Sitzung) fehlgeschlagen")
                 continue
             if block:
                 zusatz.append(block)
