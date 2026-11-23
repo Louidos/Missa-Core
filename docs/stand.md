@@ -4,7 +4,7 @@ Bestandsaufnahme gegen die Soll-Liste der drei Aufträge Fundament (F1–F4), Or
 (O1–O6) und Server (S1–S7). Erstellt am 2026-11-16 auf Version 0.9.0, nachgeführt auf
 Version 0.10.1 (Sicherheitsprüfung, siehe [sicherheit.md](sicherheit.md)) und 0.11.0 (Missa
 Initiative, siehe [initiative.md](initiative.md), Abschnitt „Initiative“ unten) und um den
-Geräte-Anschluss (siehe [geraete.md](geraete.md), Abschnitt „Geräte“ unten).
+Geräte-Anschluss in 1.1.0 (siehe [geraete.md](geraete.md), Abschnitt „Geräte“ unten).
 
 Aktueller Stand: 1244 Tests (1242 grün; übersprungen, wenn die Tests als root laufen oder
 ansible fehlt); `ruff check` mit Sicherheitsregeln `S`, `ruff format --check`, `shellcheck`,
