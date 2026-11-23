@@ -1000,12 +1000,15 @@ def create_app(
     async def chat_completions(
         anfrage: ChatAnfrage,
         x_missa_session: Annotated[str | None, Header()] = None,
+        x_missa_modus: Annotated[str | None, Header()] = None,
     ):
         sitzung = (x_missa_session or anfrage.user or "").strip() or None
         if sitzung and len(sitzung) > MAX_SITZUNG_LAENGE:
             raise AnfrageFehler(f"Sitzungs-ID ist länger als {MAX_SITZUNG_LAENGE} Zeichen")
+        # „sprache“: die App liest die Antwort vor. Andere Werte ändern nichts.
+        modus = (x_missa_modus or "").strip().casefold() or None
 
-        vorbereitet = dienst.vorbereiten(anfrage.model_dump(exclude_none=True), sitzung)
+        vorbereitet = dienst.vorbereiten(anfrage.model_dump(exclude_none=True), sitzung, modus)
         vorbereitet.account = (anfrage.user or "").strip()[:MAX_SITZUNG_LAENGE]
         if anfrage.stream:
             return StreamingResponse(

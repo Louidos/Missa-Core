@@ -79,6 +79,18 @@ def werkzeug_text(beschreibung: str) -> str:
     )
 
 
+#: Wert des Headers ``X-Missa-Modus`` für Antworten, die vorgelesen werden.
+MODUS_SPRACHE = "sprache"
+SPRACH_HINWEIS = (
+    "## Sprechmodus\n"
+    "Deine Antwort wird laut vorgelesen. Sprich in kurzen, einfachen Sätzen. Keine Listen, "
+    "kein Markdown, keine Emojis, keine Tabellen, keine Links und kein Code. Schreib Zahlen, "
+    "Uhrzeiten und Daten so, wie man sie spricht, zum Beispiel „halb acht“ oder „sieben Uhr "
+    "dreissig“, „am dritten März“, „zweiundzwanzig Grad“. Rückfragen und alle Regeln gelten "
+    "wie immer."
+)
+
+
 def rechner_hinweis(geraete: Iterable[str]) -> str:
     """Kurze Anleitung für die Werkzeuge eines angeschlossenen Rechners (nur wenn er online ist).
 

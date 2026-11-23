@@ -15,6 +15,7 @@ Gesprächsverlauf laufen komplett auf dem Server; die App schickt nur Text.
 | Anmeldung | Header `Authorization: Bearer <MISSA_API_KEY>` |
 | Modell | `missa` |
 | Sitzung (Gesprächsverlauf) | Header `X-Missa-Session: <id>` (oder Feld `user`) |
+| Antworten zum Vorlesen | Header `X-Missa-Modus: sprache` (optional) |
 | Format | JSON, UTF-8; Streaming als Server-Sent Events |
 
 In den Beispielen steht `$MISSA` für die Basis-URL und `$KEY` für den API-Schlüssel:
@@ -43,6 +44,31 @@ Fehlversuchen innerhalb von 5 Minuten ist die Adresse 15 Minuten gesperrt (**429
 `Retry-After`); jeder Fehlversuch steht mit Adresse im Log. Anfragen über 20 MB lehnt
 Missa-Core mit **413** ab. Eine öffentliche API-Beschreibung (`/docs`, `/redoc`,
 `/openapi.json`) gibt es nicht.
+
+## Sprechmodus: Antworten zum Vorlesen
+
+Liest eine App Missas Antworten laut vor (Sprachassistent, Auto, Lautsprecher), schickt sie
+zusätzlich den Header:
+
+```http
+X-Missa-Modus: sprache
+```
+
+Dann antwortet Missa so, dass es sich vorgelesen gut anhört: kurze Sätze, keine Listen,
+kein Markdown, keine Emojis, keine Links oder Code, und Zahlen, Uhrzeiten und Daten so, wie
+man sie spricht („halb acht“, „am dritten März“). Gross- und Kleinschreibung des Werts ist
+egal; andere Werte und ein fehlender Header ändern nichts – dann ist alles wie bisher.
+Rückfragen vor Zerstörerischem und alle anderen Sicherheitsregeln gelten im Sprechmodus
+genauso.
+
+```bash
+curl -s "$MISSA/v1/chat/completions" \
+  -H "Authorization: Bearer $KEY" \
+  -H "X-Missa-Session: auto-louis" \
+  -H "X-Missa-Modus: sprache" \
+  -H "Content-Type: application/json" \
+  -d '{"messages": [{"role": "user", "content": "Was steht heute an?"}]}'
+```
 
 ## Sitzungen: Missa erinnert sich an das Gespräch
 

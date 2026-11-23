@@ -103,3 +103,73 @@ def test_rechner_abschnitt_nur_in_der_sitzung_des_geraets(einstellungen, llama):
     # Der Abschnitt bleibt kurz (das Modell läuft auf der CPU).
     abschnitt = im_chat.split("## Rechner", 1)[1]
     assert len(abschnitt) < 500
+
+
+# ----------------------------------------------------------------------------- Sprechmodus
+
+
+def test_sprechmodus_nur_mit_header(client, llama):
+    from tests.conftest import text
+
+    llama.antworten = [text("Hallo."), text("Hallo."), text("Hallo."), text("Hallo.")]
+    nachricht = {"messages": [{"role": "user", "content": "Wie spät ist es?"}]}
+    assert client.post("/v1/chat/completions", json=nachricht).status_code == 200
+    ohne = llama.system()
+    client.post("/v1/chat/completions", json=nachricht, headers={"X-Missa-Modus": "Sprache"})
+    mit = llama.system()
+    client.post("/v1/chat/completions", json=nachricht, headers={"X-Missa-Modus": "laut"})
+    anders = llama.system()
+    assert "## Sprechmodus" not in ohne and anders == ohne
+    assert "## Sprechmodus" in mit
+    klein = mit.casefold()
+    assert "keine listen" in klein and "kein markdown" in klein and "keine emojis" in klein
+    assert "halb acht" in mit
+    # Sonst ist der Prompt gleich: nur der Hinweis kommt dazu.
+    from missa.core.prompt import SPRACH_HINWEIS
+
+    assert mit == f"{ohne}\n\n{SPRACH_HINWEIS}"
+
+
+def test_sprechmodus_auch_beim_streaming(client, llama):
+    from tests.conftest import text
+
+    llama.antworten = [text("Halb acht.")]
+    antwort = client.post(
+        "/v1/chat/completions",
+        json={"messages": [{"role": "user", "content": "Uhrzeit?"}], "stream": True},
+        headers={"X-Missa-Modus": "sprache"},
+    )
+    assert antwort.status_code == 200
+    assert "## Sprechmodus" in llama.system()
+
+
+def test_sprechmodus_laesst_rueckfragen_gelten(einstellungen, llama):
+    import asyncio
+
+    from missa.core.app import create_app
+    from missa.core.werkzeuge import Stufe, Werkzeug, Werkzeugkasten
+    from tests.conftest import JETZT, werkzeug_aufruf
+
+    geloescht: list[str] = []
+    kasten = Werkzeugkasten(
+        [
+            Werkzeug(
+                "termin_loeschen",
+                "Löscht einen Termin.",
+                {"type": "object", "properties": {"termin_id": {"type": "string"}}},
+                lambda termin_id: geloescht.append(termin_id) or "gelöscht",
+                stufe=Stufe.ZERSTOERERISCH,
+            )
+        ]
+    )
+    app = create_app(
+        einstellungen, werkzeuge=kasten, llama_transport=llama.transport, uhr=lambda: JETZT
+    )
+    llama.antworten = [werkzeug_aufruf("termin_loeschen", {"termin_id": "7"})]
+    dienst = app.state.dienst
+    vorbereitet = dienst.vorbereiten(
+        {"messages": [{"role": "user", "content": "Lösch Termin sieben"}]}, "auto", "sprache"
+    )
+    asyncio.run(dienst.antworten(vorbereitet))
+    assert geloescht == []
+    assert "NICHT AUSGEFÜHRT" in llama.anfragen[-1]["messages"][-1]["content"]
