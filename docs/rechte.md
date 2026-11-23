@@ -23,6 +23,16 @@ Ortswechsel nicht reicht, wird erst nach Rückfrage eingetragen (Sperre im Kalen
 Bestehende Termine **löschen** und **verschieben** ist seit dem Organisations-Update
 `zerstoererisch` – auch wenn es sich rückgängig machen lässt (#63).
 
+**Werkzeuge eines angeschlossenen Geräts** (`rechner_…`, siehe [geraete.md](geraete.md))
+bekommen ihre Stufe vom Gerät, aber nie tiefer als die Mindeststufe: `rechner_status`,
+`rechner_dateien_suchen`, `rechner_datei_lesen`, `rechner_fenster_anzeigen` und
+`rechner_zwischenablage_lesen` sind mindestens `lesen`; `rechner_oeffnen`,
+`rechner_fenster_steuern`, `rechner_medien`, `rechner_benachrichtigen`, `rechner_oberflaeche`,
+`rechner_datei_anlegen` und `rechner_zwischenablage_setzen` mindestens `schreiben`;
+`rechner_befehl`, `rechner_datei_aendern`, `rechner_prozess_beenden` und `rechner_energie`
+immer `zerstoererisch`. Unbekannte `rechner_*`-Werkzeuge sind mindestens `schreiben`. Die
+Vorsilbe `rechner_` ist für Geräte reserviert – kein eingebautes Werkzeug heisst so.
+
 Ein Werkzeug **ohne Stufe lässt sich nicht registrieren** – der Dienst startet dann nicht.
 Neue Werkzeuge bekommen ihre Stufe direkt bei der Definition:
 
@@ -71,7 +81,8 @@ einer Mail) nichts auslöst, gilt:
   Anfrage auch jedes **schreibende** Werkzeug dein Ja (wie bei zerstörerischen). Im
   Hintergrund (Routinen, Nachtschicht) wird danach gar nichts mehr geschrieben.
 - Welche Werkzeuge als fremde Quelle gelten, steht in `FREMDE_QUELLEN` in
-  `src/missa/core/werkzeuge.py` (dazu alle Funktionen aus Missa Control).
+  `src/missa/core/werkzeuge.py` (dazu alle Funktionen aus Missa Control und alle Werkzeuge
+  eines angeschlossenen Geräts – jedes Ergebnis vom Gerät ist fremder Inhalt).
 
 ## Aktionsprotokoll
 
@@ -83,6 +94,7 @@ Jeder Werkzeug-Aufruf – auch abgelehnte, gesperrte und fehlerhafte – kommt i
 | `zeit`       | Zeitpunkt (Zeitzone `TIMEZONE`) |
 | `kanal`      | `api`, `talk`, `hintergrund` (Routine, Nachtschicht, Pausen) oder `ai01` (Scripts) |
 | `account`    | Talk-Benutzer, `user` der API-Anfrage oder `missa` im Hintergrund |
+| `geraet`     | bei Werkzeugen eines angeschlossenen Geräts dessen Name (z. B. `laptop`), sonst leer |
 | `werkzeug`   | Name des Werkzeugs |
 | `stufe`      | `lesen`, `schreiben`, `zerstoererisch` |
 | `parameter`  | Angaben des Aufrufs, **Geheimnisse geschwärzt** (`***`) |
@@ -155,6 +167,7 @@ Blöcke in [config/missa.env.example](../config/missa.env.example) sind danach g
 | Minecraft-Server | `MINECRAFT_RCON_PASSWORT` (oder `MISSA_DATEN/minecraft-rcon.txt`) | RCON: `list`, `whitelist list/add/remove`, `say`, `save-all`, `stop` – Spielernamen streng geprüft | `op`, andere RCON-Befehle; RCON nur von ai01 erreichbar |
 | Git-Server (Gitea/Forgejo) | `GIT_SERVER_TOKEN` | Token mit `read:user`, `read:repository`, `write:issue` | `write:repository`, `admin`, Organisationen verwalten |
 | GitHub | `GITHUB_TOKEN` | Fine-grained Token für das Konto Louidos, nur **Read-only**: Actions, Contents, Issues, Metadata; der Code kennt nur GET | jedes Schreibrecht, Classic Token, Zugriff auf fremde Konten |
+| Angeschlossene Geräte (Laptop) | eigener Token je Gerät (`scripts/einrichten/geraet-anlegen.sh`), in `missa.db` nur als Hash | Das Gerät darf nur die drei Endpunkte `/api/geraete/…` aufrufen: Werkzeuge anmelden, Aufträge abholen, Ergebnisse liefern. Was ein Werkzeug darf, entscheidet die Rechte-Schicht (Mindeststufen, Rückfrage, Notfall-Stopp, nur in den Sitzungen des Geräts, im Hintergrund nie ausser `nur_lesen`) | API-Schlüssel, alle anderen Endpunkte; Missa-Core verbindet sich nie selbst zum Gerät |
 | Missa Control (Panel) | `MISSA_CONTROL_TOKEN` | Eigener Client `missa-core` im Panel (**Clients**); welche Funktionen sichtbar sind und welche erst nach Freigabe laufen, legst du im Panel fest. Panel-Funktionen sind in Missa-Core `lesen` (`readOnlyHint`) oder `schreiben`, nie `zerstoererisch` – Rückfragen entscheidet das Panel; Notfall-Stopp und Aktionsprotokoll gelten trotzdem. Im Hintergrund nur lesen (`MISSA_CONTROL_IM_HINTERGRUND`) | Zugänge der Integrationen selbst – die setzt das Panel ein, Missa-Core sieht sie nie |
 | Firewall (ZyWALL) | **keine** – Missa liest nur die Logdatei, die rsyslog auf ai01 schreibt | Leserecht auf `FIREWALL_LOG_DATEI` (Gruppe `missa`) | jeder Zugang zur Firewall; es gibt kein Werkzeug, das Regeln ändert |
 | Andere Hosts (wb01, int01, rp01 …) | SSH-Schlüssel `SSH_SCHLUESSEL` | Benutzer `missa`, Schlüssel gebunden an `missa-befehl` (`restrict,command=`); sudo **nur** die Programme `/usr/local/lib/missa/missa-docker` (nur `docker ps`, `docker stats --no-stream`, `docker logs`, `docker restart`) und `/usr/local/lib/missa/missa-update` (nur `apt-get update`, `apt-get -y upgrade`, `reboot`); Logs über die Gruppe `systemd-journal`; optional Lese-ACL auf die eine Nextcloud-Logdatei. Einrichtung: `scripts/einrichten/missa-benutzer.sh` (von Hand) | Shell, Terminal, Passwort, `docker exec`/`run`, sudo für andere Befehle, `sudo journalctl`; auf pve-id01 nur mit `--proxmox-ja` |
@@ -171,3 +184,6 @@ Zugangsdaten stehen nur in `/etc/missa/missa.env` (Rechte `640`, Gruppe `missa`)
 - Aktionen außerhalb von Werkzeugen (Senden-Sperre, Pausen im Hintergrund) prüfen
   `rechte.notfall_aktiv()` selbst und tragen sich mit `rechte.protokollieren(...)` ein.
 - Kommandozeile für die Scripts: `python -m missa.core.rechte stopp|freigabe|status`.
+- Werkzeuge eines Geräts: `GeraeteWerkzeuge` in `src/missa/core/geraete.py` (Mindeststufen
+  in `MINDESTSTUFEN`, Vorschau „Auf laptop wird ausgeführt: …“, Sichtbarkeit je Sitzung über
+  `Werkzeugkasten.gruppe_ersetzen(…, sichtbar=…)`).

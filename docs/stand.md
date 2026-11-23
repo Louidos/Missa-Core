@@ -3,7 +3,8 @@
 Bestandsaufnahme gegen die Soll-Liste der drei Aufträge Fundament (F1–F4), Organisation
 (O1–O6) und Server (S1–S7). Erstellt am 2026-11-16 auf Version 0.9.0, nachgeführt auf
 Version 0.10.1 (Sicherheitsprüfung, siehe [sicherheit.md](sicherheit.md)) und 0.11.0 (Missa
-Initiative, siehe [initiative.md](initiative.md), Abschnitt „Initiative“ unten).
+Initiative, siehe [initiative.md](initiative.md), Abschnitt „Initiative“ unten) und um den
+Geräte-Anschluss (siehe [geraete.md](geraete.md), Abschnitt „Geräte“ unten).
 
 Aktueller Stand: 1244 Tests (1242 grün; übersprungen, wenn die Tests als root laufen oder
 ansible fehlt); `ruff check` mit Sicherheitsregeln `S`, `ruff format --check`, `shellcheck`,
@@ -36,6 +37,7 @@ Legende: ✅ erledigt (Code auf main, Test grün, Einstellung in
 | S6 Caddy, Minecraft | ✅ | – |
 | S7 Git-Server, GitHub, Prompts | ✅ | – |
 | I1–I7 Missa Initiative | 🟡 | 👍/👎-Reaktionen in Talk nicht ausgewertet (nur Text) |
+| G1–G6 Geräte-Anschluss, Sprechmodus | 🟡 | Charaktertest der Rechner-Fälle gegen das echte Modell auf ai01 noch offen; Gerät selbst (hypr-shell) ist ein anderes Repo |
 
 ## Einzelpunkte
 
@@ -177,6 +179,28 @@ Legende: ✅ erledigt (Code auf main, Test grün, Einstellung in
 | I7 | Notfall nachts sofort | ✅ | `test_alarme.py::test_notfall_kommt_nachts_sofort_auch_neben_sammlung`, `test_briefing.py::test_notfall_kommt_auch_bei_wartendem_briefing_sofort` |
 | I7 | Modell nicht erreichbar → Briefing trotzdem | ✅ | `::test_modell_nicht_erreichbar_briefing_kommt_trotzdem` |
 | I7 | Briefing und Ende der Ruhezeit = eine Nachricht | ✅ | `::test_briefing_und_ende_der_ruhezeit_eine_nachricht` |
+
+### Geräte
+
+| Gruppe | Punkt | Status | Fundstelle bzw. was fehlt |
+|---|---|---|---|
+| G1 | Gerät meldet sich mit Token an, bekommt Auftrag, liefert Ergebnis | ✅ | `core/geraete.py`; `test_geraete.py::test_fake_geraet_bekommt_auftrag_und_liefert_ergebnis` |
+| G1 | Falscher oder gesperrter Token → 401, nach zehn Fehlversuchen 429 | ✅ | `core/schutz.py`; `::test_falscher_token_und_api_schluessel_ergeben_401`, `::test_gesperrter_token_ergibt_401`, `::test_nach_zehn_fehlversuchen_429` |
+| G1 | Ohne `MISSA_GERAETE_AKTIV` alles wie bisher | ✅ | `::test_ohne_schalter_gibt_es_die_endpunkte_nicht`; alle übrigen Tests unverändert |
+| G1 | Token nur als Hash, Script anlegen/sperren/liste | ✅ | `scripts/einrichten/geraet-anlegen.sh`; `::test_token_wird_nur_als_hash_gespeichert`, `::test_script_legt_an_listet_und_sperrt` |
+| G2 | „Öffne die Datei X“ → `rechner_oeffnen` mit echtem Ergebnis | ✅ | `test_rechner_werkzeuge.py::test_oeffne_die_datei` |
+| G2 | `rechner_befehl` erst nach Ja in der nächsten Nachricht | ✅ | `::test_befehl_erst_nach_ja`, `::test_zerstoererisch_erst_nach_ja_in_der_naechsten_nachricht` |
+| G2 | Als `lesen` gemeldeter Befehl bleibt `zerstoererisch` | ✅ | `MINDESTSTUFEN`; `::test_befehl_als_lesen_gemeldet_bleibt_zerstoererisch`, `::test_tabelle_der_mindeststufen` |
+| G2 | In Talk unbekannt | ✅ | `::test_in_talk_kennt_missa_die_werkzeuge_nicht` |
+| G2 | „lösch alles“ in einer Datei löst nichts aus | ✅ | `::test_eingeschleuster_text_loest_nichts_aus` |
+| G2 | Notfall, Protokoll mit Gerät, Hintergrund | ✅ | `::test_notfall_stopp_sperrt_alles_ausser_lesen`, `::test_protokoll_mit_geraetename_und_geschwaerzt`, `::test_im_hintergrund` |
+| G3 | Ohne Gerät Systemprompt unverändert | ✅ | `test_prompt.py::test_ohne_geraet_ist_der_systemprompt_unveraendert` |
+| G3 | Rechner-Fälle im Charaktertest (Fake-Modell) | 🟡 | `tests/charakter/fragen.yaml`; `test_charaktertest.py::test_rechner_faelle_laufen_mit_dem_fake_modell` – gegen das echte Modell auf ai01 noch nicht gelaufen |
+| G4 | Fällige Erinnerung als Meldung am Gerät | ✅ | `GeraeteZustellkanal`; `test_geraete_meldungen.py::test_faellige_erinnerung_erreicht_das_geraet`, `::test_ende_zu_ende_mit_fake_geraet` |
+| G4 | Gerät offline → Talk | ✅ | `::test_geraet_offline_kommt_sie_ueber_talk` |
+| G4 | Ruhezeit: nur Notfälle | ✅ | `::test_in_der_ruhezeit_nur_notfaelle` |
+| G5 | Sprechmodus nur mit Header | ✅ | `X-Missa-Modus: sprache`; `test_prompt.py::test_sprechmodus_nur_mit_header` |
+| G6 | Variablen und Vertrag in der Doku | ✅ | `docs/geraete.md`; `test_rechner_werkzeuge.py::test_doku_und_beispielkonfiguration_kennen_alles` |
 
 ## Weitere Beobachtungen
 
