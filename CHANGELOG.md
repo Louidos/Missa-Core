@@ -12,6 +12,7 @@ die Versionsnummern folgen [Semantic Versioning](https://semver.org/lang/de/).
 - Geräte können sich mit eigenem Token an Missa anschliessen (#117)
 - Missa kann auf einem angeschlossenen Rechner Dateien suchen, lesen und öffnen, Programme
   starten und nach Rückfrage Befehle ausführen (#118)
+- Erinnerungen und Alarme erscheinen auch als Benachrichtigung auf dem Rechner (#120)
 
 ### Geändert
 

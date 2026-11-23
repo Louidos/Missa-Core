@@ -501,6 +501,15 @@ class Geraete:
         geraet.warteschlange.put_nowait((art, daten))
         return True
 
+    def melden(self, titel: str, text: str = "", stufe: str = "info") -> list[str]:
+        """Schickt ``event: meldung`` an alle Geräte, die online sind. Gibt ihre Namen zurück."""
+        if stufe not in MELDUNG_STUFEN:
+            stufe = "info"
+        daten = {"titel": titel, "text": text, "stufe": stufe}
+        return [
+            g.name for g in list(self._geraete.values()) if self.senden(g.name, "meldung", daten)
+        ]
+
     # -------------------------------------------------------------- Aufträge
 
     async def auftrag(
@@ -617,6 +626,59 @@ class Geraete:
         for auftrag in self._auftraege.values():
             if not auftrag.zukunft.done():
                 auftrag.zukunft.set_exception(GeraetNichtErreichbar(auftrag.geraet))
+
+
+# ----------------------------------------------------------------------------- Meldungen
+
+#: Symbole der Alarm-Stufen am Anfang einer Nachricht (siehe missa.core.alarme).
+_SYMBOLE = {"🚨": "notfall", "⚠️": "wichtig", "⚠": "wichtig", "ℹ️": "info", "ℹ": "info"}
+MAX_TITEL = 120
+MAX_MELDUNG = 2000
+
+
+def meldung_aus_text(text: str) -> dict[str, str]:
+    """Macht aus einer fertigen Nachricht (Erinnerung, Alarm, Hinweis) Titel, Text und Stufe.
+
+    Die Stufe steht schon im Text: 🚨 Notfall, ⚠️ Wichtig, ℹ️ Hinweis; eine Erinnerung (⏰) ist
+    ``wichtig`` – Louis hat sie ja selbst bestellt –, alles andere ``info``.
+    """
+    zeilen = [z.strip() for z in str(text).strip().splitlines()]
+    erste = zeilen[0] if zeilen else ""
+    stufe = "info"
+    for symbol, wert in _SYMBOLE.items():
+        if erste.startswith(symbol):
+            stufe = wert
+            erste = erste.removeprefix(symbol).strip()
+            break
+    else:
+        if erste.startswith("⏰"):
+            stufe = "wichtig"
+            erste = erste.removeprefix("⏰").strip()
+    titel = erste[:MAX_TITEL] or "Missa"
+    rest = "\n".join(zeilen[1:]).strip()
+    if len(erste) > MAX_TITEL:
+        rest = (erste + ("\n" + rest if rest else "")).strip()
+    return {"titel": titel, "text": rest[:MAX_MELDUNG], "stufe": stufe}
+
+
+class GeraeteZustellkanal:
+    """Zustellweg „geraet“: Nachrichten als ``event: meldung`` an alle Geräte, die online sind."""
+
+    name = "geraet"
+
+    def __init__(self, geraete: Geraete) -> None:
+        self.geraete = geraete
+
+    @property
+    def online(self) -> bool:
+        return any(g.online for g in self.geraete)
+
+    async def senden(self, text: str) -> None:
+        from missa.core.zustellung import ZustellFehler
+
+        meldung = meldung_aus_text(text)
+        if not self.geraete.melden(**meldung):
+            raise ZustellFehler("Kein Gerät ist gerade online.")
 
 
 def geraete_bauen(einstellungen: Any, uhr: Callable[[], datetime] | None = None) -> Geraete:
