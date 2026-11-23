@@ -546,11 +546,13 @@ def create_app(
             werkzeuge.hinzufuegen(werkzeug)
     dokumente.formulierer = dienst.formulieren
     # Angeschlossene Geräte (nur mit MISSA_GERAETE_AKTIV=true, sonst alles wie bisher).
-    geraete = None
+    geraete = geraete_werkzeuge = None
     if einstellungen.geraete_aktiv:
-        from missa.core.geraete import geraete_bauen
+        from missa.core.geraete import geraete_bauen, geraete_werkzeuge_bauen
 
         geraete = geraete_bauen(einstellungen, uhr)
+        # Werkzeuge des Geräts: eigene Gruppe im Werkzeugkasten, nur in seinen Sitzungen.
+        geraete_werkzeuge = geraete_werkzeuge_bauen(einstellungen, geraete, werkzeuge)
     gestartet = int(time.time())
 
     @asynccontextmanager
@@ -646,6 +648,7 @@ def create_app(
     app.state.initiative = initiative
     app.state.briefing = briefing
     app.state.geraete = geraete
+    app.state.geraete_werkzeuge = geraete_werkzeuge
 
     # -------------------------------------------------------------- Fehlerformat
 

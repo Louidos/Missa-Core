@@ -31,3 +31,21 @@ def test_jedes_werkzeug_hat_einen_test():
     )
     ohne = sorted(n for n in werkzeug_namen() if not re.search(rf"[\"']{n}[\"']", tests))
     assert not ohne, f"Werkzeuge ohne Test: {', '.join(ohne)}"
+
+
+def test_rechner_vorsilbe_ist_fuer_geraete_reserviert():
+    """Eingebaute Werkzeuge heissen nie ``rechner_…`` – so heissen nur die eines Geräts."""
+    assert not sorted(n for n in werkzeug_namen() if n.startswith("rechner_"))
+
+
+def test_jedes_rechner_werkzeug_hat_einen_test():
+    from missa.core.geraete import MINDESTSTUFEN
+
+    eigene = Path(__file__).name
+    tests = "\n".join(
+        d.read_text(encoding="utf-8")
+        for d in (PROJEKT / "tests").glob("test_*.py")
+        if d.name != eigene
+    )
+    ohne = sorted(n for n in MINDESTSTUFEN if not re.search(rf"[\"']{n}[\"']", tests))
+    assert not ohne, f"Rechner-Werkzeuge ohne Test: {', '.join(ohne)}"

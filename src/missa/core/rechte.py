@@ -63,7 +63,8 @@ CREATE TABLE IF NOT EXISTS aktionsprotokoll (
     parameter TEXT NOT NULL DEFAULT '{}',
     bestaetigt INTEGER NOT NULL DEFAULT 0,
     status TEXT NOT NULL,
-    ergebnis TEXT NOT NULL DEFAULT ''
+    ergebnis TEXT NOT NULL DEFAULT '',
+    geraet TEXT NOT NULL DEFAULT ''
 );
 CREATE INDEX IF NOT EXISTS aktionsprotokoll_zeit ON aktionsprotokoll (zeit);
 """
@@ -280,6 +281,7 @@ class Aktion:
     bestaetigt: bool
     status: str
     ergebnis: str
+    geraet: str = ""
 
     def als_dict(self) -> dict[str, Any]:
         return {
@@ -293,6 +295,7 @@ class Aktion:
             "bestaetigt": self.bestaetigt,
             "status": self.status,
             "ergebnis": self.ergebnis,
+            "geraet": self.geraet,
         }
 
     def zeile(self) -> str:
@@ -302,6 +305,8 @@ class Aktion:
             angaben = ", ".join(f"{k}={v}" for k, v in self.parameter.items())
             angaben = f" ({angaben[:160]})"
         wo = self.kanal + (f"/{self.account}" if self.account else "")
+        if self.geraet:
+            wo += f", auf {self.geraet}"
         ja = ", bestätigt" if self.bestaetigt else ""
         status = STATUS_TEXT.get(self.status, self.status)
         return f"{uhrzeit} {self.werkzeug}{angaben} – {status}{ja} [{self.stufe}, {wo}]"
@@ -324,6 +329,12 @@ class Aktionsprotokoll:
         # Automatische Migration beim Start: Tabelle anlegen, falls sie fehlt.
         with verbinden(datei) as db:
             db.executescript(SCHEMA)
+            spalten = {z["name"] for z in db.execute("PRAGMA table_info(aktionsprotokoll)")}
+            if "geraet" not in spalten:
+                # Ältere Datenbank: Spalte für den Gerätenamen nachtragen.
+                db.execute(
+                    "ALTER TABLE aktionsprotokoll ADD COLUMN geraet TEXT NOT NULL DEFAULT ''"
+                )
 
     def eintragen(
         self,
@@ -336,6 +347,7 @@ class Aktionsprotokoll:
         ergebnis: str,
         kanal: str,
         account: str = "",
+        geraet: str = "",
     ) -> None:
         geschwaerzt = schwaerzen(parameter, self.geheimnisse)
         try:
@@ -348,7 +360,7 @@ class Aktionsprotokoll:
         with verbinden(self.datei) as db:
             db.execute(
                 "INSERT INTO aktionsprotokoll (zeit, kanal, account, werkzeug, stufe, parameter, "
-                "bestaetigt, status, ergebnis) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                "bestaetigt, status, ergebnis, geraet) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
                 (
                     self._uhr().astimezone(self.zone).isoformat(timespec="seconds"),
                     kanal or "intern",
@@ -359,6 +371,7 @@ class Aktionsprotokoll:
                     int(bool(bestaetigt)),
                     status,
                     ergebnis,
+                    geraet or "",
                 ),
             )
 
@@ -409,6 +422,7 @@ class Aktionsprotokoll:
             bestaetigt=bool(zeile["bestaetigt"]),
             status=zeile["status"],
             ergebnis=zeile["ergebnis"],
+            geraet=zeile["geraet"] if "geraet" in zeile.keys() else "",  # noqa: SIM118 – sqlite3.Row
         )
 
 
