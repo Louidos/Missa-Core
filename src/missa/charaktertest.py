@@ -32,7 +32,7 @@ from zoneinfo import ZoneInfo
 import yaml
 
 from missa.core.config import STANDARD_ENV_DATEI, env_datei_laden
-from missa.core.prompt import charakter_lesen, systemprompt_bauen
+from missa.core.prompt import charakter_lesen, rechner_hinweis, systemprompt_bauen
 
 REPO = Path(__file__).resolve().parents[2]
 STANDARD_FRAGEN = REPO / "tests" / "charakter" / "fragen.yaml"
@@ -96,6 +96,12 @@ def regel_pruefen(
         if name == "enthaelt_nicht":
             gefunden = [w for w in woerter if w.lower() in klein]
             return Pruefung("enthaelt_nicht", not gefunden, ", ".join(gefunden))
+        if name == "ruft_auf":
+            ok = any(w in antwort.werkzeuge for w in woerter)
+            return Pruefung("ruft_auf", ok, "" if ok else f"ruft keines von {woerter} auf")
+        if name == "ruft_nicht_auf":
+            gerufen = [w for w in woerter if w in antwort.werkzeuge]
+            return Pruefung("ruft_nicht_auf", not gerufen, "ruft auf: " + ", ".join(gerufen))
         raise ValueError(f"Unbekannte Regel: {name}")
 
     if regel == "keine_japanischen_woerter":
@@ -131,25 +137,71 @@ def regel_pruefen(
 # ----------------------------------------------------------------------------- Fragenset
 
 
+#: Name des Rechners in den Fragen mit ``rechner: online``.
+RECHNER = "laptop"
+
+
 @dataclass
 class Frage:
     id: str
     frage: str
     regeln: list[str | dict[str, Any]]
+    #: ``online``: der Rechner ist angeschlossen (Werkzeuge und Anleitung im Prompt).
+    rechner: str = ""
+    #: Ein Werkzeug-Aufruf, der schon passiert ist (``name``, ``argumente``, ``ergebnis``):
+    #: Missa antwortet dann auf dieses Ergebnis.
+    vorher: dict[str, Any] | None = None
+
+    def nachrichten(self, system: str) -> list[dict[str, Any]]:
+        nachrichten: list[dict[str, Any]] = [
+            {"role": "system", "content": system},
+            {"role": "user", "content": self.frage},
+        ]
+        if self.vorher:
+            argumente = json.dumps(self.vorher.get("argumente") or {}, ensure_ascii=False)
+            nachrichten += [
+                {
+                    "role": "assistant",
+                    "content": "",
+                    "tool_calls": [
+                        {
+                            "id": "vorher-1",
+                            "type": "function",
+                            "function": {"name": self.vorher["name"], "arguments": argumente},
+                        }
+                    ],
+                },
+                {
+                    "role": "tool",
+                    "tool_call_id": "vorher-1",
+                    "name": self.vorher["name"],
+                    "content": str(self.vorher.get("ergebnis", "")),
+                },
+            ]
+        return nachrichten
 
 
 @dataclass
 class Fragenset:
     fragen: list[Frage]
     werkzeuge: list[dict[str, Any]]
+    #: Werkzeuge des angeschlossenen Rechners (nur bei Fragen mit ``rechner: online``).
+    rechner_werkzeuge: list[dict[str, Any]] = field(default_factory=list)
 
     @property
     def stufen(self) -> dict[str, str]:
-        return {w["name"]: w["stufe"] for w in self.werkzeuge}
+        return {w["name"]: w["stufe"] for w in self.werkzeuge + self.rechner_werkzeuge}
 
-    def tool_schemas(self) -> list[dict[str, Any]]:
+    def rechner_text(self) -> str:
+        """Anleitung und Werkzeuge des Rechners für den Systemprompt."""
+        zeilen = "\n".join(
+            f"- {w['name']}: {w.get('beschreibung', '')}" for w in self.rechner_werkzeuge
+        )
+        return f"{rechner_hinweis([RECHNER])}\n{zeilen}"
+
+    def tool_schemas(self, rechner: bool = False) -> list[dict[str, Any]]:
         schemas = []
-        for w in self.werkzeuge:
+        for w in self.werkzeuge + (self.rechner_werkzeuge if rechner else []):
             schemas.append(
                 {
                     "type": "function",
@@ -177,13 +229,15 @@ REGELN = {
     "rueckfrage",
     "kurz",
 }
+REGELN_MIT_WERTEN = {"enthaelt", "enthaelt_nicht", "ruft_auf", "ruft_nicht_auf"}
 
 
 def fragenset_laden(pfad: Path) -> Fragenset:
     daten = yaml.safe_load(pfad.read_text(encoding="utf-8")) or {}
     standard = list(daten.get("standardregeln") or [])
     werkzeuge = list(daten.get("werkzeuge") or [])
-    for w in werkzeuge:
+    rechner_werkzeuge = list(daten.get("rechner_werkzeuge") or [])
+    for w in werkzeuge + rechner_werkzeuge:
         if w.get("stufe") not in ("lesen", "schreiben", "zerstoererisch"):
             raise ValueError(f"Werkzeug {w.get('name')!r} braucht eine gültige Stufe")
     fragen = []
@@ -196,12 +250,18 @@ def fragenset_laden(pfad: Path) -> Fragenset:
         regeln = standard + [r for r in (eintrag.get("regeln") or []) if r not in standard]
         for r in regeln:
             name = next(iter(r)) if isinstance(r, dict) else r
-            if name not in REGELN | {"enthaelt", "enthaelt_nicht"}:
+            if name not in REGELN | REGELN_MIT_WERTEN:
                 raise ValueError(f"Frage {fid}: unbekannte Regel {name}")
-        fragen.append(Frage(fid, str(eintrag["frage"]), regeln))
+        rechner = str(eintrag.get("rechner") or "")
+        if rechner not in ("", "online"):
+            raise ValueError(f"Frage {fid}: rechner muss online sein (oder fehlen)")
+        vorher = eintrag.get("vorher")
+        if vorher is not None and not (isinstance(vorher, dict) and vorher.get("name")):
+            raise ValueError(f"Frage {fid}: vorher braucht name, argumente und ergebnis")
+        fragen.append(Frage(fid, str(eintrag["frage"]), regeln, rechner, vorher))
     if not fragen:
         raise ValueError(f"{pfad} enthält keine Fragen")
-    return Fragenset(fragen, werkzeuge)
+    return Fragenset(fragen, werkzeuge, rechner_werkzeuge)
 
 
 # ----------------------------------------------------------------------------- Messung
@@ -243,13 +303,13 @@ async def frage_stellen(
     streamer: Streamer,
     uhr: Callable[[], float] = time.monotonic,
 ) -> Ergebnis:
+    online = frage.rechner == "online"
+    if online:
+        system = f"{system}\n\n{fragenset.rechner_text()}"
     nutzlast = {
         "model": modell.name,
-        "messages": [
-            {"role": "system", "content": system},
-            {"role": "user", "content": frage.frage},
-        ],
-        "tools": fragenset.tool_schemas(),
+        "messages": frage.nachrichten(system),
+        "tools": fragenset.tool_schemas(rechner=online),
         "stream": True,
         "stream_options": {"include_usage": True},
     }

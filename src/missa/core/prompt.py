@@ -79,6 +79,24 @@ def werkzeug_text(beschreibung: str) -> str:
     )
 
 
+def rechner_hinweis(geraete: Iterable[str]) -> str:
+    """Kurze Anleitung für die Werkzeuge eines angeschlossenen Rechners (nur wenn er online ist).
+
+    Bewusst knapp – das Modell läuft auf der CPU; was die Werkzeuge tun, sagen ihre
+    Beschreibungen, die vom Gerät kommen.
+    """
+    namen = ", ".join(f"„{g}“" for g in geraete)
+    return (
+        "## Rechner\n"
+        f"Du kannst gerade den Rechner {namen} bedienen (Werkzeuge rechner_…).\n"
+        "- Erst suchen (rechner_dateien_suchen), dann öffnen. Rate nie einen Pfad.\n"
+        "- Mehrere Treffer: frag kurz, welcher gemeint ist. Kein Treffer: sag es.\n"
+        "- Sag „geöffnet“ oder „erledigt“ nur nach einem echten Erfolg des Werkzeugs.\n"
+        "- Vor einem Befehl sag in einem Satz, was er tut.\n"
+        "- Ist der Rechner nicht erreichbar, sag das ehrlich."
+    )
+
+
 def systemprompt_bauen(
     charakter: str,
     jetzt: datetime,

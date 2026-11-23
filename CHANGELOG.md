@@ -13,6 +13,10 @@ die Versionsnummern folgen [Semantic Versioning](https://semver.org/lang/de/).
 - Missa kann auf einem angeschlossenen Rechner Dateien suchen, lesen und öffnen, Programme
   starten und nach Rückfrage Befehle ausführen (#118)
 
+### Geändert
+
+- Missa sucht erst und öffnet dann, und sagt klar, wenn der Rechner nicht erreichbar ist (#119)
+
 ## 0.11.0 – 2026-11-17
 
 ### Hinzugefügt

@@ -763,6 +763,13 @@ class GeraeteWerkzeuge:
             sichtbar=self._sichtbarkeit(geraet.name),
         )
 
+    def hinweis(self, sitzung: str | None) -> str | None:
+        """Anleitung im Systemprompt – nur wenn in dieser Sitzung ein Gerät online ist."""
+        from missa.core.prompt import rechner_hinweis
+
+        geraete = sorted({w.geraet for w in self.kasten.verfuegbar(sitzung) if w.geraet})
+        return rechner_hinweis(geraete) if geraete else None
+
     # -------------------------------------------------------------- Sichtbarkeit
 
     def _sichtbarkeit(self, name: str):

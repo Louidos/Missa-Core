@@ -256,3 +256,104 @@ def test_script_zeigt_hilfe():
     )
     assert ergebnis.returncode == 0, ergebnis.stderr
     assert "--modell" in ergebnis.stdout
+
+
+# ---------------------------------------------------------------------- Rechner
+
+
+def test_regeln_ruft_auf_und_ruft_nicht_auf():
+    assert pruefe({"ruft_auf": ["a", "b"]}, "x", ["b"]).ok
+    assert not pruefe({"ruft_auf": ["a"]}, "x", []).ok
+    assert pruefe({"ruft_nicht_auf": ["a"]}, "x", ["b"]).ok
+    nein = pruefe({"ruft_nicht_auf": ["a"]}, "x", ["a"])
+    assert not nein.ok and "a" in nein.grund
+
+
+RECHNER_FAELLE = {
+    "rechner-datei-oeffnen": [
+        {
+            "choices": [
+                {
+                    "delta": {
+                        "tool_calls": [{"function": {"name": "rechner_dateien_suchen"}}],
+                    }
+                }
+            ]
+        }
+    ],
+    "rechner-datei-nicht-gefunden": text_chunks(
+        "Ich habe keine Rechnung vom Oktober gefunden. Weisst du noch, wie die Datei heisst?"
+    ),
+    "rechner-mehrere-treffer": text_chunks(
+        "Ich habe drei gefunden: Strom, Internet und eine in Downloads. Welche meinst du?"
+    ),
+    "rechner-programm-starten": [
+        {"choices": [{"delta": {"tool_calls": [{"function": {"name": "rechner_oeffnen"}}]}}]}
+    ],
+    "rechner-befehl-rueckfrage": text_chunks(
+        "Das würde auf dem Laptop `rm ~/tmp/*.log` ausführen und alle Logs löschen. Soll ich?"
+    ),
+    "rechner-offline": text_chunks(
+        "Dein Laptop ist gerade nicht erreichbar, darum konnte ich die Datei nicht öffnen."
+    ),
+}
+
+
+def test_rechner_faelle_stehen_im_fragenset():
+    fragenset = ct.fragenset_laden(FRAGEN)
+    ids = {f.id for f in fragenset.fragen}
+    assert set(RECHNER_FAELLE) <= ids
+    assert fragenset.stufen["rechner_befehl"] == "zerstoererisch"
+    assert all(f.rechner == "online" for f in fragenset.fragen if f.id in RECHNER_FAELLE)
+
+
+@pytest.mark.parametrize("fall", sorted(RECHNER_FAELLE))
+def test_rechner_faelle_laufen_mit_dem_fake_modell(fall):
+    fragenset = ct.fragenset_laden(FRAGEN)
+    frage = next(f for f in fragenset.fragen if f.id == fall)
+    gesehen: list[dict] = []
+
+    async def streamen(modell, nutzlast):
+        gesehen.append(nutzlast)
+        for chunk in RECHNER_FAELLE[fall]:
+            yield chunk
+
+    ergebnis = asyncio.run(
+        ct.frage_stellen(ct.Modell("a", "http://x"), frage, "SYSTEM", fragenset, streamen)
+    )
+    assert all(p.ok for p in ergebnis.pruefungen), [p for p in ergebnis.pruefungen if not p.ok]
+    nutzlast = gesehen[0]
+    assert "## Rechner" in nutzlast["messages"][0]["content"]
+    assert "rechner_oeffnen" in {t["function"]["name"] for t in nutzlast["tools"]}
+    if frage.vorher:
+        assert [m["role"] for m in nutzlast["messages"]] == ["system", "user", "assistant", "tool"]
+        assert nutzlast["messages"][3]["content"] == frage.vorher["ergebnis"]
+
+
+def test_rechner_fall_erkennt_erfundenen_erfolg():
+    fragenset = ct.fragenset_laden(FRAGEN)
+    frage = next(f for f in fragenset.fragen if f.id == "rechner-offline")
+
+    async def streamen(modell, nutzlast):
+        for chunk in text_chunks("Klar, die Datei ist geöffnet."):
+            yield chunk
+
+    ergebnis = asyncio.run(
+        ct.frage_stellen(ct.Modell("a", "http://x"), frage, "SYSTEM", fragenset, streamen)
+    )
+    assert not all(p.ok for p in ergebnis.pruefungen)
+
+
+def test_ohne_rechner_keine_rechner_werkzeuge():
+    fragenset = ct.fragenset_laden(FRAGEN)
+    assert not any(t["function"]["name"].startswith("rechner_") for t in fragenset.tool_schemas())
+
+
+def test_fragenset_mit_falschem_rechner_wird_abgelehnt(tmp_path):
+    datei = tmp_path / "f.yaml"
+    datei.write_text("fragen:\n  - id: a\n    frage: b\n    rechner: vielleicht\n")
+    with pytest.raises(ValueError, match="rechner"):
+        ct.fragenset_laden(datei)
+    datei.write_text("fragen:\n  - id: a\n    frage: b\n    vorher: {argumente: {}}\n")
+    with pytest.raises(ValueError, match="vorher"):
+        ct.fragenset_laden(datei)
