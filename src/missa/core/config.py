@@ -212,6 +212,7 @@ class Einstellungen:
     geraete_alle_sitzungen: bool = False
     geraete_max_werkzeuge: int = 20
     geraete_im_hintergrund: str = "aus"
+    geraete_meldungen: str = "zusaetzlich"
 
     @property
     def notfall_datei(self) -> Path:
@@ -669,6 +670,7 @@ class Einstellungen:
             geraete_im_hintergrund=wert(
                 "MISSA_GERAETE_IM_HINTERGRUND", cls.geraete_im_hintergrund
             ).casefold(),
+            geraete_meldungen=wert("MISSA_GERAETE_MELDUNGEN", cls.geraete_meldungen).casefold(),
         )
 
     def pruefen(self) -> None:
@@ -704,6 +706,10 @@ class Einstellungen:
             )
         if self.geraete_im_hintergrund not in ("aus", "nur_lesen"):
             raise KonfigurationsFehler("MISSA_GERAETE_IM_HINTERGRUND muss aus oder nur_lesen sein")
+        if self.geraete_meldungen not in ("aus", "zusaetzlich", "bevorzugt"):
+            raise KonfigurationsFehler(
+                "MISSA_GERAETE_MELDUNGEN muss aus, zusaetzlich oder bevorzugt sein"
+            )
         if self.missa_control_zeitlimit <= 0:
             raise KonfigurationsFehler("MISSA_CONTROL_ZEITLIMIT muss größer als 0 sein")
         if self.missa_control_url and not self.missa_control_url.startswith(

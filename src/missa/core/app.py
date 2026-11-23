@@ -555,6 +555,11 @@ def create_app(
         geraete_werkzeuge = geraete_werkzeuge_bauen(einstellungen, geraete, werkzeuge)
         # Anleitung für die Rechner-Werkzeuge, nur wenn ein Gerät in der Sitzung online ist.
         dienst.sitzungs_quellen.append(geraete_werkzeuge.hinweis)
+        if einstellungen.geraete_meldungen != "aus":
+            # Erinnerungen, Alarme und Hinweise auch als Benachrichtigung auf dem Rechner.
+            from missa.core.geraete import GeraeteZustellkanal
+
+            zustellung.geraet_setzen(GeraeteZustellkanal(geraete), einstellungen.geraete_meldungen)
     gestartet = int(time.time())
 
     @asynccontextmanager
