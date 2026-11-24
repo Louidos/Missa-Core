@@ -99,3 +99,38 @@ def test_env_datei_laden(tmp_path):
 
 def test_env_datei_fehlt(tmp_path):
     assert env_datei_laden(tmp_path / "gibtsnicht", {}) is False
+
+
+def test_erreichbarkeit_mit_port_und_pfad():
+    e = Einstellungen.aus_umgebung(
+        {
+            "MISSA_API_KEY": "x",
+            "ERREICHBARKEIT_DOMAINS": "cloud.x.test:8443, ki.x.test:8443/health,git.x.test",
+        }
+    )
+    e.pruefen()
+    assert [z.schluessel for z in e.erreichbarkeit_ziele] == [
+        "cloud.x.test:8443",
+        "ki.x.test:8443/health",
+        "git.x.test",
+    ]
+    # Die Zertifikate prüft Missa auf demselben Port (ohne Pfad).
+    assert e.zertifikat_domain_liste == ("cloud.x.test:8443", "ki.x.test:8443", "git.x.test")
+    assert e.domain_namen_liste == ("x.test",)
+
+
+@pytest.mark.parametrize(
+    ("name", "wert", "falsch"),
+    [
+        ("ERREICHBARKEIT_DOMAINS", "cloud.x.test,cloud.x.test:99999", "cloud.x.test:99999"),
+        ("ERREICHBARKEIT_DOMAINS", "https://cloud.x.test", "https://cloud.x.test"),
+        ("ERREICHBARKEIT_DOMAINS", "10.0.0.5", "10.0.0.5"),
+        ("ERREICHBARKEIT_DOMAINS", "localhost:8443", "localhost:8443"),
+        ("ZERTIFIKAT_DOMAINS", "git.x.test:0", "git.x.test:0"),
+    ],
+)
+def test_ungueltige_erreichbarkeit_verhindert_den_start(name, wert, falsch):
+    e = Einstellungen.aus_umgebung({"MISSA_API_KEY": "x", name: wert})
+    with pytest.raises(KonfigurationsFehler) as fehler:
+        e.pruefen()
+    assert str(fehler.value).startswith(f"{name}: „{falsch}“")

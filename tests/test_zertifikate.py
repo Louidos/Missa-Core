@@ -39,10 +39,12 @@ class Netz:
     def __init__(self, jetzt: datetime) -> None:
         self.ablauf: dict[str, datetime] = {}
         self.ungueltig: set[str] = set()
+        self.ports: list[tuple[str, int]] = []
         self.dns: dict[tuple[str, str], list[str]] = {}
         self.jetzt = jetzt
 
-    async def zertifikat(self, domain: str, _timeout: float) -> datetime:
+    async def zertifikat(self, domain: str, _timeout: float, port: int = 443) -> datetime:
+        self.ports.append((domain, port))
         if domain in self.ungueltig:
             fehler = ssl.SSLCertVerificationError(1, "certificate verify failed")
             fehler.verify_message = "Hostname mismatch"
@@ -264,3 +266,19 @@ def test_einstellungen():
     for feld, wert in (("wartung_tage", "Feiertag"), ("dns_erwartet", "x A")):
         with pytest.raises(KonfigurationsFehler):
             replace(gueltig, **{feld: wert}).pruefen()
+
+
+def test_zertifikat_auf_eigenem_port(alarme, planer, netz, uhr):
+    waechter = waechter_bauen(
+        alarme,
+        planer,
+        netz,
+        uhr,
+        zertifikat_domains=["cloud.x.test:8443", "git.x.test", "cloud.x.test:8443"],
+    )
+    assert waechter.zertifikat_domains == ("cloud.x.test:8443", "git.x.test")
+    bericht = asyncio.run(
+        Werkzeugkasten(zertifikat_werkzeuge(waechter)).ausfuehren("zertifikate_pruefen", {})
+    )
+    assert sorted(netz.ports) == [("cloud.x.test", 8443), ("git.x.test", 443)]
+    assert "Zertifikat cloud.x.test:8443: gültig bis" in bericht

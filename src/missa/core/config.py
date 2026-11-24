@@ -18,6 +18,7 @@ from typing import TYPE_CHECKING
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 if TYPE_CHECKING:
+    from missa.integrationen.erreichbarkeit import PruefZiel
     from missa.tools.pausen import PausenRegeln
 
 STANDARD_ENV_DATEI = Path("/etc/missa/missa.env")
@@ -288,9 +289,22 @@ class Einstellungen:
         return bool(self.ssh_hosts.strip())
 
     @property
+    def erreichbarkeit_ziele(self) -> tuple[PruefZiel, ...]:
+        """Ziele der Erreichbarkeit (``domain``, ``domain:port``, ``domain:port/pfad`` …)."""
+        from missa.integrationen.erreichbarkeit import ziele_lesen
+
+        return ziele_lesen(self.erreichbarkeit_domains)
+
+    @property
     def zertifikat_domain_liste(self) -> tuple[str, ...]:
-        """Domains für die Zertifikatsprüfung (Standard: die der Erreichbarkeit)."""
-        return self.zertifikat_domains or self.erreichbarkeit_domains
+        """Ziele der Zertifikatsprüfung (Standard: die der Erreichbarkeit, mit deren Port).
+
+        Ein Eintrag ist ``domain`` (Port 443) oder ``domain:port``; ein Pfad zählt nicht.
+        """
+        from missa.integrationen.erreichbarkeit import PruefZiel, ziele_lesen
+
+        ziele = ziele_lesen(self.zertifikat_domains or self.erreichbarkeit_domains)
+        return tuple(dict.fromkeys(PruefZiel(z.domain, z.port).schluessel for z in ziele))
 
     @property
     def domain_namen_liste(self) -> tuple[str, ...]:
@@ -298,8 +312,13 @@ class Einstellungen:
         if self.domain_namen:
             return self.domain_namen
         from missa.integrationen.domains import registrierte_domain
+        from missa.integrationen.erreichbarkeit import ziel_lesen
 
-        return tuple(dict.fromkeys(registrierte_domain(d) for d in self.zertifikat_domain_liste))
+        return tuple(
+            dict.fromkeys(
+                registrierte_domain(ziel_lesen(d).domain) for d in self.zertifikat_domain_liste
+            )
+        )
 
     @property
     def git_server_konfiguriert(self) -> bool:
@@ -718,6 +737,16 @@ class Einstellungen:
             raise KonfigurationsFehler("MISSA_CONTROL_URL muss mit http:// oder https:// beginnen")
         if self.erreichbarkeit_stufe not in ("info", "wichtig", "notfall"):
             raise KonfigurationsFehler("ERREICHBARKEIT_STUFE muss info, wichtig oder notfall sein")
+        from missa.integrationen.erreichbarkeit import ZielFehler, ziele_lesen
+
+        for name, eintraege in (
+            ("ERREICHBARKEIT_DOMAINS", self.erreichbarkeit_domains),
+            ("ZERTIFIKAT_DOMAINS", self.zertifikat_domains),
+        ):
+            try:
+                ziele_lesen(eintraege)
+            except ZielFehler as fehler:
+                raise KonfigurationsFehler(f"{name}: {fehler}") from fehler
         try:
             from missa.integrationen.anmeldungen import NextcloudLog
             from missa.integrationen.ssh import hosts_lesen

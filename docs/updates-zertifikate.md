@@ -68,7 +68,9 @@ eingerichteten Hosts das Script einfach noch einmal ausführen.
 Jeden Tag um `ZERTIFIKATE_PRUEFZEIT` (07:10) prüft Missa:
 
 - **HTTPS-Zertifikate** aller Domains aus `ZERTIFIKAT_DOMAINS` (Standard: die aus
-  `ERREICHBARKEIT_DOMAINS`), mit voller Prüfung und Ablaufdatum aus dem Zertifikat.
+  `ERREICHBARKEIT_DOMAINS`, auf deren Port), mit voller Prüfung und Ablaufdatum aus dem
+  Zertifikat. Ein Eintrag ist `domain` (Port 443) oder `domain:port`, z. B.
+  `cloud.louis-degiorgi.ch:8443`.
 - **Ablaufdatum der Domains** per RDAP (`DOMAIN_NAMEN`, Standard: aus den Zertifikats-Domains
   abgeleitet, z. B. `louis-degiorgi.ch`). Welcher Server zuständig ist, steht in der
   offiziellen IANA-Liste (`RDAP_BOOTSTRAP_URL`). **Das ist die einzige Abfrage nach außen

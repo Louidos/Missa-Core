@@ -1,11 +1,14 @@
 """Erreichbarkeit der eigenen Domains: Ausfall und Wiederherstellung melden.
 
 Der :class:`ErreichbarkeitsWaechter` prüft regelmäßig (Standard: alle 5 Minuten)
-jede konfigurierte Domain über die öffentliche Adresse (DNS, HTTPS-Antwort, gültiges
-Zertifikat). Schlägt die Prüfung :data:`AUSFALL_NACH` Mal hintereinander fehl, meldet
+jedes konfigurierte Ziel über die öffentliche Adresse (DNS, HTTPS-Antwort, gültiges
+Zertifikat) – Standard Port 443 und Pfad ``/``, sonst z. B. ``cloud.example.ch:8443``.
+Schlägt die Prüfung :data:`AUSFALL_NACH` Mal hintereinander fehl, meldet
 Missa den Ausfall (Standard: ``wichtig``); klappt sie danach wieder, meldet sie die
 Rückkehr (``info``). Der Zustand steht in der Tabelle ``erreichbarkeit`` und
-überlebt Neustarts – auch das Ablaufdatum der Zertifikate.
+überlebt Neustarts – auch das Ablaufdatum der Zertifikate. Schlüssel ist der Name des
+Ziels: bei Port 443 und Pfad ``/`` der reine Domainname (wie in älteren Versionen),
+sonst ``domain:port/pfad``.
 """
 
 from __future__ import annotations
@@ -93,7 +96,8 @@ class ErreichbarkeitsWaechter:
         return gemeldet
 
     def verarbeiten(self, ergebnis: DomainErgebnis, jetzt: datetime) -> Alarm | None:
-        alt = self.zustand().get(ergebnis.domain)
+        name = ergebnis.schluessel
+        alt = self.zustand().get(name)
         seit = datetime.fromisoformat(alt["seit"]).astimezone(self.zone) if alt else jetzt
         gemeldet = bool(alt and alt["gemeldet"])
         alarm = None
@@ -102,13 +106,13 @@ class ErreichbarkeitsWaechter:
                 if gemeldet:
                     alarm = self.alarme.melden(
                         AlarmStufe.INFO,
-                        f"{ergebnis.domain} ist wieder erreichbar",
+                        f"{name} ist wieder erreichbar",
                         f"Ausfall von {seit:%H:%M} bis {jetzt:%H:%M} Uhr "
                         f"({_dauer_text(seit, jetzt)}).",
-                        schluessel=f"erreichbarkeit:{ergebnis.domain}:zurueck",
+                        schluessel=f"erreichbarkeit:{name}:zurueck",
                         quelle="erreichbarkeit",
                     )
-                    log.info("%s ist wieder erreichbar", ergebnis.domain)
+                    log.info("%s ist wieder erreichbar", name)
                 seit = jetzt
             status, fehler, gemeldet = "ok", 0, False
         else:
@@ -118,10 +122,10 @@ class ErreichbarkeitsWaechter:
             if fehler >= AUSFALL_NACH and not gemeldet:
                 alarm = self.alarme.melden(
                     self.stufe,
-                    f"{ergebnis.domain} ist nicht erreichbar",
+                    f"{name} ist nicht erreichbar",
                     f"Seit {seit:%H:%M} Uhr: {ergebnis.problem}. Geprüft von ai01 über die "
                     "öffentliche Domain.",
-                    schluessel=f"erreichbarkeit:{ergebnis.domain}:ausfall",
+                    schluessel=f"erreichbarkeit:{name}:ausfall",
                     quelle="erreichbarkeit",
                 )
                 gemeldet = alarm is not None
@@ -139,7 +143,7 @@ class ErreichbarkeitsWaechter:
                 "adressen = excluded.adressen, http_status = excluded.http_status, "
                 "zertifikat_bis = excluded.zertifikat_bis",
                 (
-                    ergebnis.domain,
+                    name,
                     status,
                     seit.astimezone(UTC).isoformat(timespec="seconds"),
                     fehler,
@@ -155,26 +159,26 @@ class ErreichbarkeitsWaechter:
 
     def zeile(self, ergebnis: DomainErgebnis) -> str:
         if ergebnis.ok:
-            text = f"- {ergebnis.domain}: erreichbar (HTTP {ergebnis.http_status}"
+            text = f"- {ergebnis.schluessel}: erreichbar (HTTP {ergebnis.http_status}"
             if ergebnis.zertifikat_bis:
                 tage = (ergebnis.zertifikat_bis - datetime.now(UTC)).days
                 text += f", Zertifikat gültig bis {ergebnis.zertifikat_bis:%d.%m.%Y}, {tage} Tage"
             return text + ")"
-        return f"- {ergebnis.domain}: NICHT erreichbar – {ergebnis.problem}"
+        return f"- {ergebnis.schluessel}: NICHT erreichbar – {ergebnis.problem}"
 
     async def jetzt_pruefen(self, domain: str | None = None) -> str:
-        """Werkzeug: prüft sofort (alle oder eine Domain) und zeigt das Ergebnis."""
+        """Werkzeug: prüft sofort (alle oder ein Ziel) und zeigt das Ergebnis."""
         gesucht = (domain or "").strip().casefold()
-        domains = [d for d in self.pruefer.domains if not gesucht or gesucht in d]
-        if not domains:
+        ziele = [z for z in self.pruefer.ziele if not gesucht or gesucht in z.schluessel]
+        if not ziele:
             return (
                 f"„{domain}“ prüfe ich nicht. Konfiguriert sind: "
                 + (", ".join(self.pruefer.domains) or "keine")
                 + " (ERREICHBARKEIT_DOMAINS)."
             )
         zeilen = ["Erreichbarkeit von außen (geprüft von ai01 über die öffentliche Domain):"]
-        for name in domains:
-            zeilen.append(self.zeile(await self.pruefer.pruefen(name)))
+        for ziel in ziele:
+            zeilen.append(self.zeile(await self.pruefer.pruefen(ziel)))
         gestoert = [d for d, z in self.zustand().items() if z["status"] != "ok" and z["gemeldet"]]
         if gestoert:
             zeilen.append("Als Ausfall gemeldet: " + ", ".join(gestoert))
@@ -197,7 +201,8 @@ def erreichbarkeit_werkzeuge(waechter: ErreichbarkeitsWaechter) -> list[Werkzeug
         Werkzeug(
             "erreichbarkeit_pruefen",
             "Prüft sofort, ob die eigenen Domains (z. B. cloud., git., ki.) von außen erreichbar "
-            "sind: DNS, HTTPS-Antwort und gültiges Zertifikat. Optional nur eine Domain.",
+            "sind: DNS, HTTPS-Antwort und gültiges Zertifikat, je Ziel auf dem eingetragenen "
+            "Port und Pfad (Standard 443 und /). Optional nur eine Domain.",
             {
                 "type": "object",
                 "properties": {"domain": {"type": "string", "description": "z. B. git"}},

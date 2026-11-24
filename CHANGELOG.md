@@ -7,6 +7,12 @@ die Versionsnummern folgen [Semantic Versioning](https://semver.org/lang/de/).
 
 ## Unveröffentlicht
 
+### Hinzugefügt
+
+- Die Erreichbarkeits-Prüfung kann jetzt auch andere Ports und einen Pfad prüfen, z. B.
+  `cloud.louis-degiorgi.ch:8443` oder `ki.louis-degiorgi.ch:8443/health`; ungültige Einträge
+  (IP-Adresse, `localhost`, `https://`, falscher Port) verhindern den Start mit klarer Meldung (#131)
+
 ## 1.1.0 – 2026-11-23
 
 ### Hinzugefügt

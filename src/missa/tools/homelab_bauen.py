@@ -112,7 +112,7 @@ def erreichbarkeit_bauen(
     from missa.tools.erreichbarkeit import ErreichbarkeitsWaechter
 
     return ErreichbarkeitsWaechter(
-        ErreichbarkeitsPruefer(einstellungen.erreichbarkeit_domains),
+        ErreichbarkeitsPruefer(einstellungen.erreichbarkeit_ziele),
         alarme,
         einstellungen.datenbank,
         einstellungen.zone,
