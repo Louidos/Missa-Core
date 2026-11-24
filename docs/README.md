@@ -12,7 +12,7 @@
 - [kontakte.md](kontakte.md) – Geburtstage und Kontaktpflege für wichtige Personen
 - [pausen.md](pausen.md) – Pausen und Puffer: was Missa prüft, wann sie Blöcke einträgt, Grenzwerte
 - [rechte.md](rechte.md) – Rechte-Stufen, Bestätigung, Aktionsprotokoll, Notfall-Stopp, Rechte pro Dienst
-- [server-alarme.md](server-alarme.md) – Server-Alarme: Stufen, Ruhezeit, Regeln per Gespräch, Auffälliges, Erreichbarkeit, Proxmox-Token
+- [server-alarme.md](server-alarme.md) – Server-Alarme: Stufen, Ruhezeit, Regeln per Gespräch, Auffälliges, Erreichbarkeit (Prüfungen per Chat), Proxmox-Token
 - [monitoring.md](monitoring.md) – Schnittstelle der Monitoring-Quellen und JSON-Formate (eigenes Tool, Homepage, Proxmox)
 - [missa-control.md](missa-control.md) – Funktionen aus dem Panel Missa Control als Werkzeuge: Einrichtung, Einstellungen, Freigaben, Ausfall
 - [geraete.md](geraete.md) – Geräte anschliessen (Laptop): Token, Vertrag „Geräte-Anschluss v1“, Rechner-Werkzeuge, Meldungen am Desktop, Reverse Proxy, Fehlersuche

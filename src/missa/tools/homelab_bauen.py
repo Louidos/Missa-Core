@@ -101,22 +101,24 @@ def server_waechter_bauen(
     )
 
 
-def erreichbarkeit_bauen(
-    einstellungen: Einstellungen, alarme: Alarme
-) -> ErreichbarkeitsWaechter | None:
-    """Prüfung der eigenen Domains von außen – ohne ``ERREICHBARKEIT_DOMAINS`` aus."""
-    if not einstellungen.erreichbarkeit_domains:
-        return None
+def erreichbarkeit_bauen(einstellungen: Einstellungen, alarme: Alarme) -> ErreichbarkeitsWaechter:
+    """Prüfung der eigenen Domains von außen – die Ziele stehen in ``erreichbarkeit_pruefungen``.
+
+    ``ERREICHBARKEIT_DOMAINS`` ist nur der Startwert beim allerersten Start;
+    ``ERREICHBARKEIT_INTERVALL_MINUTEN`` und ``ERREICHBARKEIT_STUFE`` gelten für neue Prüfungen.
+    """
     from missa.core.alarme import AlarmStufe
     from missa.integrationen.erreichbarkeit import ErreichbarkeitsPruefer
     from missa.tools.erreichbarkeit import ErreichbarkeitsWaechter
 
     return ErreichbarkeitsWaechter(
-        ErreichbarkeitsPruefer(einstellungen.erreichbarkeit_ziele),
+        ErreichbarkeitsPruefer(),
         alarme,
         einstellungen.datenbank,
         einstellungen.zone,
         stufe=AlarmStufe(einstellungen.erreichbarkeit_stufe),
+        intervall_minuten=einstellungen.erreichbarkeit_intervall_minuten,
+        startwert=einstellungen.erreichbarkeit_ziele,
     )
 
 
@@ -220,10 +222,17 @@ def update_verwaltung_bauen(
 
 
 def zertifikats_waechter_bauen(
-    einstellungen: Einstellungen, alarme: Alarme
+    einstellungen: Einstellungen,
+    alarme: Alarme,
+    erreichbarkeit: ErreichbarkeitsWaechter | None = None,
 ) -> ZertifikatsWaechter | None:
-    """Zertifikate, Domain-Ablauf (RDAP) und DNS – ohne Domains und Erwartungen aus."""
-    if not (einstellungen.zertifikat_domain_liste or einstellungen.dns_erwartet):
+    """Zertifikate, Domain-Ablauf (RDAP) und DNS – ohne Domains und Erwartungen aus.
+
+    Ohne ``ZERTIFIKAT_DOMAINS`` nimmt Missa die Ziele der aktiven Erreichbarkeits-Prüfungen
+    (bei jeder Prüfung neu, also auch nach einer Änderung im Chat).
+    """
+    quelle = erreichbarkeit.zertifikat_ziele if erreichbarkeit is not None else None
+    if not (einstellungen.zertifikat_domains or quelle or einstellungen.dns_erwartet):
         return None
     from missa.integrationen.domains import RdapClient, erwartet_lesen
     from missa.tools.zertifikate import ZertifikatsWaechter
@@ -231,8 +240,9 @@ def zertifikats_waechter_bauen(
     return ZertifikatsWaechter(
         alarme,
         einstellungen.datenbank,
-        zertifikat_domains=einstellungen.zertifikat_domain_liste,
-        domain_namen=einstellungen.domain_namen_liste,
+        zertifikat_domains=einstellungen.zertifikat_domains,
+        zertifikat_quelle=quelle,
+        domain_namen=einstellungen.domain_namen or None,
         dns_erwartet=erwartet_lesen(einstellungen.dns_erwartet),
         warn_tage=einstellungen.zertifikat_warnung_tage,
         rdap=RdapClient(einstellungen.rdap_bootstrap_url) if einstellungen.rdap_aktiv else None,

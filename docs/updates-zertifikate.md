@@ -6,7 +6,8 @@ rechtzeitig, und sie prüft, ob die DNS-Einträge noch stimmen.
 
 Updates brauchen `SSH_HOSTS` und auf jedem Host den Benutzer `missa`
 ([container-logs-logins.md](container-logs-logins.md)). Zertifikate und Domains brauchen
-`ZERTIFIKAT_DOMAINS` oder `ERREICHBARKEIT_DOMAINS`. Ohne Konfiguration ist alles aus.
+`ZERTIFIKAT_DOMAINS` oder Erreichbarkeits-Prüfungen (Startwert `ERREICHBARKEIT_DOMAINS`).
+Ohne Konfiguration ist alles aus.
 
 ## Was du sagen kannst
 
@@ -67,8 +68,9 @@ eingerichteten Hosts das Script einfach noch einmal ausführen.
 
 Jeden Tag um `ZERTIFIKATE_PRUEFZEIT` (07:10) prüft Missa:
 
-- **HTTPS-Zertifikate** aller Domains aus `ZERTIFIKAT_DOMAINS` (Standard: die aus
-  `ERREICHBARKEIT_DOMAINS`, auf deren Port), mit voller Prüfung und Ablaufdatum aus dem
+- **HTTPS-Zertifikate** aller Domains aus `ZERTIFIKAT_DOMAINS` (Standard: die Domains der
+  aktiven Erreichbarkeits-Prüfungen, auf deren Port – siehe
+  [server-alarme.md](server-alarme.md)), mit voller Prüfung und Ablaufdatum aus dem
   Zertifikat. Ein Eintrag ist `domain` (Port 443) oder `domain:port`, z. B.
   `cloud.louis-degiorgi.ch:8443`.
 - **Ablaufdatum der Domains** per RDAP (`DOMAIN_NAMEN`, Standard: aus den Zertifikats-Domains

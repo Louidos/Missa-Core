@@ -317,9 +317,12 @@ def server_quelle(server: Any) -> QuellenFunktion:
 
 
 def erreichbarkeit_quelle(erreichbarkeit: Any) -> QuellenFunktion:
-    """Erreichbarkeit der eigenen Domains von aussen."""
+    """Erreichbarkeit der eigenen Domains von aussen (aktive Erreichbarkeits-Prüfungen)."""
 
     def quelle() -> str:
+        pruefungen = getattr(erreichbarkeit, "pruefungen", None)
+        if pruefungen is not None and not pruefungen(nur_aktive=True):
+            return "Keine aktiven Prüfungen."
         zustand = erreichbarkeit.zustand()
         gestoert = [
             f"- {d}: {z.get('problem') or z.get('status')}"

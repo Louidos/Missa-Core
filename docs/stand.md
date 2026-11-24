@@ -4,7 +4,9 @@ Bestandsaufnahme gegen die Soll-Liste der drei Aufträge Fundament (F1–F4), Or
 (O1–O6) und Server (S1–S7). Erstellt am 2026-11-16 auf Version 0.9.0, nachgeführt auf
 Version 0.10.1 (Sicherheitsprüfung, siehe [sicherheit.md](sicherheit.md)) und 0.11.0 (Missa
 Initiative, siehe [initiative.md](initiative.md), Abschnitt „Initiative“ unten) und um den
-Geräte-Anschluss in 1.1.0 (siehe [geraete.md](geraete.md), Abschnitt „Geräte“ unten).
+Geräte-Anschluss in 1.1.0 (siehe [geraete.md](geraete.md), Abschnitt „Geräte“ unten),
+dazu die Erreichbarkeits-Prüfungen mit Port und Pfad, die Missa selbst verwaltet
+(siehe [server-alarme.md](server-alarme.md)).
 
 Aktueller Stand: 1244 Tests (1242 grün; übersprungen, wenn die Tests als root laufen oder
 ansible fehlt); `ruff check` mit Sicherheitsregeln `S`, `ruff format --check`, `shellcheck`,
@@ -115,6 +117,8 @@ Legende: ✅ erledigt (Code auf main, Test grün, Einstellung in
 | S1 | „Ruf mich an, wenn ai01 über 90 %“ → `notfall` | ✅ | `test_server_alarme.py::test_ruf_mich_an_wird_notfall_regel_und_loest_nach_5_minuten_aus` |
 | S1 | Auffälliger Anstieg unter Schwellwert (7-Tage-Mittel) | ✅ | `::test_ungewoehnlicher_anstieg_unter_der_grenze_gibt_hinweis` |
 | S1 | Ausfall und Rückkehr einer Domain | ✅ | `test_erreichbarkeit.py::test_ausfall_und_rueckkehr_werden_gemeldet` |
+| S1 | Erreichbarkeit mit Port und Pfad (`cloud…:8443`, `ki…:8443/health`) | ✅ | `test_erreichbarkeit.py::test_kein_ausfall_wegen_443_wenn_8443_eingetragen`, `::test_alter_zustand_mit_domainnamen_bleibt_erhalten` |
+| S1 | Erreichbarkeits-Prüfungen per Chat (Tabelle, Startwert aus der env, eigenes Intervall, Pause, Löschen nach Ja) | ✅ | `test_erreichbarkeit_pruefungen.py::test_pruefung_lieber_auf_8443`, `::test_startwert_wird_einmal_uebernommen`, `::test_pruefung_loeschen_nur_nach_ja` |
 | S1 | Kein Alarm im Minutentakt | ✅ | `::test_derselbe_alarm_kommt_nicht_im_minutentakt` |
 | S1 | Adapter Monitoring-Tool/Homepage, Proxmox nur lesend | ✅ | `integrationen/monitoring.py`, `docs/monitoring.md`, `scripts/einrichten/proxmox-lesetoken.sh` |
 | S2 | „Welche Container laufen auf wb01?“ | ✅ | `test_container.py::test_welche_container_laufen_auf_wb01` |

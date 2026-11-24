@@ -122,47 +122,83 @@ Danach braucht ai01 eine Freigabe zu pve-id01, Port 8006 (siehe
 
 ## Erreichbarkeit von außen
 
-Alle `ERREICHBARKEIT_INTERVALL_MINUTEN` (Standard 5) prüft Missa jedes Ziel aus
-`ERREICHBARKEIT_DOMAINS` (z. B. `cloud.`, `git.` und `ki.louis-degiorgi.ch`):
+Welche Domains Missa von außen prüft, steht in ihrer Datenbank (Tabelle
+`erreichbarkeit_pruefungen`) – nicht mehr fest in `missa.env`. Missa legt Prüfungen im
+Gespräch selbst an, ändert Port, Pfad, Intervall und Stufe, pausiert und löscht sie, so wie
+die Alarm-Regeln. Eine Änderung gilt sofort, ohne Neustart und ohne env-Änderung.
+
+### Was geprüft wird
+
+Jede Prüfung läuft in ihrem eigenen Intervall (Missa schaut jede Minute, welche fällig sind;
+pausierte laufen nicht):
 
 1. **DNS**: Lässt sich der Name auflösen?
-2. **Zertifikat**: TLS-Verbindung auf dem Port des Ziels (Standard 443) mit voller Prüfung.
-   Abgelaufen, falscher Name oder nicht vertrauenswürdig zählt als Ausfall. Das Ablaufdatum
-   wird gespeichert.
+2. **Zertifikat**: TLS-Verbindung auf dem Port der Prüfung (Standard 443) mit voller
+   Prüfung. Abgelaufen, falscher Name oder nicht vertrauenswürdig zählt als Ausfall. Das
+   Ablaufdatum wird gespeichert.
 3. **HTTPS-Antwort**: `GET https://<domain>[:<port>]<pfad>` (Standard: Pfad `/`). 2xx, 3xx
    und auch 401/403 (z. B. die API-Key-Prüfung von `ki.`) heißen „der Dienst ist da“. 5xx und
-   keine Antwort zählen als Ausfall.
+   keine Antwort zählen als Ausfall. Die Fehlermeldung nennt den echten Port („Keine
+   HTTPS-Verbindung (Port 8443): …“).
 
-### Port und Pfad
+Nach **zwei Fehlschlägen hintereinander** meldet Missa den Ausfall mit der Stufe der
+Prüfung (Standard `ERREICHBARKEIT_STUFE`, meist `wichtig`) und dem Grund. Sobald das Ziel
+wieder antwortet, kommt ein `info` mit der Dauer des Ausfalls. Der Zustand steht in der
+Tabelle `erreichbarkeit` und überlebt Neustarts: Nach einem Neustart wird ein Ausfall nicht
+noch einmal gemeldet. Ist ein Ausfall ein Fehlalarm (z. B. der Dienst läuft auf 8443), bietet
+Missa von sich aus an, die Prüfung anzupassen („Soll ich das künftig auf 8443 prüfen?“).
 
-Ein Eintrag in `ERREICHBARKEIT_DOMAINS` ist `domain`, `domain:port`, `domain/pfad` oder
-`domain:port/pfad`, z. B.:
+### Im Chat
+
+| Du sagst | Missa macht | Werkzeug |
+|---|---|---|
+| „Welche Prüfungen hast du?“ | Liste mit Nummer, Ziel, Intervall, Stufe, pausiert und letztem Ergebnis | `erreichbarkeit_pruefungen_anzeigen` |
+| „Prüf cloud.louis-degiorgi.ch auf Port 8443“ | neue Prüfung `cloud.louis-degiorgi.ch:8443` (gibt es sie schon, wird sie aktualisiert, nicht doppelt angelegt) | `erreichbarkeit_pruefung_anlegen` |
+| „Prüf cloud lieber auf Port 8443“ | ändert die bestehende Prüfung dauerhaft | `erreichbarkeit_pruefung_aendern` |
+| „Prüf git nur noch jede Stunde“ | Intervall 60 Minuten | `erreichbarkeit_pruefung_aendern` |
+| „Prüf ki auf /health“, „Melde einen Ausfall von git nur als info“ | Pfad bzw. Stufe ändern | `erreichbarkeit_pruefung_aendern` |
+| „Pausier die Prüfung von git“ / „Prüf git wieder“ | pausieren und fortsetzen | `erreichbarkeit_pruefung_pausieren` |
+| „Lösch die Prüfung von git“ | löscht erst nach Rückfrage und deinem Ja | `erreichbarkeit_pruefung_loeschen` |
+| „Ist git von außen erreichbar?“ | prüft sofort (alle aktiven oder eine bestimmte Prüfung) | `erreichbarkeit_pruefen` |
+
+Eine Prüfung wird nach Nummer (`2`, `#2`) oder Name (`git`, `cloud.louis-degiorgi.ch:8443`)
+gefunden; passt ein Name auf mehrere, fragt Missa nach der Nummer.
+
+Grenzen, die Missa streng prüft (wie beim Start): nur öffentliche Domainnamen – keine
+IP-Adressen, kein `localhost`, kein Schema wie `https://`, keine Leerzeichen; Port 1–65535,
+Pfad ab `/` ohne Leerzeichen und `#`, Intervall 1–1440 Minuten, Stufe `info`, `wichtig` oder
+`notfall`, höchstens 50 Prüfungen. So dient die Prüfung nicht zum Abtasten des internen Netzes.
+
+Missa verwaltet damit **nur ihre Prüfungen**. Schlüssel, Passwörter, Rechte und alle anderen
+Einstellungen bleiben in `/etc/missa/missa.env`; kein Werkzeug schreibt in diese Datei.
+
+### Startwert aus `ERREICHBARKEIT_DOMAINS`
+
+`ERREICHBARKEIT_DOMAINS` ist nur noch der **Startwert**. Ist die Tabelle beim Start leer und
+wurde noch nie etwas übernommen, legt Missa die Einträge daraus einmal als Prüfungen an (mit
+`ERREICHBARKEIT_INTERVALL_MINUTEN` und `ERREICHBARKEIT_STUFE`) und vermerkt das im Log und in
+der Datenbank (Tabelle `stand`, Merker `erreichbarkeit_startwert`). Danach liest Missa die
+Variable für die Prüfung nicht mehr – auch nicht, wenn du alle Prüfungen löschst. Steht in
+der env später etwas, das nicht in der Tabelle ist, erwähnt Missa das einmal im Log.
+
+Ein Eintrag ist `domain`, `domain:port`, `domain/pfad` oder `domain:port/pfad`, z. B.:
 
 ```ini
 ERREICHBARKEIT_DOMAINS=cloud.louis-degiorgi.ch:8443,ki.louis-degiorgi.ch:8443/health,git.louis-degiorgi.ch
 ```
 
-Ohne Angabe gelten Port 443 und Pfad `/` – wie bisher. Die Fehlermeldung nennt den echten
-Port („Keine HTTPS-Verbindung (Port 8443): …“). Die Zertifikatsprüfung
-([updates-zertifikate.md](updates-zertifikate.md)) nimmt denselben Port.
+Ungültige Einträge verhindern den Start mit einer Meldung, die den falschen Eintrag nennt.
+`ERREICHBARKEIT_INTERVALL_MINUTEN` und `ERREICHBARKEIT_STUFE` gelten weiter als Standard für
+neue Prüfungen.
 
-Erlaubt sind nur öffentliche Domainnamen: IP-Adressen, `localhost`, ein Schema wie
-`https://`, Leerzeichen und Ports ausserhalb 1–65535 lehnt Missa beim Start ab, mit einer
-Meldung, die den falschen Eintrag nennt. So dient die Prüfung nicht zum Abtasten des
-internen Netzes.
+**Nach dem Update:** Auf einem System mit `ERREICHBARKEIT_DOMAINS` sind diese Domains nach
+dem ersten Start als Prüfungen da. Im Zustand heisst ein Ziel mit Port 443 und Pfad `/` weiter
+einfach wie die Domain – schon gemeldete Ausfälle werden nicht noch einmal gemeldet. Andere
+Ziele heissen z. B. `cloud.louis-degiorgi.ch:8443`. Ändert sich Port oder Pfad einer Prüfung,
+beginnt der Zustand für das neue Ziel frisch.
 
-Im Zustand (Tabelle `erreichbarkeit`) heisst ein Ziel mit Port 443 und Pfad `/` weiter
-einfach wie die Domain – bestehende Einträge und schon gemeldete Ausfälle bleiben nach dem
-Update erhalten. Andere Ziele heissen z. B. `cloud.louis-degiorgi.ch:8443` oder
-`ki.louis-degiorgi.ch:8443/health`.
-
-Nach **zwei Fehlschlägen hintereinander** meldet Missa den Ausfall (Stufe
-`ERREICHBARKEIT_STUFE`, Standard `wichtig`), mit dem Grund. Sobald das Ziel wieder
-antwortet, kommt ein `info` mit der Dauer des Ausfalls. Der Zustand steht in der Tabelle
-`erreichbarkeit` und überlebt Neustarts: Nach einem Neustart wird ein Ausfall nicht noch
-einmal gemeldet.
-
-Im Chat: „Ist git von außen erreichbar?“ (Werkzeug `erreichbarkeit_pruefen`).
+Die Zertifikatsprüfung ([updates-zertifikate.md](updates-zertifikate.md)) nimmt ohne
+`ZERTIFIKAT_DOMAINS` die Domains der aktiven Prüfungen mit deren Port.
 
 **Grenze dieser Prüfung:** Sie läuft auf ai01 über die öffentliche Domain. Löst ai01 die
 Domain intern auf (Split-DNS) oder erlaubt die ZyWALL keinen Weg von innen auf die
@@ -180,7 +216,12 @@ Test von außerhalb des Netzes braucht einen externen Host und kommt später.
 | `alarmregel_loeschen` | zerstoererisch | löschen, nur nach deinem Ja |
 | `alarme_anzeigen` | lesen | zuletzt gemeldete Alarme, Ruhezeit, Ruhefenster |
 | `alarm_einstellungen` | schreiben | Ruhezeit und Ruhefenster ändern |
-| `erreichbarkeit_pruefen` | lesen | Domains sofort prüfen |
+| `erreichbarkeit_pruefen` | lesen | Domains sofort prüfen (alle aktiven oder eine Prüfung) |
+| `erreichbarkeit_pruefungen_anzeigen` | lesen | alle Erreichbarkeits-Prüfungen mit Ziel, Intervall, Stufe, Pause und letztem Ergebnis |
+| `erreichbarkeit_pruefung_anlegen` | schreiben | neue Prüfung (gleiches Ziel wird nicht doppelt angelegt) |
+| `erreichbarkeit_pruefung_aendern` | schreiben | Port, Pfad, Intervall, Stufe, Notiz |
+| `erreichbarkeit_pruefung_pausieren` | schreiben | pausieren und fortsetzen |
+| `erreichbarkeit_pruefung_loeschen` | zerstoererisch | löschen, nur nach deinem Ja |
 
 Es gibt kein Werkzeug, das auf einem Server etwas startet, stoppt oder ändert. Proxmox wird
 ausschließlich per GET gelesen.

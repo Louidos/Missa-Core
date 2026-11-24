@@ -422,8 +422,10 @@ Mehr dazu: [server-alarme.md](server-alarme.md).
 
 ### `GET /api/server` – Messwerte und Erreichbarkeit
 
-Die zuletzt gemessenen Werte aller Monitoring-Quellen, Quellen mit Fehlern und der Zustand
-jeder geprüften Domain. Ohne eingerichtete Quelle ist `monitoring` `false`.
+Die zuletzt gemessenen Werte aller Monitoring-Quellen, Quellen mit Fehlern, der Zustand
+jedes Ziels der aktiven Erreichbarkeits-Prüfungen (`erreichbarkeit`, `domain` ist der Name
+des Ziels, z. B. `cloud.louis-degiorgi.ch:8443`) und alle Prüfungen
+(`erreichbarkeit_pruefungen`). Ohne eingerichtete Quelle ist `monitoring` `false`.
 
 ```bash
 curl $MISSA/api/server -H "Authorization: Bearer $KEY"
@@ -443,6 +445,10 @@ curl $MISSA/api/server -H "Authorization: Bearer $KEY"
      "fehler_in_folge": 0, "gemeldet": 0, "letzte_pruefung": "2026-11-11T13:05:00+00:00",
      "problem": "", "adressen": "203.0.113.10", "http_status": 200,
      "zertifikat_bis": "2027-01-20T10:11:12+00:00"}
+  ],
+  "erreichbarkeit_pruefungen": [
+    {"id": 1, "ziel": "git.louis-degiorgi.ch", "domain": "git.louis-degiorgi.ch", "port": 443,
+     "pfad": "/", "intervall_minuten": 5, "stufe": "wichtig", "pausiert": false, "notiz": ""}
   ]
 }
 ```
@@ -824,7 +830,7 @@ kennen – man fragt einfach in normaler Sprache.
 | Nextcloud Talk (nur wenn eingerichtet) | „Schick mir die Übersicht per Talk“, „Erinnere mich per Talk an …“ | `talk_nachricht_senden` |
 | Server-Alarme (nur wenn eine Monitoring-Quelle eingerichtet ist) | „Ruf mich an, wenn ai01 über 90 % ist“, „Wie ist die Auslastung von ai01?“, „Welche Alarm-Regeln gibt es?“, „Ruhezeit von 23 bis 6 Uhr“ | `server_werte_anzeigen`, `alarmregel_anlegen`, `alarmregeln_anzeigen`, `alarmregel_aendern`, `alarmregel_loeschen`, `alarme_anzeigen`, `alarm_einstellungen` |
 | Lagebild und Denkschleife | „Was ist gerade los?“, „Stör mich höchstens dreimal am Tag“, „Denk mal eine Stunde nicht nach“ | `lagebild_anzeigen`, `initiative_einstellen`, `initiative_status`, `gedanken_anzeigen` („Warum hast du mir das geschrieben?“), `initiative_gelerntes_anzeigen`, `initiative_gelerntes_zuruecksetzen` (nur nach Ja; siehe [initiative.md](initiative.md)) |
-| Erreichbarkeit (nur wenn `ERREICHBARKEIT_DOMAINS` gesetzt ist) | „Ist git von außen erreichbar?“ | `erreichbarkeit_pruefen` |
+| Erreichbarkeit (immer; Startwert aus `ERREICHBARKEIT_DOMAINS`) | „Ist git von außen erreichbar?“, „Welche Prüfungen hast du?“, „Prüf cloud lieber auf Port 8443“, „Prüf git nur noch jede Stunde“, „Pausier die Prüfung von ki“ | `erreichbarkeit_pruefen`, `erreichbarkeit_pruefungen_anzeigen`, `erreichbarkeit_pruefung_anlegen`, `erreichbarkeit_pruefung_aendern`, `erreichbarkeit_pruefung_pausieren`, `erreichbarkeit_pruefung_loeschen` |
 | Container und Logs (nur wenn `SSH_HOSTS` gesetzt ist) | „Welche Container laufen auf wb01?“, „Warum geht Nextcloud nicht?“, „Starte nextcloud neu“ (nur nach Ja) | `container_anzeigen`, `container_logs`, `container_neustarten`, `fehlersuche`, `journal_lesen` |
 | Updates (nur wenn `SSH_HOSTS` gesetzt ist) | „Welche Updates stehen an?“, „Plan ein Wartungsfenster“, „Spiel die Updates auf wb01 ein“ (nur nach Ja), „Starte wb01 neu“ (nur nach Ja) | `updates_anzeigen`, `wartungsfenster_vorschlagen`, `wartungsfenster_eintragen`, `updates_plan`, `updates_einspielen`, `host_neustarten` |
 | Zertifikate und Domains | „Wann laufen die Zertifikate ab?“ | `zertifikate_pruefen` |

@@ -261,11 +261,10 @@ def create_app(
     if erreichbarkeit is None:
         erreichbarkeit = erreichbarkeit_bauen(einstellungen, alarme)
     if erreichbarkeit is not None:
-        zeitplaner.regelmaessig(
-            "erreichbarkeit",
-            timedelta(minutes=einstellungen.erreichbarkeit_intervall_minuten),
-            erreichbarkeit.pruefen,
-        )
+        from missa.tools.erreichbarkeit import TAKT
+
+        # Jede Minute: nur die fälligen Prüfungen laufen (jede hat ihr eigenes Intervall).
+        zeitplaner.regelmaessig("erreichbarkeit", TAKT, erreichbarkeit.pruefen)
     # Container, Logs und Anmeldungen auf anderen Hosts (SSH als „missa“, nur erlaubte Befehle).
     if ssh_verbindung is None:
         ssh_verbindung = ssh_verbindung_bauen(einstellungen)
@@ -296,7 +295,7 @@ def create_app(
         zeitplaner.taeglich("updates", einstellungen.updates_pruefzeit, updates.taeglich_pruefen)
         updates.nach_start()
     if zertifikate is None:
-        zertifikate = zertifikats_waechter_bauen(einstellungen, alarme)
+        zertifikate = zertifikats_waechter_bauen(einstellungen, alarme, erreichbarkeit)
     if zertifikate is not None:
         zeitplaner.taeglich("zertifikate", einstellungen.zertifikate_pruefzeit, zertifikate.pruefen)
     # Homelab-Wissen (Proxmox, nur lesend) und Firewall-Logs (nur lesend).
@@ -889,6 +888,9 @@ def create_app(
                 gemessen = server_waechter.zuletzt_gemessen.isoformat(timespec="seconds")
             fehler = dict(server_waechter.quellen_fehler)
         domains = list(erreichbarkeit.zustand().values()) if erreichbarkeit is not None else []
+        pruefungen = []
+        if erreichbarkeit is not None:
+            pruefungen = [p.als_dict() for p in erreichbarkeit.pruefungen()]
         return {
             "monitoring": server_waechter is not None,
             "gemessen": gemessen,
@@ -896,6 +898,7 @@ def create_app(
             "quellen_fehler": fehler,
             "werte": werte,
             "erreichbarkeit": domains,
+            "erreichbarkeit_pruefungen": pruefungen,
         }
 
     @app.get("/api/container", dependencies=geschuetzt, tags=["Missa"])
