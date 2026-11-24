@@ -7,6 +7,8 @@ die Versionsnummern folgen [Semantic Versioning](https://semver.org/lang/de/).
 
 ## Unveröffentlicht
 
+## 1.2.0 – 2026-11-24
+
 ### Hinzugefügt
 
 - Die Erreichbarkeits-Prüfung kann jetzt auch andere Ports und einen Pfad prüfen, z. B.

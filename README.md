@@ -8,7 +8,7 @@ Talk nutzen dieselbe Logik.
 
 ## Projektstand
 
-- Version: 1.1.0 (2026-11-23)
+- Version: 1.2.0 (2026-11-24)
 - Fertig: OpenAI-kompatible API (`/v1/chat/completions`, `/v1/models`, `/health`)
   mit Charakter, Werkzeug-Schleife und Gesprächsverlauf
 - Fertig: Nextcloud-Kalender mit voller Kontrolle: Termine anlegen, ändern, verschieben und
