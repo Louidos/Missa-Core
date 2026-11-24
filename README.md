@@ -60,8 +60,10 @@ Talk nutzen dieselbe Logik.
   Chat oder `scripts/notfall-stopp.sh`, aufheben nur auf ai01 (siehe docs/rechte.md)
 - Fertig: Server-Alarme – Regeln per Gespräch („Ruf mich an, wenn ai01 über 90 % ist“), Stufen
   `info`/`wichtig`/`notfall` mit Ruhezeit und Ruhefenster, Hinweise auf ungewöhnliche Anstiege
-  unter der Grenze und Prüfung der eigenen Domains von außen; Werte aus dem eigenen
-  Monitoring-Tool, Homepage und Proxmox, alles nur lesend (siehe docs/server-alarme.md)
+  unter der Grenze und Prüfung der eigenen Domains von außen (auch mit Port und Pfad, z. B.
+  `cloud.louis-degiorgi.ch:8443`; Missa verwaltet die Prüfungen selbst im Chat: anlegen,
+  ändern, pausieren, löschen nach Ja); Werte aus dem eigenen Monitoring-Tool, Homepage und
+  Proxmox, alles nur lesend (siehe docs/server-alarme.md)
 - Fertig: Container und Logs – „Welche Container laufen auf wb01?“, hängende Container
   melden, Neustart nur nach Ja, „Warum geht Nextcloud nicht?“ mit verständlicher Ursache aus
   den Logs und Login-Überwachung für SSH und Nextcloud (neue IPs, Fehlversuche, ungewohnte

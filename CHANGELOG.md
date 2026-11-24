@@ -12,6 +12,9 @@ die Versionsnummern folgen [Semantic Versioning](https://semver.org/lang/de/).
 - Die Erreichbarkeits-Prüfung kann jetzt auch andere Ports und einen Pfad prüfen, z. B.
   `cloud.louis-degiorgi.ch:8443` oder `ki.louis-degiorgi.ch:8443/health`; ungültige Einträge
   (IP-Adresse, `localhost`, `https://`, falscher Port) verhindern den Start mit klarer Meldung (#131)
+- Missa verwaltet ihre Erreichbarkeits-Prüfungen selbst: im Chat anlegen, Port, Pfad und
+  Intervall ändern, pausieren und löschen (nur nach Ja); jede Prüfung hat ihr eigenes
+  Intervall. `ERREICHBARKEIT_DOMAINS` ist nur noch der Startwert beim ersten Start (#132)
 
 ## 1.1.0 – 2026-11-23
 

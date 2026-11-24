@@ -2,9 +2,9 @@
 
 Jeden Tag (``ZERTIFIKATE_PRUEFZEIT``) prüft Missa
 
-- das **HTTPS-Zertifikat** jeder Domain aus ``ZERTIFIKAT_DOMAINS`` (Standard: die Domains
-  der Erreichbarkeit, auf deren Port) – volle Prüfung, Ablaufdatum aus dem Zertifikat.
-  Ein Eintrag ist ``domain`` (Port 443) oder ``domain:port``,
+- das **HTTPS-Zertifikat** jeder Domain aus ``ZERTIFIKAT_DOMAINS`` (Standard: die Ziele
+  der aktiven Erreichbarkeits-Prüfungen, auf deren Port) – volle Prüfung, Ablaufdatum aus
+  dem Zertifikat. Ein Eintrag ist ``domain`` (Port 443) oder ``domain:port``,
 - das **Ablaufdatum der Domains** (``DOMAIN_NAMEN``) per RDAP und
 - die **DNS-Einträge** aus ``DNS_ERWARTET`` gegen die tatsächlichen Werte.
 
@@ -20,7 +20,7 @@ import asyncio
 import json
 import logging
 import ssl
-from collections.abc import Callable, Iterable
+from collections.abc import Callable, Iterable, Sequence
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path
@@ -28,7 +28,7 @@ from pathlib import Path
 from missa.core.alarme import Alarm, Alarme, AlarmStufe
 from missa.core.datenbank import verbinden
 from missa.core.werkzeuge import Stufe, Werkzeug
-from missa.integrationen.domains import DnsAbfrage, RdapClient, dns_abfragen
+from missa.integrationen.domains import DnsAbfrage, RdapClient, dns_abfragen, registrierte_domain
 from missa.integrationen.erreichbarkeit import (
     PruefZiel,
     ZertifikatLeser,
@@ -88,7 +88,8 @@ class ZertifikatsWaechter:
         datei: Path,
         *,
         zertifikat_domains: Iterable[str] = (),
-        domain_namen: Iterable[str] = (),
+        zertifikat_quelle: Callable[[], Sequence[str | PruefZiel]] | None = None,
+        domain_namen: Iterable[str] | None = (),
         dns_erwartet: dict[tuple[str, str], set[str]] | None = None,
         warn_tage: Iterable[int] = (21, 7),
         rdap: RdapClient | None = None,
@@ -98,10 +99,13 @@ class ZertifikatsWaechter:
     ) -> None:
         self.alarme = alarme
         self.datei = datei
-        ziele = ziele_lesen(list(zertifikat_domains))
-        self.zertifikat_ziele = tuple(dict.fromkeys(PruefZiel(z.domain, z.port) for z in ziele))
-        self.zertifikat_domains = tuple(z.schluessel for z in self.zertifikat_ziele)
-        self.domain_namen = tuple(dict.fromkeys(d.casefold() for d in domain_namen))
+        self._feste_ziele = ziele_lesen(list(zertifikat_domains))
+        self._zertifikat_quelle = zertifikat_quelle
+        self._domain_namen = (
+            None
+            if domain_namen is None
+            else tuple(dict.fromkeys(d.casefold() for d in domain_namen))
+        )
         self.dns_erwartet = dns_erwartet or {}
         self.warn_tage = tuple(sorted({max(1, int(t)) for t in warn_tage}, reverse=True)) or (21, 7)
         self.rdap = rdap
@@ -113,6 +117,25 @@ class ZertifikatsWaechter:
 
     def jetzt(self) -> datetime:
         return self._uhr()
+
+    @property
+    def zertifikat_ziele(self) -> tuple[PruefZiel, ...]:
+        """Feste Ziele (``ZERTIFIKAT_DOMAINS``) oder die der aktiven Erreichbarkeits-Prüfungen."""
+        ziele = self._feste_ziele
+        if not ziele and self._zertifikat_quelle is not None:
+            ziele = ziele_lesen(list(self._zertifikat_quelle()))
+        return tuple(dict.fromkeys(PruefZiel(z.domain, z.port) for z in ziele))
+
+    @property
+    def zertifikat_domains(self) -> tuple[str, ...]:
+        return tuple(z.schluessel for z in self.zertifikat_ziele)
+
+    @property
+    def domain_namen(self) -> tuple[str, ...]:
+        """``DOMAIN_NAMEN`` – oder (``None``) aus den Zertifikats-Zielen abgeleitet."""
+        if self._domain_namen is not None:
+            return self._domain_namen
+        return tuple(dict.fromkeys(registrierte_domain(z.domain) for z in self.zertifikat_ziele))
 
     # -------------------------------------------------------------- Lesen
 

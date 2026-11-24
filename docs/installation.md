@@ -165,8 +165,8 @@ und das App-Passwort lässt sich jederzeit einzeln widerrufen.
 | `ALARM_RUHEFENSTER_MINUTEN` | `60` | nein | Derselbe Alarm kommt frühestens nach so vielen Minuten wieder (im Gespräch änderbar). |
 | `ALARM_RUHEZEIT_VON` / `ALARM_RUHEZEIT_BIS` | `22:00` / `07:00` | nein | Ruhezeit für `info` und `wichtig`; Notfälle kommen immer. `aus` = keine Ruhezeit. Im Gespräch änderbar. |
 | `AUFFAELLIG_AKTIV` / `AUFFAELLIG_MIN_ABSTAND` | `true` / `15` | nein | Hinweise auf ungewöhnliche Anstiege (Prozentpunkte über dem 7-Tage-Mittel). |
-| `ERREICHBARKEIT_DOMAINS` | leer (Vorlage: cloud., git., ki.louis-degiorgi.ch) | nein | Domains, die Missa über die öffentliche Adresse prüft (kommagetrennt, je Eintrag optional `:port` und `/pfad`, z. B. `cloud.louis-degiorgi.ch:8443`); leer = aus. |
-| `ERREICHBARKEIT_INTERVALL_MINUTEN` / `ERREICHBARKEIT_STUFE` | `5` / `wichtig` | nein | Prüfabstand und Alarm-Stufe für einen Ausfall. |
+| `ERREICHBARKEIT_DOMAINS` | leer (Vorlage: cloud., git., ki.louis-degiorgi.ch) | nein | Startwert beim ersten Start: Domains, die Missa als Erreichbarkeits-Prüfungen übernimmt (kommagetrennt, je Eintrag optional `:port` und `/pfad`, z. B. `cloud.louis-degiorgi.ch:8443`). Danach verwaltet Missa die Prüfungen im Chat. |
+| `ERREICHBARKEIT_INTERVALL_MINUTEN` / `ERREICHBARKEIT_STUFE` | `5` / `wichtig` | nein | Standard für neue Prüfungen: Prüfabstand und Alarm-Stufe für einen Ausfall. |
 | `SSH_HOSTS` | leer | nein | Hosts für Container, Logs und Anmeldungen als `name=adresse[:port]`; leer = aus. Einrichtung siehe [container-logs-logins.md](container-logs-logins.md). |
 | `SSH_BENUTZER` / `SSH_SCHLUESSEL` / `SSH_KNOWN_HOSTS` / `SSH_TIMEOUT` | `missa` / `/etc/missa/ssh/id_ed25519` / `/etc/missa/ssh/known_hosts` / `20` | nein | SSH-Zugang (Host-Schlüssel werden streng geprüft). |
 | `CONTAINER_INTERVALL_MINUTEN` / `CONTAINER_IGNORIEREN` | `5` / leer | nein | Prüfabstand für hängende Container; Container, die nicht gemeldet werden. |

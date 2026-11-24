@@ -17,7 +17,7 @@ Diensten, die eingerichtet sind – fehlt ein Dienst, fehlt einfach sein Abschni
 | Erinnerungen | Zeitplaner | offene Erinnerungen der nächsten 24 Stunden |
 | Alarme | Alarme | Alarme der letzten 24 Stunden, auch aufgeschobene (Ruhezeit) |
 | Server | Monitoring | aktive Server-Alarme, Messquellen, die nicht antworten |
-| Erreichbarkeit | `ERREICHBARKEIT_DOMAINS` | gestörte Domains |
+| Erreichbarkeit | Erreichbarkeits-Prüfungen (Startwert `ERREICHBARKEIT_DOMAINS`) | gestörte Domains |
 | Hintergrund-Aufträge | Routinen, Nachtschicht | wartende, laufende und in den letzten 24 Stunden fertige Aufträge |
 | Mails | E-Mail | Anzahl ungelesener Mails und Absender (keine Betreffe) |
 | Kontaktpflege | Kontakte | wichtige Personen, bei denen der Abstand überschritten ist |

@@ -269,7 +269,7 @@ def test_alter_zustand_mit_domainnamen_bleibt_erhalten(netz, planer, uhr):
     from missa.core.datenbank import verbinden
     from missa.tools.erreichbarkeit import SCHEMA
 
-    seit = datetime(2026, 11, 11, 13, 30, tzinfo=UTC).isoformat()
+    seit = datetime(2026, 11, 11, 12, 30, tzinfo=UTC).isoformat()
     with verbinden(planer.datei) as db:
         db.executescript(SCHEMA)
         db.execute(
