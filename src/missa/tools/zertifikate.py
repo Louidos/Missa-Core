@@ -3,7 +3,8 @@
 Jeden Tag (``ZERTIFIKATE_PRUEFZEIT``) prüft Missa
 
 - das **HTTPS-Zertifikat** jeder Domain aus ``ZERTIFIKAT_DOMAINS`` (Standard: die Domains
-  der Erreichbarkeit) – volle Prüfung, Ablaufdatum aus dem Zertifikat,
+  der Erreichbarkeit, auf deren Port) – volle Prüfung, Ablaufdatum aus dem Zertifikat.
+  Ein Eintrag ist ``domain`` (Port 443) oder ``domain:port``,
 - das **Ablaufdatum der Domains** (``DOMAIN_NAMEN``) per RDAP und
 - die **DNS-Einträge** aus ``DNS_ERWARTET`` gegen die tatsächlichen Werte.
 
@@ -28,7 +29,12 @@ from missa.core.alarme import Alarm, Alarme, AlarmStufe
 from missa.core.datenbank import verbinden
 from missa.core.werkzeuge import Stufe, Werkzeug
 from missa.integrationen.domains import DnsAbfrage, RdapClient, dns_abfragen
-from missa.integrationen.erreichbarkeit import ZertifikatLeser, zertifikat_lesen
+from missa.integrationen.erreichbarkeit import (
+    PruefZiel,
+    ZertifikatLeser,
+    zertifikat_lesen,
+    ziele_lesen,
+)
 from missa.integrationen.monitoring import QuellenFehler
 
 log = logging.getLogger(__name__)
@@ -92,7 +98,9 @@ class ZertifikatsWaechter:
     ) -> None:
         self.alarme = alarme
         self.datei = datei
-        self.zertifikat_domains = tuple(dict.fromkeys(d.casefold() for d in zertifikat_domains))
+        ziele = ziele_lesen(list(zertifikat_domains))
+        self.zertifikat_ziele = tuple(dict.fromkeys(PruefZiel(z.domain, z.port) for z in ziele))
+        self.zertifikat_domains = tuple(z.schluessel for z in self.zertifikat_ziele)
         self.domain_namen = tuple(dict.fromkeys(d.casefold() for d in domain_namen))
         self.dns_erwartet = dns_erwartet or {}
         self.warn_tage = tuple(sorted({max(1, int(t)) for t in warn_tage}, reverse=True)) or (21, 7)
@@ -108,9 +116,10 @@ class ZertifikatsWaechter:
 
     # -------------------------------------------------------------- Lesen
 
-    async def _zertifikat_pruefen(self, domain: str) -> Ablauf:
+    async def _zertifikat_pruefen(self, ziel: PruefZiel) -> Ablauf:
+        domain = ziel.schluessel
         try:
-            bis = await self._zertifikat(domain, 15.0)
+            bis = await self._zertifikat(ziel.domain, 15.0, ziel.port)
         except ssl.SSLCertVerificationError as fehler:
             grund = getattr(fehler, "verify_message", "") or str(fehler)
             if "expired" in grund:
@@ -129,7 +138,7 @@ class ZertifikatsWaechter:
             return Ablauf("Domain", domain, None, str(fehler))
 
     async def ablaeufe(self) -> list[Ablauf]:
-        aufgaben = [self._zertifikat_pruefen(d) for d in self.zertifikat_domains]
+        aufgaben = [self._zertifikat_pruefen(z) for z in self.zertifikat_ziele]
         aufgaben += [self._domain_pruefen(d) for d in self.domain_namen]
         return list(await asyncio.gather(*aufgaben))
 

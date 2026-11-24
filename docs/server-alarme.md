@@ -122,17 +122,42 @@ Danach braucht ai01 eine Freigabe zu pve-id01, Port 8006 (siehe
 
 ## Erreichbarkeit von außen
 
-Alle `ERREICHBARKEIT_INTERVALL_MINUTEN` (Standard 5) prüft Missa jede Domain aus
+Alle `ERREICHBARKEIT_INTERVALL_MINUTEN` (Standard 5) prüft Missa jedes Ziel aus
 `ERREICHBARKEIT_DOMAINS` (z. B. `cloud.`, `git.` und `ki.louis-degiorgi.ch`):
 
 1. **DNS**: Lässt sich der Name auflösen?
-2. **Zertifikat**: TLS-Verbindung auf Port 443 mit voller Prüfung. Abgelaufen, falscher
-   Name oder nicht vertrauenswürdig zählt als Ausfall. Das Ablaufdatum wird gespeichert.
-3. **HTTPS-Antwort**: `GET https://<domain>/`. 2xx, 3xx und auch 401/403 (z. B. die
-   API-Key-Prüfung von `ki.`) heißen „der Dienst ist da“. 5xx und keine Antwort zählen als Ausfall.
+2. **Zertifikat**: TLS-Verbindung auf dem Port des Ziels (Standard 443) mit voller Prüfung.
+   Abgelaufen, falscher Name oder nicht vertrauenswürdig zählt als Ausfall. Das Ablaufdatum
+   wird gespeichert.
+3. **HTTPS-Antwort**: `GET https://<domain>[:<port>]<pfad>` (Standard: Pfad `/`). 2xx, 3xx
+   und auch 401/403 (z. B. die API-Key-Prüfung von `ki.`) heißen „der Dienst ist da“. 5xx und
+   keine Antwort zählen als Ausfall.
+
+### Port und Pfad
+
+Ein Eintrag in `ERREICHBARKEIT_DOMAINS` ist `domain`, `domain:port`, `domain/pfad` oder
+`domain:port/pfad`, z. B.:
+
+```ini
+ERREICHBARKEIT_DOMAINS=cloud.louis-degiorgi.ch:8443,ki.louis-degiorgi.ch:8443/health,git.louis-degiorgi.ch
+```
+
+Ohne Angabe gelten Port 443 und Pfad `/` – wie bisher. Die Fehlermeldung nennt den echten
+Port („Keine HTTPS-Verbindung (Port 8443): …“). Die Zertifikatsprüfung
+([updates-zertifikate.md](updates-zertifikate.md)) nimmt denselben Port.
+
+Erlaubt sind nur öffentliche Domainnamen: IP-Adressen, `localhost`, ein Schema wie
+`https://`, Leerzeichen und Ports ausserhalb 1–65535 lehnt Missa beim Start ab, mit einer
+Meldung, die den falschen Eintrag nennt. So dient die Prüfung nicht zum Abtasten des
+internen Netzes.
+
+Im Zustand (Tabelle `erreichbarkeit`) heisst ein Ziel mit Port 443 und Pfad `/` weiter
+einfach wie die Domain – bestehende Einträge und schon gemeldete Ausfälle bleiben nach dem
+Update erhalten. Andere Ziele heissen z. B. `cloud.louis-degiorgi.ch:8443` oder
+`ki.louis-degiorgi.ch:8443/health`.
 
 Nach **zwei Fehlschlägen hintereinander** meldet Missa den Ausfall (Stufe
-`ERREICHBARKEIT_STUFE`, Standard `wichtig`), mit dem Grund. Sobald die Domain wieder
+`ERREICHBARKEIT_STUFE`, Standard `wichtig`), mit dem Grund. Sobald das Ziel wieder
 antwortet, kommt ein `info` mit der Dauer des Ausfalls. Der Zustand steht in der Tabelle
 `erreichbarkeit` und überlebt Neustarts: Nach einem Neustart wird ein Ausfall nicht noch
 einmal gemeldet.

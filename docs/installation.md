@@ -165,7 +165,7 @@ und das App-Passwort lässt sich jederzeit einzeln widerrufen.
 | `ALARM_RUHEFENSTER_MINUTEN` | `60` | nein | Derselbe Alarm kommt frühestens nach so vielen Minuten wieder (im Gespräch änderbar). |
 | `ALARM_RUHEZEIT_VON` / `ALARM_RUHEZEIT_BIS` | `22:00` / `07:00` | nein | Ruhezeit für `info` und `wichtig`; Notfälle kommen immer. `aus` = keine Ruhezeit. Im Gespräch änderbar. |
 | `AUFFAELLIG_AKTIV` / `AUFFAELLIG_MIN_ABSTAND` | `true` / `15` | nein | Hinweise auf ungewöhnliche Anstiege (Prozentpunkte über dem 7-Tage-Mittel). |
-| `ERREICHBARKEIT_DOMAINS` | leer (Vorlage: cloud., git., ki.louis-degiorgi.ch) | nein | Domains, die Missa über die öffentliche Adresse prüft (kommagetrennt); leer = aus. |
+| `ERREICHBARKEIT_DOMAINS` | leer (Vorlage: cloud., git., ki.louis-degiorgi.ch) | nein | Domains, die Missa über die öffentliche Adresse prüft (kommagetrennt, je Eintrag optional `:port` und `/pfad`, z. B. `cloud.louis-degiorgi.ch:8443`); leer = aus. |
 | `ERREICHBARKEIT_INTERVALL_MINUTEN` / `ERREICHBARKEIT_STUFE` | `5` / `wichtig` | nein | Prüfabstand und Alarm-Stufe für einen Ausfall. |
 | `SSH_HOSTS` | leer | nein | Hosts für Container, Logs und Anmeldungen als `name=adresse[:port]`; leer = aus. Einrichtung siehe [container-logs-logins.md](container-logs-logins.md). |
 | `SSH_BENUTZER` / `SSH_SCHLUESSEL` / `SSH_KNOWN_HOSTS` / `SSH_TIMEOUT` | `missa` / `/etc/missa/ssh/id_ed25519` / `/etc/missa/ssh/known_hosts` / `20` | nein | SSH-Zugang (Host-Schlüssel werden streng geprüft). |
@@ -177,7 +177,7 @@ und das App-Passwort lässt sich jederzeit einzeln widerrufen.
 | `NEXTCLOUD_LOG_HOST` / `NEXTCLOUD_LOG_QUELLE` | leer | nein | Nextcloud-Log für Logins und Fehlersuche: `datei` oder `journal[:Kennung]`. |
 | `UPDATE_HOSTS` / `UPDATES_PRUEFZEIT` / `UPDATES_EIGENER_HOST` | leer (= alle) / `06:40` / `ai01` | nein | Update-Verwaltung; die eigene VM kommt beim Einspielen zuletzt. |
 | `WARTUNG_TAGE` / `WARTUNG_VON` / `WARTUNG_BIS` / `WARTUNG_DAUER_MINUTEN` | `Sa,So` / `10:00` / `17:00` / `60` | nein | Wann Missa Wartungsfenster vorschlägt. |
-| `ZERTIFIKAT_DOMAINS` / `DOMAIN_NAMEN` | leer (= Erreichbarkeits-Domains bzw. daraus abgeleitet) | nein | Zertifikate und Domain-Ablauf (RDAP). |
+| `ZERTIFIKAT_DOMAINS` / `DOMAIN_NAMEN` | leer (= Erreichbarkeits-Domains bzw. daraus abgeleitet) | nein | Zertifikate (`domain` oder `domain:port`) und Domain-Ablauf (RDAP). |
 | `ZERTIFIKAT_WARNUNG_TAGE` / `ZERTIFIKATE_PRUEFZEIT` | `21,7` / `07:10` | nein | Warnschwellen in Tagen und tägliche Prüfzeit. |
 | `DNS_ERWARTET` | leer | nein | Erwartete DNS-Einträge als „Name Typ Wert; …“. |
 | `RDAP_AKTIV` / `RDAP_BOOTSTRAP_URL` | `true` / IANA-Liste | nein | Ablaufdatum der Domains per RDAP (einzige Abfrage nach außen). |
